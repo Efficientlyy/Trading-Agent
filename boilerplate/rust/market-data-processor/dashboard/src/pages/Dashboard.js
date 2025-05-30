@@ -1,107 +1,43 @@
+// Main Dashboard page for BTC/USDC trading
 import React from 'react';
-import { 
-  Grid, 
-  Card, 
-  CardContent, 
-  Typography, 
-  Divider,
-  Box,
-  Button,
-  CircularProgress
-} from '@mui/material';
-import { useQuery } from 'react-query';
-import PortfolioSummary from '../components/PortfolioSummary';
-import PerformanceMetrics from '../components/PerformanceMetrics';
-import RecentTrades from '../components/RecentTrades';
+import { Box, Grid, Container, Typography } from '@mui/material';
 import PriceChart from '../components/PriceChart';
-import ActiveOrders from '../components/ActiveOrders';
-import { fetchAccountData, fetchMarketData, fetchRecentTrades } from '../services/apiService';
+import OrderBook from '../components/OrderBook';
+import TradeHistory from '../components/TradeHistory';
+import PaperTrading from '../components/PaperTrading';
 
-function Dashboard() {
-  const { 
-    data: accountData, 
-    isLoading: isLoadingAccount, 
-    error: accountError 
-  } = useQuery('accountData', fetchAccountData, {
-    refetchInterval: 5000, // Refresh every 5 seconds
-  });
-
-  const { 
-    data: marketData, 
-    isLoading: isLoadingMarket,
-    error: marketError 
-  } = useQuery('marketData', fetchMarketData, {
-    refetchInterval: 5000, // Refresh every 5 seconds
-  });
-
-  const { 
-    data: recentTrades, 
-    isLoading: isLoadingTrades,
-    error: tradesError 
-  } = useQuery('recentTrades', fetchRecentTrades, {
-    refetchInterval: 10000, // Refresh every 10 seconds
-  });
-
-  const isLoading = isLoadingAccount || isLoadingMarket || isLoadingTrades;
-  const hasError = accountError || marketError || tradesError;
-
-  if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (hasError) {
-    return (
-      <Box sx={{ textAlign: 'center', mt: 10 }}>
-        <Typography variant="h5" color="error" gutterBottom>
-          Error loading dashboard data
-        </Typography>
-        <Button variant="contained" onClick={() => window.location.reload()}>
-          Retry
-        </Button>
-      </Box>
-    );
-  }
+const Dashboard = () => {
+  const symbol = 'BTCUSDC';
 
   return (
-    <Grid container spacing={3}>
-      {/* Portfolio Overview */}
-      <Grid item xs={12} md={8}>
-        <PortfolioSummary data={accountData} />
-      </Grid>
+    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+      <Typography variant="h4" sx={{ mb: 4 }}>
+        MEXC Trading Dashboard
+      </Typography>
       
-      {/* Performance Metrics */}
-      <Grid item xs={12} md={4}>
-        <PerformanceMetrics data={accountData?.performance} />
+      <Grid container spacing={3}>
+        {/* Price Chart */}
+        <Grid item xs={12} lg={8}>
+          <PriceChart symbol={symbol} />
+        </Grid>
+        
+        {/* Paper Trading */}
+        <Grid item xs={12} lg={4}>
+          <PaperTrading symbol={symbol} />
+        </Grid>
+        
+        {/* Order Book */}
+        <Grid item xs={12} md={6}>
+          <OrderBook symbol={symbol} />
+        </Grid>
+        
+        {/* Trade History */}
+        <Grid item xs={12} md={6}>
+          <TradeHistory symbol={symbol} />
+        </Grid>
       </Grid>
-      
-      {/* Price Chart */}
-      <Grid item xs={12}>
-        <Card>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Market Data
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            <PriceChart data={marketData} />
-          </CardContent>
-        </Card>
-      </Grid>
-      
-      {/* Active Orders */}
-      <Grid item xs={12} md={6}>
-        <ActiveOrders orders={accountData?.activeOrders || []} />
-      </Grid>
-      
-      {/* Recent Trades */}
-      <Grid item xs={12} md={6}>
-        <RecentTrades trades={recentTrades || []} />
-      </Grid>
-    </Grid>
+    </Container>
   );
-}
+};
 
 export default Dashboard;

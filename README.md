@@ -1,206 +1,119 @@
-# MEXC Trading System Documentation
+# MEXC Trading System
 
-## Overview
+A complete trading system for MEXC exchange with real-time BTC/USDC data, charts, and paper trading functionality.
 
-This is the comprehensive documentation for the MEXC Trading System, a modular automated trading platform designed to work with the MEXC exchange. This documentation covers all aspects of the system, from architecture and setup to development guidelines and operational procedures.
+## Features
 
-## Table of Contents
+- Real-time BTC/USDC market data from MEXC exchange
+- Interactive price charts with technical indicators
+- Live order book visualization
+- Real-time trade history
+- Paper trading with simulated account
+- System monitoring with Prometheus and Grafana
 
-1. [System Architecture](#system-architecture)
-2. [Getting Started](#getting-started)
-3. [Development Environment](#development-environment)
-4. [Core Components](#core-components)
-5. [Paper Trading Mode](#paper-trading-mode)
-6. [Performance Benchmarking](#performance-benchmarking)
-7. [Monitoring and Observability](#monitoring-and-observability)
-8. [Development Guidelines](#development-guidelines)
-9. [Troubleshooting](#troubleshooting)
+## Architecture
 
-## System Architecture
+The system follows a modular architecture with the following components:
 
-The MEXC Trading System follows a modular architecture with the following key components:
-
-- **Market Data Processor** (Rust): High-performance processing of real-time market data
-- **Signal Generator** (Python): Technical analysis and signal generation
-- **Decision Service** (Node.js): LLM-based trading decision making
-- **Order Execution** (Rust): Reliable and efficient order execution
-- **Dashboard** (React): Real-time visualization and monitoring
-
-For detailed architecture information, see:
-- [Modular Trading System Architecture](./docs/architecture/modular_trading_system_architecture.md)
-- [MEXC API Component Mapping](./docs/architecture/mexc_api_component_mapping.md)
+- **Market Data Processor (Rust)**: Connects to MEXC API and processes market data
+- **Dashboard (React)**: User interface for trading and market analysis
+- **Paper Trading Engine (Rust)**: Simulates trading with real market data
+- **Monitoring (Prometheus/Grafana)**: System metrics and performance monitoring
 
 ## Getting Started
 
 ### Prerequisites
 
-- Docker Desktop with WSL2 (for Windows)
-- Git
-- Visual Studio Code with Remote Containers extension
-- MEXC API keys (for live trading)
+- Docker and Docker Compose
+- MEXC API credentials (optional for public data)
 
-### Quick Start
+### Environment Setup
 
-1. Clone the repository
-2. Open in VS Code with Remote Containers
-3. Start the development environment
-4. Access the dashboard at http://localhost:8080
+1. Clone this repository:
+```bash
+git clone https://github.com/yourusername/mexc-trading-system.git
+cd mexc-trading-system
+```
 
-For detailed setup instructions, see:
-- [Development Environment Setup Guide](./docs/development/setup/setup_guide.md)
+2. Create a `.env` file with your MEXC API credentials (optional):
+```
+MEXC_API_KEY=your_api_key
+MEXC_API_SECRET=your_api_secret
+```
 
-## Development Environment
+### Running the System
 
-The system uses a containerized development environment to ensure consistency across platforms:
+Start the entire system using Docker Compose:
 
-- Docker Compose for service orchestration
-- VS Code devcontainers for integrated development
-- Cross-platform compatibility (Windows, macOS, Linux)
+```bash
+docker-compose up -d
+```
 
-For detailed environment information, see:
-- [Containerized Environment Setup Guide](./docs/development/setup/setup_guide.md)
+This will start all components:
+- Market Data Processor: http://localhost:8080
+- Grafana Dashboard: http://localhost:3000 (login: admin/trading123)
+- Prometheus: http://localhost:9090
 
-## Core Components
+### Accessing the Trading Dashboard
 
-### Market Data Processor (Rust)
+Open your browser and navigate to:
 
-High-performance component for processing real-time market data from MEXC:
+```
+http://localhost:8080
+```
 
-- WebSocket connection management
-- Order book maintenance
-- Market data normalization
-- gRPC API for other components
+## Development
 
-For implementation details, see:
-- [Market Data Processor Overview](./docs/components/rust/market_data_processor.md)
-- [Market Data Processor Implementation](./docs/components/rust/market_data_processor_implementation.md)
+### Building the Market Data Processor
 
-### Signal Generator (Python)
+```bash
+cd boilerplate/rust/market-data-processor
+cargo build --release
+```
 
-Technical analysis component for generating trading signals:
+### Building the Dashboard
 
-- Pattern recognition
-- Indicator calculation
-- Signal generation and publishing
-- FastAPI interface
+```bash
+cd boilerplate/rust/market-data-processor/dashboard
+npm install
+npm run build
+```
 
-For implementation details, see:
-- [Signal Generator Overview](./docs/components/python/signal_generator.md)
+### Running Tests
 
-### Decision Service (Node.js)
+```bash
+cd boilerplate/rust/market-data-processor
+cargo test
+```
 
-LLM-based decision making component:
+## Configuration
 
-- Signal aggregation
-- LLM integration for decision making
-- Trading strategy implementation
-- Express.js API
+The system can be configured through environment variables or a `config.json` file:
 
-For implementation details, see:
-- [Decision Service Overview](./docs/components/nodejs/decision_service.md)
-
-### Order Execution (Rust)
-
-Reliable and efficient order execution component:
-
-- MEXC API integration
-- Order management
-- Position tracking
-- Risk management
-
-For implementation details, see:
-- [Order Execution Implementation](./docs/components/rust/order_execution_implementation.md)
-
-### Dashboard (React)
-
-Real-time visualization and monitoring interface:
-
-- Trading charts
-- System status
-- Performance metrics
-- Trading controls
-
-For implementation details, see:
-- [Dashboard Overview](./docs/components/frontend/dashboard.md)
-
-## Paper Trading Mode
-
-The system includes a paper trading mode for safe development and testing:
-
-- Real market data with simulated execution
-- Virtual account management
-- Realistic order matching
-- Configurable via environment variables
-
-For detailed information, see:
-- [Paper Trading Design and Implementation](./docs/development/implementation/design_and_implementation.md)
-
-## Performance Benchmarking
-
-Comprehensive benchmarking tools for performance validation:
-
-- Component-level benchmarks
-- System-wide load testing
-- Profiling tools
-- Continuous performance testing
-
-For detailed information, see:
-- [Benchmarking Toolkit](./docs/development/benchmarking_toolkit.md)
-
-## Monitoring and Observability
-
-Complete monitoring solution for system visibility:
-
-- Grafana dashboards
-- Prometheus metrics
-- Distributed tracing
-- Alerting rules
-
-For detailed information, see:
-- [Grafana Dashboard Template](./docs/operations/monitoring/grafana_dashboard_template.md)
-
-## Development Guidelines
-
-Guidelines for consistent development:
-
-- Coding standards
-- Testing requirements
-- Documentation practices
-- Pull request process
-
-For detailed information, see:
-- [LLM Developer Guidelines](./docs/development/guidelines/llm_developer_guidelines.md)
-- [Interoperability Guidelines](./docs/development/guidelines/interoperability_guidelines.md)
+- `MEXC_DEFAULT_PAIR`: Default trading pair (default: BTCUSDC)
+- `MEXC_API_KEY`: Your MEXC API key
+- `MEXC_API_SECRET`: Your MEXC API secret
+- `PAPER_TRADING_INITIAL_USDC`: Initial USDC balance for paper trading
+- `PAPER_TRADING_INITIAL_BTC`: Initial BTC balance for paper trading
 
 ## Troubleshooting
 
-Common issues and solutions:
+### Windows Docker Issues
 
-- Environment setup problems
-- Docker and WSL2 issues
-- Component-specific troubleshooting
-- Performance problems
+If you encounter issues with Docker on Windows:
 
-For detailed information, see:
-- [Containerized Environment Setup Guide](./docs/development/setup/setup_guide.md) (Troubleshooting section)
+1. Use WSL2 for Docker Desktop
+2. Ensure proper volume mounting with correct paths
+3. Check network connectivity between containers
 
-## Documentation Structure
+### WebSocket Connection Issues
 
-The documentation is organized into the following directories:
+If the dashboard is not receiving real-time updates:
 
-- **[docs/architecture](./docs/architecture/)** - System architecture and design
-- **[docs/components](./docs/components/)** - Component-specific documentation
-- **[docs/development](./docs/development/)** - Development guides and implementation details
-- **[docs/operations](./docs/operations/)** - Operational procedures and monitoring
-- **[docs/reference](./docs/reference/)** - Reference materials and API documentation
+1. Check browser console for WebSocket errors
+2. Verify the Market Data Processor is running
+3. Ensure no firewall is blocking WebSocket connections
 
-For a complete index of all documentation, see:
-- [Documentation Index](./docs/index.md)
-- [Cross-Reference Map](./docs/cross_reference_map.md)
-- [Documentation Guide](./docs/documentation_guide.md)
+## License
 
-## Additional Resources
-
-- [MEXC API Report](./docs/reference/mexc_api_report.md)
-- [Implementation Priorities](./docs/reference/implementation_priorities.md)
-- [Architecture and Frameworks](./docs/reference/architecture_and_frameworks.md)
+This project is licensed under the MIT License - see the LICENSE file for details.

@@ -1,0 +1,78 @@
+// Docker Compose file for the MEXC Trading System
+version: '3.8'
+
+services:
+  # Market Data Processor (Rust)
+  market-data-processor:
+    build:
+      context: ./boilerplate/rust/market-data-processor
+      dockerfile: Dockerfile
+    container_name: market-data-processor
+    ports:
+      - "8080:8080"
+    environment:
+      - RUST_LOG=info
+      - MEXC_DEFAULT_PAIR=BTCUSDC
+      - MEXC_API_KEY=${MEXC_API_KEY:-}
+      - MEXC_API_SECRET=${MEXC_API_SECRET:-}
+      - PAPER_TRADING_INITIAL_USDC=10000
+      - PAPER_TRADING_INITIAL_BTC=0
+    volumes:
+      - ./config:/app/config
+    networks:
+      - mexc-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/ticker/BTCUSDC"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  # Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./boilerplate/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - mexc-network
+    depends_on:
+      - market-data-processor
+    restart: unless-stopped
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=trading123
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - ./boilerplate/monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./boilerplate/monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana-data:/var/lib/grafana
+    networks:
+      - mexc-network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+networks:
+  mexc-network:
+    driver: bridge
+
+volumes:
+  prometheus-data:
+  grafana-data:

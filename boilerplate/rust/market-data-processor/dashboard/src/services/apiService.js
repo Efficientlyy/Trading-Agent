@@ -1,332 +1,225 @@
+// API service for interacting with the backend
 import axios from 'axios';
 
-// Configure axios
-const api = axios.create({
-  baseURL: '/api',
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-});
+const API_BASE_URL = '/api/v1';
 
-// Error handling interceptor
-api.interceptors.response.use(
-  response => response.data,
-  error => {
-    console.error('API Error:', error.response || error);
-    return Promise.reject(error);
-  }
-);
+// WebSocket connection
+let ws = null;
+let tickerSubscribers = [];
+let orderBookSubscribers = [];
+let tradesSubscribers = [];
 
-// Account Data API
-export const fetchAccountData = async () => {
-  // For testing, return mock data
-  if (process.env.NODE_ENV === 'development') {
-    return getMockAccountData();
-  }
-  
-  return api.get('/account');
-};
+// Create WebSocket connection
+const createWebSocketConnection = () => {
+  if (ws) return;
 
-// Market Data API
-export const fetchMarketData = async () => {
-  // For testing, return mock data
-  if (process.env.NODE_ENV === 'development') {
-    return getMockMarketData();
-  }
-  
-  return api.get('/market/data');
-};
+  const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
+  ws = new WebSocket(wsUrl);
 
-// Recent Trades API
-export const fetchRecentTrades = async () => {
-  // For testing, return mock data
-  if (process.env.NODE_ENV === 'development') {
-    return getMockRecentTrades();
-  }
-  
-  return api.get('/trades/recent');
-};
+  ws.onopen = () => {
+    console.log('WebSocket connection established');
+    // Subscribe to BTC/USDC data
+    ws.send(JSON.stringify({ type: 'subscribe', channel: 'ticker', symbol: 'BTCUSDC' }));
+    ws.send(JSON.stringify({ type: 'subscribe', channel: 'orderbook', symbol: 'BTCUSDC' }));
+    ws.send(JSON.stringify({ type: 'subscribe', channel: 'trades', symbol: 'BTCUSDC' }));
+  };
 
-// Order History API
-export const fetchOrderHistory = async (params) => {
-  // For testing, return mock data
-  if (process.env.NODE_ENV === 'development') {
-    return getMockOrderHistory();
-  }
-  
-  return api.get('/orders/history', { params });
-};
-
-// Place Order API
-export const placeOrder = async (orderData) => {
-  // For testing, just log and return mock response
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Placing order:', orderData);
-    return { success: true, orderId: `mock-${Date.now()}` };
-  }
-  
-  return api.post('/orders', orderData);
-};
-
-// Cancel Order API
-export const cancelOrder = async (orderId) => {
-  // For testing, just log and return mock response
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Cancelling order:', orderId);
-    return { success: true };
-  }
-  
-  return api.delete(`/orders/${orderId}`);
-};
-
-// Fetch Paper Trading Settings
-export const fetchPaperTradingSettings = async () => {
-  // For testing, return mock data
-  if (process.env.NODE_ENV === 'development') {
-    return getMockPaperTradingSettings();
-  }
-  
-  return api.get('/settings/paper-trading');
-};
-
-// Update Paper Trading Settings
-export const updatePaperTradingSettings = async (settings) => {
-  // For testing, just log and return mock response
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Updating paper trading settings:', settings);
-    return { success: true };
-  }
-  
-  return api.put('/settings/paper-trading', settings);
-};
-
-// Reset Paper Trading Account
-export const resetPaperTradingAccount = async () => {
-  // For testing, just log and return mock response
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Resetting paper trading account');
-    return { success: true };
-  }
-  
-  return api.post('/account/reset');
-};
-
-// Mock data for development
-const getMockAccountData = () => {
-  return {
-    balances: [
-      { asset: 'USDT', free: 5432.78, locked: 1000.00, usdValue: 6432.78 },
-      { asset: 'BTC', free: 0.25, locked: 0.05, usdValue: 8750.00 },
-      { asset: 'ETH', free: 2.5, locked: 0, usdValue: 5000.00 }
-    ],
-    totalValue: 20182.78,
-    pnl: 182.78,
-    pnlPercentage: 0.91,
-    performance: {
-      profitLoss: 0.91,
-      winRate: 62.5,
-      maxDrawdown: 5.3,
-      sharpeRatio: 1.2,
-      totalTrades: 48,
-      successfulTrades: 30,
-      averageProfitPerTrade: 0.4,
-      averageTradeTime: 38
-    },
-    activeOrders: [
-      {
-        id: 'ord-001',
-        symbol: 'BTCUSDT',
-        side: 'BUY',
-        type: 'LIMIT',
-        price: 35000.00,
-        quantity: 0.05,
-        timestamp: Date.now() - 3600000
-      },
-      {
-        id: 'ord-002',
-        symbol: 'ETHUSDT',
-        side: 'SELL',
-        type: 'STOP_LIMIT',
-        price: 1800.00,
-        quantity: 0.5,
-        timestamp: Date.now() - 1800000
+  ws.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      
+      if (data.type === 'ticker') {
+        tickerSubscribers.forEach(callback => callback(data.data));
+      } else if (data.type === 'orderbook') {
+        orderBookSubscribers.forEach(callback => callback(data.data));
+      } else if (data.type === 'trades') {
+        tradesSubscribers.forEach(callback => callback(data.data));
       }
-    ]
+    } catch (error) {
+      console.error('Error parsing WebSocket message:', error);
+    }
+  };
+
+  ws.onclose = () => {
+    console.log('WebSocket connection closed');
+    ws = null;
+    // Attempt to reconnect after a delay
+    setTimeout(createWebSocketConnection, 5000);
+  };
+
+  ws.onerror = (error) => {
+    console.error('WebSocket error:', error);
+    ws.close();
   };
 };
 
-const getMockMarketData = () => {
-  // Generate some price data points
-  const now = Date.now();
-  const hour = 3600000;
-  const prices = [];
+// Subscribe to ticker updates
+export const subscribeToTickerUpdates = (symbol, callback) => {
+  if (!ws) {
+    createWebSocketConnection();
+  }
   
-  // BTC price data
-  let btcPrice = 35000;
-  for (let i = 24; i >= 0; i--) {
-    btcPrice = btcPrice * (1 + (Math.random() * 0.02 - 0.01));
-    prices.push({
-      symbol: 'BTCUSDT',
-      timestamp: now - (i * hour / 24),
-      price: btcPrice,
-      volume: Math.random() * 10 + 5
+  tickerSubscribers.push(callback);
+  
+  // Return unsubscribe function
+  return () => {
+    tickerSubscribers = tickerSubscribers.filter(cb => cb !== callback);
+  };
+};
+
+// Subscribe to order book updates
+export const subscribeToOrderBookUpdates = (symbol, callback) => {
+  if (!ws) {
+    createWebSocketConnection();
+  }
+  
+  orderBookSubscribers.push(callback);
+  
+  // Return unsubscribe function
+  return () => {
+    orderBookSubscribers = orderBookSubscribers.filter(cb => cb !== callback);
+  };
+};
+
+// Subscribe to trades updates
+export const subscribeToTradesUpdates = (symbol, callback) => {
+  if (!ws) {
+    createWebSocketConnection();
+  }
+  
+  tradesSubscribers.push(callback);
+  
+  // Return unsubscribe function
+  return () => {
+    tradesSubscribers = tradesSubscribers.filter(cb => cb !== callback);
+  };
+};
+
+// Fetch current ticker data
+export const fetchTicker = async (symbol = 'BTCUSDC') => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/ticker?symbol=${symbol}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching ticker data:', error);
+    throw error;
+  }
+};
+
+// Fetch order book data
+export const fetchOrderBook = async (symbol = 'BTCUSDC') => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/orderbook?symbol=${symbol}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching order book data:', error);
+    throw error;
+  }
+};
+
+// Fetch recent trades
+export const fetchTrades = async (symbol = 'BTCUSDC') => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/trades?symbol=${symbol}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching trades data:', error);
+    throw error;
+  }
+};
+
+// Fetch account information (paper trading)
+export const fetchAccount = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/account`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching account data:', error);
+    throw error;
+  }
+};
+
+// Place a paper trade order
+export const placePaperOrder = async (orderData) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/order`, orderData);
+    return response.data;
+  } catch (error) {
+    console.error('Error placing order:', error);
+    throw error;
+  }
+};
+
+// Cancel a paper trade order
+export const cancelPaperOrder = async (orderId) => {
+  try {
+    const response = await axios.delete(`${API_BASE_URL}/order/${orderId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error canceling order:', error);
+    throw error;
+  }
+};
+
+// Fetch historical candlestick data
+export const fetchHistoricalData = async (symbol = 'BTCUSDC', interval = '1h') => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/klines?symbol=${symbol}&interval=${interval}`);
+    
+    // Transform data for lightweight-charts format
+    return response.data.map(candle => ({
+      time: candle.time / 1000, // Convert to seconds for lightweight-charts
+      open: parseFloat(candle.open),
+      high: parseFloat(candle.high),
+      low: parseFloat(candle.low),
+      close: parseFloat(candle.close),
+    }));
+  } catch (error) {
+    console.error('Error fetching historical data:', error);
+    
+    // For development/testing, return mock data if API fails
+    return generateMockHistoricalData();
+  }
+};
+
+// Generate mock historical data for development/testing
+const generateMockHistoricalData = () => {
+  const data = [];
+  const now = Math.floor(Date.now() / 1000) * 1000;
+  let price = 35000 + Math.random() * 1000;
+  
+  for (let i = 0; i < 100; i++) {
+    const time = now - (99 - i) * 3600 * 1000; // hourly candles
+    const open = price;
+    const close = open * (0.995 + Math.random() * 0.01); // +/- 0.5%
+    price = close;
+    const high = Math.max(open, close) * (1 + Math.random() * 0.005);
+    const low = Math.min(open, close) * (1 - Math.random() * 0.005);
+    
+    data.push({
+      time: time / 1000, // Convert to seconds for lightweight-charts
+      open,
+      high,
+      low,
+      close,
     });
   }
   
-  // ETH price data
-  let ethPrice = 2000;
-  for (let i = 24; i >= 0; i--) {
-    ethPrice = ethPrice * (1 + (Math.random() * 0.03 - 0.015));
-    prices.push({
-      symbol: 'ETHUSDT',
-      timestamp: now - (i * hour / 24),
-      price: ethPrice,
-      volume: Math.random() * 20 + 10
-    });
-  }
-  
-  return {
-    prices,
-    lastUpdated: now,
-    availableSymbols: ['BTCUSDT', 'ETHUSDT']
-  };
+  return data;
 };
 
-const getMockRecentTrades = () => {
-  const now = Date.now();
-  const minute = 60000;
-  
-  return [
-    {
-      id: 'trade-001',
-      symbol: 'BTCUSDT',
-      side: 'BUY',
-      price: 34950.25,
-      quantity: 0.05,
-      timestamp: now - (10 * minute)
-    },
-    {
-      id: 'trade-002',
-      symbol: 'ETHUSDT',
-      side: 'SELL',
-      price: 1950.75,
-      quantity: 1.2,
-      timestamp: now - (25 * minute)
-    },
-    {
-      id: 'trade-003',
-      symbol: 'BTCUSDT',
-      side: 'BUY',
-      price: 34800.50,
-      quantity: 0.08,
-      timestamp: now - (60 * minute)
-    },
-    {
-      id: 'trade-004',
-      symbol: 'ETHUSDT',
-      side: 'BUY',
-      price: 1925.30,
-      quantity: 0.5,
-      timestamp: now - (120 * minute)
-    },
-    {
-      id: 'trade-005',
-      symbol: 'BTCUSDT',
-      side: 'SELL',
-      price: 35100.00,
-      quantity: 0.03,
-      timestamp: now - (180 * minute)
-    }
-  ];
-};
+// Initialize WebSocket connection
+createWebSocketConnection();
 
-const getMockOrderHistory = () => {
-  const now = Date.now();
-  const hour = 3600000;
-  
-  return [
-    {
-      id: 'ord-101',
-      symbol: 'BTCUSDT',
-      side: 'BUY',
-      type: 'LIMIT',
-      price: 34500.00,
-      quantity: 0.1,
-      status: 'FILLED',
-      timestamp: now - (2 * hour),
-      fillPrice: 34500.00,
-      fillQuantity: 0.1,
-      fee: 3.45
-    },
-    {
-      id: 'ord-102',
-      symbol: 'ETHUSDT',
-      side: 'SELL',
-      type: 'MARKET',
-      price: null,
-      quantity: 1.0,
-      status: 'FILLED',
-      timestamp: now - (5 * hour),
-      fillPrice: 1920.25,
-      fillQuantity: 1.0,
-      fee: 1.92
-    },
-    {
-      id: 'ord-103',
-      symbol: 'BTCUSDT',
-      side: 'BUY',
-      type: 'STOP_LIMIT',
-      price: 33500.00,
-      quantity: 0.15,
-      status: 'CANCELED',
-      timestamp: now - (12 * hour),
-      fillPrice: null,
-      fillQuantity: 0,
-      fee: 0
-    },
-    {
-      id: 'ord-104',
-      symbol: 'ETHUSDT',
-      side: 'BUY',
-      type: 'LIMIT',
-      price: 1850.00,
-      quantity: 2.0,
-      status: 'FILLED',
-      timestamp: now - (24 * hour),
-      fillPrice: 1850.00,
-      fillQuantity: 2.0,
-      fee: 3.70
-    },
-    {
-      id: 'ord-105',
-      symbol: 'BTCUSDT',
-      side: 'SELL',
-      type: 'MARKET',
-      price: null,
-      quantity: 0.2,
-      status: 'FILLED',
-      timestamp: now - (36 * hour),
-      fillPrice: 34200.50,
-      fillQuantity: 0.2,
-      fee: 6.84
-    }
-  ];
-};
-
-const getMockPaperTradingSettings = () => {
-  return {
-    initialBalances: {
-      USDT: 10000,
-      BTC: 0.5,
-      ETH: 5
-    },
-    tradingPairs: ['BTCUSDT', 'ETHUSDT'],
-    maxPositionSize: 1.0, // 100% of available balance
-    defaultOrderSize: 0.1, // 10% of available balance
-    maxDrawdownPercent: 10,
-    slippageModel: 'REALISTIC',
-    latencyModel: 'NORMAL',
-    tradingFees: 0.001 // 0.1%
-  };
+export default {
+  fetchTicker,
+  fetchOrderBook,
+  fetchTrades,
+  fetchAccount,
+  fetchHistoricalData,
+  placePaperOrder,
+  cancelPaperOrder,
+  subscribeToTickerUpdates,
+  subscribeToOrderBookUpdates,
+  subscribeToTradesUpdates,
 };

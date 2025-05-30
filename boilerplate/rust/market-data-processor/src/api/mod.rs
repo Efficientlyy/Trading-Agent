@@ -1,11 +1,5 @@
-// API module for Market Data Processor
-pub mod grpc;
-pub mod server;
-pub mod visualization;
-pub mod paper_trading_api;
+pub mod mexc_client;
+pub mod websocket;
 
-// Re-export visualization components
-pub use visualization::TradingDashboard;
-
-// Re-export paper trading API components
-pub use paper_trading_api::paper_trading_routes;
+pub use mexc_client::MexcClient;
+pub use websocket::MexcWebsocketClient;

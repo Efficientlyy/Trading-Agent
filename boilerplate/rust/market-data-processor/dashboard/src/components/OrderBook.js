@@ -1,186 +1,192 @@
-import React, { useState, useEffect } from 'react';
+// OrderBook component for displaying BTC/USDC order book
+import React, { useEffect, useState } from 'react';
 import { 
   Box, 
   Typography, 
+  Paper, 
   Table, 
   TableBody, 
   TableCell, 
   TableContainer, 
   TableHead, 
   TableRow,
-  Divider
+  CircularProgress
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { fetchOrderBook, subscribeToOrderBookUpdates } from '../services/apiService';
 
-// Styled components for the order book
-const OrderBookContainer = styled(Box)(({ theme }) => ({
-  height: 400,
-  overflow: 'hidden',
-  display: 'flex',
-  flexDirection: 'column',
-}));
+const OrderBook = ({ symbol = 'BTCUSDC', depth = 10 }) => {
+  const [orderBook, setOrderBook] = useState({ bids: [], asks: [] });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-const OrderBookRow = styled(TableRow)(({ type, theme }) => ({
-  '&:hover': {
-    backgroundColor: theme.palette.action.hover,
-  },
-}));
-
-const PriceCell = styled(TableCell)(({ type, theme }) => ({
-  color: type === 'ask' ? theme.palette.error.main : theme.palette.success.main,
-  fontWeight: 500,
-}));
-
-const QuantityCell = styled(TableCell)(({ theme }) => ({
-  textAlign: 'right',
-}));
-
-const TotalCell = styled(TableCell)(({ theme }) => ({
-  textAlign: 'right',
-}));
-
-const DepthVisualizerContainer = styled(Box)(({ theme }) => ({
-  position: 'absolute',
-  top: 0,
-  bottom: 0,
-  right: 0,
-  zIndex: 0,
-  transition: 'width 0.3s ease-in-out',
-}));
-
-const DepthVisualizer = ({ type, depth, maxDepth }) => {
-  const width = `${(depth / maxDepth) * 100}%`;
-  
-  return (
-    <DepthVisualizerContainer
-      sx={{
-        width,
-        backgroundColor: type === 'ask' ? 'rgba(244, 67, 54, 0.1)' : 'rgba(76, 175, 80, 0.1)',
-      }}
-    />
-  );
-};
-
-// Mock data for the order book
-const generateMockOrderBook = (basePrice, symbol) => {
-  const asks = [];
-  const bids = [];
-  
-  // Generate 15 asks (sell orders) above the base price
-  for (let i = 0; i < 15; i++) {
-    const price = basePrice * (1 + (i + 1) * 0.001);
-    const quantity = Math.random() * 2 + 0.1;
-    asks.push({
-      price,
-      quantity,
-      total: price * quantity,
-    });
-  }
-  
-  // Sort asks from lowest to highest
-  asks.sort((a, b) => a.price - b.price);
-  
-  // Generate 15 bids (buy orders) below the base price
-  for (let i = 0; i < 15; i++) {
-    const price = basePrice * (1 - (i + 1) * 0.001);
-    const quantity = Math.random() * 2 + 0.1;
-    bids.push({
-      price,
-      quantity,
-      total: price * quantity,
-    });
-  }
-  
-  // Sort bids from highest to lowest
-  bids.sort((a, b) => b.price - a.price);
-  
-  return { asks, bids };
-};
-
-function OrderBook({ symbol }) {
-  const [orderBook, setOrderBook] = useState(null);
-  
-  // Calculate max depth for visualizer
-  const maxDepth = orderBook ? Math.max(
-    ...orderBook.asks.map(ask => ask.total),
-    ...orderBook.bids.map(bid => bid.total)
-  ) : 0;
-  
   useEffect(() => {
-    // In a real application, this would fetch data from an API
-    // and potentially set up a websocket connection for real-time updates
-    const basePrice = symbol === 'BTCUSDT' ? 50000 : 3000;
-    setOrderBook(generateMockOrderBook(basePrice, symbol));
-    
-    // Simulate occasional updates
-    const interval = setInterval(() => {
-      setOrderBook(generateMockOrderBook(basePrice + (Math.random() * 100 - 50), symbol));
-    }, 5000);
-    
-    return () => clearInterval(interval);
-  }, [symbol]);
-  
-  if (!orderBook) {
-    return <Box>Loading order book...</Box>;
-  }
-  
+    // Load initial order book data
+    const loadOrderBook = async () => {
+      try {
+        setIsLoading(true);
+        const data = await fetchOrderBook(symbol);
+        
+        if (data) {
+          // Sort bids (descending) and asks (ascending)
+          const bids = [...data.bids].sort((a, b) => b[0] - a[0]).slice(0, depth);
+          const asks = [...data.asks].sort((a, b) => a[0] - b[0]).slice(0, depth);
+          
+          setOrderBook({ bids, asks });
+        }
+        
+        setIsLoading(false);
+      } catch (err) {
+        console.error('Failed to load order book data:', err);
+        setError('Failed to load order book data. Please try again later.');
+        setIsLoading(false);
+      }
+    };
+
+    loadOrderBook();
+
+    // Subscribe to real-time order book updates
+    const unsubscribe = subscribeToOrderBookUpdates(symbol, (data) => {
+      if (data) {
+        // Sort bids (descending) and asks (ascending)
+        const bids = [...data.bids].sort((a, b) => b[0] - a[0]).slice(0, depth);
+        const asks = [...data.asks].sort((a, b) => a[0] - b[0]).slice(0, depth);
+        
+        setOrderBook({ bids, asks });
+      }
+    });
+
+    // Cleanup
+    return () => {
+      unsubscribe();
+    };
+  }, [symbol, depth]);
+
+  // Calculate total quantities for depth visualization
+  const maxBidQuantity = Math.max(...orderBook.bids.map(bid => bid[1]), 0);
+  const maxAskQuantity = Math.max(...orderBook.asks.map(ask => ask[1]), 0);
+  const maxQuantity = Math.max(maxBidQuantity, maxAskQuantity);
+
   return (
-    <OrderBookContainer>
-      <TableContainer sx={{ maxHeight: 200, overflow: 'auto' }}>
-        <Table size="small" stickyHeader>
-          <TableHead>
-            <TableRow>
-              <TableCell>Price (USDT)</TableCell>
-              <TableCell align="right">Quantity</TableCell>
-              <TableCell align="right">Total</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {orderBook.asks.map((ask, index) => (
-              <OrderBookRow key={`ask-${index}`} type="ask">
-                <PriceCell type="ask">
-                  {ask.price.toFixed(2)}
-                  <DepthVisualizer type="ask" depth={ask.total} maxDepth={maxDepth} />
-                </PriceCell>
-                <QuantityCell>{ask.quantity.toFixed(4)}</QuantityCell>
-                <TotalCell>{ask.total.toFixed(2)}</TotalCell>
-              </OrderBookRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+    <Paper elevation={3} sx={{ p: 2, borderRadius: 2, backgroundColor: '#1E1E1E' }}>
+      <Typography variant="h6" color="text.primary" sx={{ mb: 2 }}>
+        Order Book
+      </Typography>
       
-      <Box sx={{ p: 1, display: 'flex', justifyContent: 'center', bgcolor: 'background.default' }}>
-        <Typography variant="h6" color={orderBook.bids[0] && orderBook.bids[0].price > orderBook.asks[0].price ? 'success.main' : 'text.primary'}>
-          {orderBook.bids[0] ? orderBook.bids[0].price.toFixed(2) : '0.00'}
-        </Typography>
-      </Box>
-      
-      <TableContainer sx={{ maxHeight: 200, overflow: 'auto' }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Price (USDT)</TableCell>
-              <TableCell align="right">Quantity</TableCell>
-              <TableCell align="right">Total</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {orderBook.bids.map((bid, index) => (
-              <OrderBookRow key={`bid-${index}`} type="bid">
-                <PriceCell type="bid">
-                  {bid.price.toFixed(2)}
-                  <DepthVisualizer type="bid" depth={bid.total} maxDepth={maxDepth} />
-                </PriceCell>
-                <QuantityCell>{bid.quantity.toFixed(4)}</QuantityCell>
-                <TotalCell>{bid.total.toFixed(2)}</TotalCell>
-              </OrderBookRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </OrderBookContainer>
+      {isLoading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+          <CircularProgress />
+        </Box>
+      ) : error ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+          <Typography color="error">{error}</Typography>
+        </Box>
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', height: 300 }}>
+          {/* Asks (Sell orders) - displayed in reverse order (lowest ask first) */}
+          <TableContainer sx={{ flex: 1, maxHeight: 150 }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Price (USDC)</TableCell>
+                  <TableCell align="right">Amount (BTC)</TableCell>
+                  <TableCell align="right">Total</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {orderBook.asks.map((ask, index) => {
+                  const price = parseFloat(ask[0]);
+                  const amount = parseFloat(ask[1]);
+                  const total = price * amount;
+                  const percentOfMax = (amount / maxQuantity) * 100;
+                  
+                  return (
+                    <TableRow 
+                      key={`ask-${index}`}
+                      sx={{ 
+                        position: 'relative',
+                        '&::after': {
+                          content: '""',
+                          position: 'absolute',
+                          top: 0,
+                          right: 0,
+                          bottom: 0,
+                          width: `${percentOfMax}%`,
+                          backgroundColor: 'rgba(235, 77, 75, 0.2)',
+                          zIndex: 0
+                        }
+                      }}
+                    >
+                      <TableCell sx={{ color: '#eb4d4b', position: 'relative', zIndex: 1 }}>
+                        {price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </TableCell>
+                      <TableCell align="right" sx={{ position: 'relative', zIndex: 1 }}>
+                        {amount.toLocaleString(undefined, { minimumFractionDigits: 6, maximumFractionDigits: 6 })}
+                      </TableCell>
+                      <TableCell align="right" sx={{ position: 'relative', zIndex: 1 }}>
+                        {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          
+          {/* Spread */}
+          <Box sx={{ py: 1, textAlign: 'center', borderTop: '1px solid rgba(255, 255, 255, 0.1)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+            {orderBook.bids.length > 0 && orderBook.asks.length > 0 && (
+              <Typography variant="body2" color="text.secondary">
+                Spread: {(parseFloat(orderBook.asks[0][0]) - parseFloat(orderBook.bids[0][0])).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({((parseFloat(orderBook.asks[0][0]) / parseFloat(orderBook.bids[0][0]) - 1) * 100).toFixed(2)}%)
+              </Typography>
+            )}
+          </Box>
+          
+          {/* Bids (Buy orders) */}
+          <TableContainer sx={{ flex: 1, maxHeight: 150 }}>
+            <Table size="small">
+              <TableBody>
+                {orderBook.bids.map((bid, index) => {
+                  const price = parseFloat(bid[0]);
+                  const amount = parseFloat(bid[1]);
+                  const total = price * amount;
+                  const percentOfMax = (amount / maxQuantity) * 100;
+                  
+                  return (
+                    <TableRow 
+                      key={`bid-${index}`}
+                      sx={{ 
+                        position: 'relative',
+                        '&::after': {
+                          content: '""',
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          bottom: 0,
+                          width: `${percentOfMax}%`,
+                          backgroundColor: 'rgba(46, 213, 115, 0.2)',
+                          zIndex: 0
+                        }
+                      }}
+                    >
+                      <TableCell sx={{ color: '#2ed573', position: 'relative', zIndex: 1 }}>
+                        {price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </TableCell>
+                      <TableCell align="right" sx={{ position: 'relative', zIndex: 1 }}>
+                        {amount.toLocaleString(undefined, { minimumFractionDigits: 6, maximumFractionDigits: 6 })}
+                      </TableCell>
+                      <TableCell align="right" sx={{ position: 'relative', zIndex: 1 }}>
+                        {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+      )}
+    </Paper>
   );
-}
+};
 
 export default OrderBook;

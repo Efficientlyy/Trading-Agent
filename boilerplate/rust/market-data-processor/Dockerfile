@@ -1,107 +1,54 @@
-# syntax=docker/dockerfile:1
+# Multi-stage build for the Market Data Processor
+FROM rust:1.70-slim as builder
 
-# Stage 1: Node.js builder for the dashboard
-FROM node:18-slim as dashboard-builder
-
-WORKDIR /app/dashboard
-
-# Copy package.json and package-lock.json
-COPY dashboard/package*.json ./
-
-# Install dependencies with specific Node.js handling for Windows paths
-RUN npm ci
-
-# Copy dashboard source code
-COPY dashboard/ ./
-
-# Build the dashboard
-RUN npm run build
-
-# Stage 2: Rust builder for the backend
-FROM rust:1.68-slim-bullseye as backend-builder
-
-WORKDIR /app
-
-# Install dependencies - ensure curl is installed for healthchecks
+# Install build dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     pkg-config \
     libssl-dev \
-    protobuf-compiler \
-    ca-certificates \
     curl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Cargo files for dependency caching
+# Create a new empty project
+WORKDIR /app
+RUN USER=root cargo new --bin market-data-processor
+WORKDIR /app/market-data-processor
+
+# Copy manifests
 COPY Cargo.toml ./
-COPY Cargo.lock ./
 
-# Create dummy source files to build dependencies
-RUN mkdir -p src && \
-    echo "fn main() {}" > src/main.rs && \
-    echo "pub fn dummy() {}" > src/lib.rs
-
-# Build dependencies
+# Build dependencies (this will be cached if dependencies don't change)
 RUN cargo build --release
+RUN rm src/*.rs
 
-# Remove the dummy source files
-RUN rm -rf src
-
-# Copy the actual source code (excluding dashboard directory)
-COPY src/ src/
-COPY config/ config/
-COPY tests/ tests/
-COPY build.rs ./
+# Copy source code
+COPY src ./src
 
 # Build the application
 RUN cargo build --release
 
-# Stage 3: Runtime stage
+# Runtime stage
 FROM debian:bullseye-slim
 
-WORKDIR /app
-
-# Install runtime dependencies - ensure curl is installed for healthchecks
+# Install runtime dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     ca-certificates \
-    libssl1.1 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the binary from the backend-builder stage
-COPY --from=backend-builder /app/target/release/market-data-processor /app/market-data-processor
+# Copy the binary from the builder stage
+COPY --from=builder /app/market-data-processor/target/release/market-data-processor /usr/local/bin/
 
-# Create dashboard directory
-RUN mkdir -p /app/dashboard/build
+# Copy the static dashboard files
+COPY dashboard/build /app/dashboard/build
 
-# Copy the dashboard from the dashboard-builder stage
-COPY --from=dashboard-builder /app/dashboard/build /app/dashboard/build
+# Set the working directory
+WORKDIR /app
 
-# Create required directories for volumes
-RUN mkdir -p /app/config /app/logs /app/data
-
-# Add healthcheck
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD curl -f http://localhost:8080/health || exit 1
-
-# Add environment variables
-ENV PAPER_TRADING=true
-ENV SERVE_DASHBOARD=true
-ENV DASHBOARD_PATH=/app/dashboard/build
-ENV HTTP_SERVER_ADDR=0.0.0.0:8080
-ENV GRPC_SERVER_ADDR=0.0.0.0:50051
-ENV LOG_LEVEL=info
-ENV ENABLE_TELEMETRY=true
-
-# Expose HTTP port for dashboard
+# Expose the port
 EXPOSE 8080
 
-# Expose gRPC port
-EXPOSE 50051
-
-# Set the entrypoint
-ENTRYPOINT ["/app/market-data-processor"]
-
-# Default command
-CMD []
+# Run the binary
+CMD ["market-data-processor"]
