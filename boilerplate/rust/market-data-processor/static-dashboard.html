@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Agent Dashboard</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" />
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', sans-serif;
+            height: 100%;
+        }
+        .app {
+            display: flex;
+            height: 100vh;
+        }
+        .sidebar {
+            width: 240px;
+            background-color: #1a202c;
+            color: white;
+            padding-top: 20px;
+            transition: width 0.3s;
+        }
+        .sidebar.collapsed {
+            width: 60px;
+        }
+        .content {
+            flex-grow: 1;
+            padding: 20px;
+            background-color: #f7f9fc;
+        }
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            padding: 0 16px 16px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 16px;
+        }
+        .sidebar-header h2 {
+            margin: 0;
+            font-size: 1.2rem;
+            margin-left: 10px;
+            white-space: nowrap;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            color: #cbd5e0;
+            text-decoration: none;
+            transition: background-color 0.2s;
+            cursor: pointer;
+        }
+        .nav-item:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+        .nav-item.active {
+            color: white;
+            background-color: rgba(66, 153, 225, 0.8);
+        }
+        .nav-item-icon {
+            margin-right: 10px;
+            font-size: 20px;
+        }
+        .nav-item-text {
+            white-space: nowrap;
+        }
+        .toggle-button {
+            position: absolute;
+            bottom: 20px;
+            left: 16px;
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 24px;
+        }
+        .header {
+            background-color: white;
+            padding: 16px 24px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+        }
+        .dashboard-section {
+            background-color: white;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+        .chart-container {
+            height: 300px;
+            margin-bottom: 24px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background-color: white;
+            padding: 16px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .stat-card h3 {
+            margin-top: 0;
+            color: #4a5568;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+        .stat-card p {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #2d3748;
+        }
+        .grid-2-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        @media (max-width: 768px) {
+            .grid-2-col {
+                grid-template-columns: 1fr;
+            }
+        }
+        .performance-chart {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            height: 100%;
+            min-height: 300px;
+            position: relative;
+        }
+        .performance-chart::before {
+            content: "Performance Chart Placeholder";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #6c757d;
+        }
+        .order-book {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            height: 100%;
+            min-height: 300px;
+            position: relative;
+        }
+        .order-book::before {
+            content: "Order Book Placeholder";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #6c757d;
+        }
+        .positions-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .positions-table th, .positions-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .positions-table th {
+            background-color: #f7fafc;
+            font-weight: 600;
+            color: #4a5568;
+        }
+        .positive {
+            color: #38a169;
+        }
+        .negative {
+            color: #e53e3e;
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <span class="nav-item-icon">📈</span>
+                <h2>Trading Agent</h2>
+            </div>
+            <a class="nav-item active">
+                <span class="nav-item-icon">📊</span>
+                <span class="nav-item-text">Overview</span>
+            </a>
+            <a class="nav-item">
+                <span class="nav-item-icon">💰</span>
+                <span class="nav-item-text">Trading</span>
+            </a>
+            <a class="nav-item">
+                <span class="nav-item-icon">📈</span>
+                <span class="nav-item-text">Analytics</span>
+            </a>
+            <a class="nav-item">
+                <span class="nav-item-icon">📉</span>
+                <span class="nav-item-text">Market Data</span>
+            </a>
+            <a class="nav-item">
+                <span class="nav-item-icon">⚙️</span>
+                <span class="nav-item-text">Settings</span>
+            </a>
+            <a class="nav-item">
+                <span class="nav-item-icon">🖥️</span>
+                <span class="nav-item-text">Monitoring</span>
+            </a>
+            <button class="toggle-button" id="toggleSidebar">◀</button>
+        </div>
+        <div class="content">
+            <div class="header">
+                <h1>Trading Dashboard</h1>
+            </div>
+            
+            <!-- Stats Overview -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Balance</h3>
+                    <p>$12,450.35</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Daily P&L</h3>
+                    <p class="positive">+$243.18</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Active Positions</h3>
+                    <p>3</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Win Rate</h3>
+                    <p>67.5%</p>
+                </div>
+            </div>
+            
+            <div class="grid-2-col">
+                <!-- Performance Chart -->
+                <div class="dashboard-section">
+                    <h2>Portfolio Performance</h2>
+                    <div class="performance-chart"></div>
+                </div>
+                
+                <!-- Order Book -->
+                <div class="dashboard-section">
+                    <h2>Order Book (BTC/USDT)</h2>
+                    <div class="order-book"></div>
+                </div>
+            </div>
+            
+            <!-- Open Positions -->
+            <div class="dashboard-section">
+                <h2>Open Positions</h2>
+                <table class="positions-table">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Size</th>
+                            <th>Entry Price</th>
+                            <th>Current Price</th>
+                            <th>P&L</th>
+                            <th>Duration</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>BTC/USDT</td>
+                            <td>0.15</td>
+                            <td>$28,450.00</td>
+                            <td>$28,950.25</td>
+                            <td class="positive">+$75.04</td>
+                            <td>3h 42m</td>
+                        </tr>
+                        <tr>
+                            <td>ETH/USDT</td>
+                            <td>1.2</td>
+                            <td>$1,780.50</td>
+                            <td>$1,805.75</td>
+                            <td class="positive">+$30.30</td>
+                            <td>5h 12m</td>
+                        </tr>
+                        <tr>
+                            <td>SOL/USDT</td>
+                            <td>10</td>
+                            <td>$22.35</td>
+                            <td>$21.80</td>
+                            <td class="negative">-$5.50</td>
+                            <td>1h 20m</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Toggle sidebar
+        const toggleSidebar = document.getElementById('toggleSidebar');
+        const sidebar = document.getElementById('sidebar');
+        
+        toggleSidebar.addEventListener('click', function() {
+            sidebar.classList.toggle('collapsed');
+            toggleSidebar.textContent = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+        });
+        
+        // Navigation handling
+        const navItems = document.querySelectorAll('.nav-item');
+        navItems.forEach(item => {
+            item.addEventListener('click', function() {
+                navItems.forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>

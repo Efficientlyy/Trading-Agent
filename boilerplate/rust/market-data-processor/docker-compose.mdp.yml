@@ -1,0 +1,32 @@
+﻿version: '3.8'
+
+services:
+  market-data-processor:
+    build:
+      context: .
+      dockerfile: Dockerfile.simple
+    ports:
+      - "8080:8080"
+    networks:
+      - trading-network
+    environment:
+      - PAPER_TRADING=true
+      - SERVE_DASHBOARD=true
+      - PAPER_TRADING_INITIAL_BALANCE_USDT=10000
+      - PAPER_TRADING_INITIAL_BALANCE_BTC=1
+      - PAPER_TRADING_SLIPPAGE_MODEL=REALISTIC
+      - PAPER_TRADING_LATENCY_MODEL=NORMAL
+      - PAPER_TRADING_FEE_RATE=0.001
+      - TRADING_PAIRS=BTCUSDT,ETHUSDT
+      - DEFAULT_ORDER_SIZE=0.1
+      - HTTP_SERVER_ADDR=0.0.0.0:8080
+      - LOG_LEVEL=info
+      - ENABLE_TELEMETRY=true
+    volumes:
+      - ./logs:/app/logs
+      - ./config:/app/config
+      - ./data:/app/data
+
+networks:
+  trading-network:
+    external: true

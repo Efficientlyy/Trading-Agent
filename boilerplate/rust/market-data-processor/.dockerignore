@@ -1,0 +1,9 @@
+﻿# Generic files to ignore
+.git/
+.github/
+.vscode/
+**/*.rs.bk
+**/.DS_Store
+
+# Don't ignore dashboard directory
+!dashboard/

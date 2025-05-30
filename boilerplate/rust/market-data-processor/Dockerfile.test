@@ -1,0 +1,51 @@
+# Multi-stage build Dockerfile for testing Market Data Processor
+# Using the same base images as production: rust:1.68-slim-bullseye for build and debian:bullseye-slim for runtime
+
+# Build stage
+FROM rust:1.68-slim-bullseye AS builder
+
+# Install required dependencies
+RUN apt-get update && apt-get install -y \
+    protobuf-compiler \
+    cmake \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
+WORKDIR /app
+
+# Copy project files
+COPY . .
+
+# Test build (but don't run tests yet)
+RUN cargo build --tests
+
+# Final test stage (includes debugging tools)
+FROM debian:bullseye-slim
+
+# Install required runtime dependencies and debugging tools
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    procps \
+    netcat \
+    protobuf-compiler \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
+WORKDIR /app
+
+# Copy binary and assets from builder
+COPY --from=builder /app /app
+COPY --from=builder /usr/local/cargo /usr/local/cargo
+COPY --from=builder /usr/local/rustup /usr/local/rustup
+
+# Set environment variables
+ENV PATH="/usr/local/cargo/bin:${PATH}"
+ENV RUST_BACKTRACE=1
+
+# Set entrypoint for testing
+ENTRYPOINT ["cargo", "test"]
+CMD ["--test", "market_data_processor_tests"]

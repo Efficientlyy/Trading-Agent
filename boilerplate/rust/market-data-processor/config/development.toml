@@ -1,0 +1,14 @@
+# Development configuration for Market Data Processor
+
+# Enable more verbose logging for development
+log_level = "debug"
+
+# Always use paper trading mode in development
+is_paper_trading = true
+
+# Limited set of trading pairs for faster development
+trading_pairs = ["BTCUSDT"]
+
+# Use smaller values for testing
+default_order_size = 0.001
+max_position_size = 0.1

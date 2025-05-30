@@ -1,0 +1,79 @@
+﻿version: '3.8'
+name: trading-agent-dashboard
+
+services:
+  market-data-processor:
+    build:
+      context: .
+      dockerfile: Dockerfile.windows
+    networks:
+      - trading-network
+    ports:
+      - "8080:8080"  # HTTP/Dashboard port
+      - "50051:50051" # gRPC port
+    environment:
+      # Paper Trading configuration
+      - PAPER_TRADING=true
+      - SERVE_DASHBOARD=true
+      - PAPER_TRADING_INITIAL_BALANCE_USDT=10000
+      - PAPER_TRADING_INITIAL_BALANCE_BTC=1
+      - PAPER_TRADING_SLIPPAGE_MODEL=REALISTIC
+      - PAPER_TRADING_LATENCY_MODEL=NORMAL
+      - PAPER_TRADING_FEE_RATE=0.001
+      
+      # Trading configuration
+      - TRADING_PAIRS=BTCUSDT,ETHUSDT
+      - DEFAULT_ORDER_SIZE=0.1
+      
+      # Server configuration
+      - HTTP_SERVER_ADDR=0.0.0.0:8080
+      - GRPC_SERVER_ADDR=0.0.0.0:50051
+      
+      # Logging and telemetry
+      - LOG_LEVEL=info
+      - ENABLE_TELEMETRY=true
+    volumes:
+      - ./logs:/app/logs
+      - ./config:/app/config
+      - ./data:/app/data
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    networks:
+      - trading-network
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    networks:
+      - trading-network
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=trading123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  trading-network:
+    driver: bridge

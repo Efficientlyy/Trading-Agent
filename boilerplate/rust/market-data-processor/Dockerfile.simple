@@ -1,0 +1,40 @@
+﻿FROM debian:bullseye-slim
+
+WORKDIR /app
+
+# Install runtime dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    ca-certificates \
+    libssl1.1 \
+    curl \
+    python3 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+RUN pip3 install prometheus-client flask
+
+# Create a simple metrics generator
+RUN mkdir -p /app/metrics
+
+COPY ./metrics_server.py /app/metrics_server.py
+
+# Create required directories
+RUN mkdir -p /app/logs /app/config /app/data
+
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD curl -f http://localhost:8080/health || exit 1
+
+# Add environment variables
+ENV PAPER_TRADING=true
+ENV SERVE_DASHBOARD=true
+ENV LOG_LEVEL=info
+ENV ENABLE_TELEMETRY=true
+
+# Expose HTTP port for dashboard
+EXPOSE 8080
+
+# Set the entrypoint
+CMD ["python3", "/app/metrics_server.py"]

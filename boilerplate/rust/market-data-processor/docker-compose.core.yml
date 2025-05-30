@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # Main application: Market Data Processor with Paper Trading
+  market-data-processor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"  # HTTP/Dashboard port
+      - "50051:50051" # gRPC port
+    environment:
+      # Server configuration
+      - HTTP_SERVER_ADDR=0.0.0.0:8080
+      - GRPC_SERVER_ADDR=0.0.0.0:50051
+      
+      # Paper Trading configuration
+      - PAPER_TRADING=true
+      - SERVE_DASHBOARD=true
+      - DASHBOARD_PATH=/app/dashboard/build
+      - PAPER_TRADING_INITIAL_BALANCE_USDT=10000
+      - PAPER_TRADING_INITIAL_BALANCE_BTC=1
+      
+      # Trading configuration
+      - TRADING_PAIRS=BTCUSDT,ETHUSDT
+      - DEFAULT_ORDER_SIZE=0.1
+      - MAX_POSITION_SIZE=1.0
+      - MAX_DRAWDOWN_PERCENT=10
+      
+      # Logging
+      - LOG_LEVEL=debug
+    volumes:
+      - ./logs:/app/logs
+      - ./config:/app/config
+      - ./data:/app/data
+    restart: unless-stopped

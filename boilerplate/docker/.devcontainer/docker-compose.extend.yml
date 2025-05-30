@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  market-data-processor:
+    volumes:
+      - ..:/workspace
+      - cargo-registry:/usr/local/cargo/registry
+    command: /bin/sh -c "while sleep 1000; do :; done"
+
+  order-execution:
+    volumes:
+      - ..:/workspace
+      - cargo-registry:/usr/local/cargo/registry
+    command: /bin/sh -c "while sleep 1000; do :; done"
+
+  decision-service:
+    volumes:
+      - ..:/workspace
+      - decision-service-node-modules:/app/node_modules
+    command: /bin/sh -c "while sleep 1000; do :; done"
+
+  signal-generator:
+    volumes:
+      - ..:/workspace
+      - signal-generator-venv:/app/.venv
+    command: /bin/sh -c "while sleep 1000; do :; done"
+
+volumes:
+  cargo-registry:
+  decision-service-node-modules:
+  signal-generator-venv:

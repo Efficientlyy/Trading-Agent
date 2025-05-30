@@ -1,0 +1,280 @@
+:root {
+    --bg-color: #121826;
+    --card-bg: #1c2331;
+    --border-color: #2a3548;
+    --text-color: #e4e6eb;
+    --muted-text: #9da9bb;
+    --green: #00c076;
+    --red: #f6465d;
+    --blue: #1e88e5;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.navbar {
+    background-color: var(--card-bg) !important;
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+.card-header {
+    background-color: rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid var(--border-color);
+    padding: 12px 16px;
+}
+
+.content-container {
+    padding: 15px;
+}
+
+.content-view {
+    display: none;
+}
+
+.content-view.active {
+    display: block;
+}
+
+/* Price Display */
+.price-display {
+    font-size: 1.2rem;
+    font-weight: 500;
+}
+
+.price-up {
+    color: var(--green);
+}
+
+.price-down {
+    color: var(--red);
+}
+
+/* Orderbook Styles */
+.orderbook-container {
+    display: flex;
+    flex-direction: column;
+    height: 300px;
+    overflow: hidden;
+}
+
+.orderbook-asks, .orderbook-bids {
+    flex: 1;
+    overflow-y: auto;
+    font-size: 0.85rem;
+}
+
+.orderbook-price {
+    padding: 8px;
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: bold;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.orderbook-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 8px;
+    position: relative;
+}
+
+.orderbook-row.ask {
+    border-bottom: 1px solid rgba(246, 70, 93, 0.1);
+}
+
+.orderbook-row.bid {
+    border-bottom: 1px solid rgba(0, 192, 118, 0.1);
+}
+
+.orderbook-row .depth-bar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 1;
+    opacity: 0.15;
+}
+
+.orderbook-row.ask .depth-bar {
+    right: 0;
+    background-color: var(--red);
+}
+
+.orderbook-row.bid .depth-bar {
+    right: 0;
+    background-color: var(--green);
+}
+
+.orderbook-row > div {
+    position: relative;
+    z-index: 2;
+}
+
+.ask-price {
+    color: var(--red);
+}
+
+.bid-price {
+    color: var(--green);
+}
+
+/* Recent Trades */
+.trade-row {
+    font-size: 0.85rem;
+}
+
+.trade-buy {
+    color: var(--green);
+}
+
+.trade-sell {
+    color: var(--red);
+}
+
+/* Metric Cards */
+.metric-card {
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.metric-title {
+    font-size: 0.85rem;
+    color: var(--muted-text);
+    margin-bottom: 4px;
+}
+
+.metric-value {
+    font-size: 1.25rem;
+    font-weight: 500;
+}
+
+.metric-value.positive {
+    color: var(--green);
+}
+
+.metric-value.negative {
+    color: var(--red);
+}
+
+/* Table Styles */
+.table {
+    color: var(--text-color);
+    margin-bottom: 0;
+}
+
+.table th {
+    font-weight: 500;
+    border-color: var(--border-color);
+    color: var(--muted-text);
+}
+
+.table td {
+    border-color: var(--border-color);
+    vertical-align: middle;
+}
+
+/* Form Controls */
+.form-control, .form-select {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+
+.form-control:focus, .form-select:focus {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-color: var(--blue);
+    color: var(--text-color);
+    box-shadow: 0 0 0 0.25rem rgba(30, 136, 229, 0.25);
+}
+
+.form-floating label {
+    color: var(--muted-text);
+}
+
+.form-floating > .form-control:focus ~ label,
+.form-floating > .form-control:not(:placeholder-shown) ~ label {
+    color: var(--muted-text);
+}
+
+/* Buttons */
+.btn-success {
+    background-color: var(--green);
+    border-color: var(--green);
+}
+
+.btn-danger {
+    background-color: var(--red);
+    border-color: var(--red);
+}
+
+.btn-outline-secondary {
+    color: var(--text-color);
+    border-color: var(--border-color);
+}
+
+.btn-outline-secondary:hover, .btn-outline-secondary.active {
+    background-color: rgba(0, 0, 0, 0.2);
+    color: var(--text-color);
+    border-color: var(--blue);
+}
+
+/* Nav Tabs */
+.nav-tabs {
+    border-color: var(--border-color);
+}
+
+.nav-tabs .nav-link {
+    color: var(--muted-text);
+    border: none;
+    padding: 8px 16px;
+}
+
+.nav-tabs .nav-link:hover {
+    border-color: transparent;
+    color: var(--text-color);
+}
+
+.nav-tabs .nav-link.active {
+    background-color: transparent;
+    color: var(--blue);
+    border-bottom: 2px solid var(--blue);
+}
+
+/* Technical Indicators */
+.signal-buy {
+    color: var(--green);
+}
+
+.signal-sell {
+    color: var(--red);
+}
+
+.signal-neutral {
+    color: var(--muted-text);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 992px) {
+    .metric-card .metric-value {
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .card-body {
+        padding: 12px;
+    }
+}

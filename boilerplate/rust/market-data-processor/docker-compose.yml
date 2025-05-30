@@ -1,0 +1,148 @@
+# Docker Compose file for Trading Agent System
+version: '3.8'
+name: trading-agent-system
+
+services:
+  # Main application: Market Data Processor with Paper Trading
+  market-data-processor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    networks:
+      - trading-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    ports:
+      - "8080:8080"  # HTTP/Dashboard port
+      - "50051:50051" # gRPC port
+    environment:
+      # API credentials (use .env file in production)
+      - MEXC_API_KEY=${MEXC_API_KEY:-mx0vglTbKSqTso4bzf}
+      - MEXC_API_SECRET=${MEXC_API_SECRET:-63c248e899524b4499f13f428ad01e24}
+      
+      # Data source configuration
+      - USE_WEBSOCKET=true
+      - USE_REST_FALLBACK=true
+      - REST_POLLING_INTERVAL_MS=5000
+      
+      # WebSocket connection settings
+      - WS_RECONNECT_BACKOFF_ENABLED=true
+      - WS_CIRCUIT_BREAKER_ENABLED=true
+      - WS_MAX_RECONNECT_ATTEMPTS=10
+      
+      # Data consistency validation
+      - VALIDATION_ENABLED=true
+      - VALIDATION_INTERVAL_MS=30000
+      - RECONCILIATION_ENABLED=true
+      
+      # Server configuration
+      - HTTP_SERVER_ADDR=0.0.0.0:8080
+      - GRPC_SERVER_ADDR=0.0.0.0:50051
+      
+      # Paper Trading configuration
+      - PAPER_TRADING=true
+      - SERVE_DASHBOARD=true
+      - PAPER_TRADING_INITIAL_BALANCE_USDT=10000
+      - PAPER_TRADING_INITIAL_BALANCE_BTC=1
+      - PAPER_TRADING_SLIPPAGE_MODEL=REALISTIC
+      - PAPER_TRADING_LATENCY_MODEL=NORMAL
+      - PAPER_TRADING_FEE_RATE=0.001
+      
+      # Trading configuration
+      - TRADING_PAIRS=BTCUSDT,ETHUSDT
+      - DEFAULT_ORDER_SIZE=0.1
+      - MAX_POSITION_SIZE=1.0
+      - MAX_DRAWDOWN_PERCENT=10
+      
+      # Logging and telemetry
+      - LOG_LEVEL=info
+      - ENABLE_TELEMETRY=true
+    volumes:
+      - ./logs:/app/logs
+      - ./config:/app/config
+      - ./data:/app/data
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      grafana:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+    restart: unless-stopped
+      
+  # Monitoring: Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    networks:
+      - trading-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  # Monitoring: Grafana for metrics visualization
+  grafana:
+    image: grafana/grafana:latest
+    networks:
+      - trading-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=trading123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "3000:3000"
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Logging: Jaeger for distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    networks:
+      - trading-network
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=9411
+      - SPAN_STORAGE_TYPE=memory
+    ports:
+      - "5775:5775/udp"
+      - "6831:6831/udp"
+      - "6832:6832/udp"
+      - "5778:5778"
+      - "16686:16686"
+      - "14268:14268"
+      - "9411:9411"
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  trading-network:
+    driver: bridge

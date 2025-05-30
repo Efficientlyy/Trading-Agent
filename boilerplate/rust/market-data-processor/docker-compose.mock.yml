@@ -1,0 +1,8 @@
+﻿version: '3.8'
+
+services:
+  mock-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.mock
+    image: mexc-trading/market-data-processor:latest

@@ -1,0 +1,22 @@
+# Default configuration for Market Data Processor
+
+# Server configuration
+grpc_server_addr = "0.0.0.0:50051"
+rest_server_addr = "0.0.0.0:8080"
+
+# MEXC API configuration
+mexc_ws_url = "wss://wbs.mexc.com/ws"
+mexc_rest_url = "https://api.mexc.com"
+mexc_api_key = "mx0vglZ8S6aN809vmE"  # API key for MEXC WebSocket access
+mexc_api_secret = "092911cfc14e4e7491a74a750eb1884b"  # API secret for MEXC WebSocket access
+
+# Trading configuration
+is_paper_trading = true  # Set to false for live trading
+trading_pairs = ["BTCUSDT", "ETHUSDT"]  # Default trading pairs
+default_order_size = 0.01  # Default order size in base currency
+max_position_size = 1.0  # Maximum position size in base currency
+
+# Logging configuration
+log_level = "info"  # trace, debug, info, warn, error
+enable_telemetry = false  # Set to true to enable OpenTelemetry tracing
+jaeger_endpoint = "http://localhost:14268/api/traces"

@@ -1,0 +1,109 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'market-data-processor/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'market-data-processor/**'
+  workflow_dispatch:
+    inputs:
+      debug_enabled:
+        description: 'Run with tmate debugging enabled'
+        required: false
+        default: 'false'
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Cache Docker layers
+      uses: actions/cache@v3
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+    
+    - name: Setup tmate debug session
+      uses: mxschmitt/action-tmate@v3
+      if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.debug_enabled == 'true' }}
+      with:
+        limit-access-to-actor: true
+    
+    - name: Build test Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./market-data-processor
+        file: ./market-data-processor/Dockerfile.test
+        tags: mexc-trading-agent-test:latest
+        load: true
+        cache-from: type=local,src=/tmp/.buildx-cache
+        cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+    
+    - name: Run integration tests
+      run: |
+        cd market-data-processor
+        mkdir -p data/historical
+        mkdir -p test-reports
+        
+        echo "Running integration tests in Docker container..."
+        docker run --rm \
+          -v $(pwd):/app \
+          -e RUST_BACKTRACE=1 \
+          -e PAPER_TRADING=true \
+          -e PAPER_TRADING_INITIAL_BALANCE_USDT=10000 \
+          -e PAPER_TRADING_INITIAL_BALANCE_BTC=1 \
+          -e MAX_POSITION_SIZE=1.0 \
+          -e DEFAULT_ORDER_SIZE=0.1 \
+          -e MAX_DRAWDOWN_PERCENT=10 \
+          -e TRADING_PAIRS=BTCUSDT,ETHUSDT \
+          -e TEST_MODE=ci \
+          -e TEST_DATA_DIR=/app/data/historical \
+          -e TEST_REPORT_DIR=/app/test-reports \
+          mexc-trading-agent-test:latest \
+          --test "*" --test-threads=1
+      
+    - name: Generate test reports
+      run: |
+        cd market-data-processor
+        
+        echo "Generating test reports..."
+        docker run --rm \
+          -v $(pwd):/app \
+          -e TEST_REPORT_DIR=/app/test-reports \
+          mexc-trading-agent-test:latest \
+          /bin/bash -c "cd /app && cargo run --bin generate_test_report -- --input /app/test-reports/test_results.json --output /app/test-reports/test_report.html --format html"
+        
+        docker run --rm \
+          -v $(pwd):/app \
+          -e TEST_REPORT_DIR=/app/test-reports \
+          mexc-trading-agent-test:latest \
+          /bin/bash -c "cd /app && cargo run --bin generate_test_report -- --input /app/test-reports/test_results.json --output /app/test-reports/test_report.md --format markdown"
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-reports
+        path: market-data-processor/test-reports/
+        if-no-files-found: warn
+    
+    - name: Post test summary
+      run: |
+        echo "## Integration Test Results" >> $GITHUB_STEP_SUMMARY
+        cat market-data-processor/test-reports/test_report.md >> $GITHUB_STEP_SUMMARY
+    
+    # Workaround for cache layers
+    - name: Move cache
+      run: |
+        rm -rf /tmp/.buildx-cache
+        mv /tmp/.buildx-cache-new /tmp/.buildx-cache

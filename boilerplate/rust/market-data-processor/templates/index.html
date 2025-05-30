@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MEXC Trading Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+    <div class="container-fluid p-0">
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="#">
+                    <i class="bi bi-graph-up-arrow me-2"></i>MEXC Trading System
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav me-auto">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="#" id="dashboard-tab">Trading Dashboard</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" id="portfolio-tab">Portfolio</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" id="analytics-tab">Analytics</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="http://localhost:3000" target="_blank">Grafana</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="http://localhost:9090" target="_blank">Prometheus</a>
+                        </li>
+                    </ul>
+                    <div class="d-flex align-items-center">
+                        <div class="text-light me-3">
+                            <span class="badge bg-success me-1"><i class="bi bi-circle-fill"></i></span>
+                            <span id="system-status">System Online</span>
+                        </div>
+                        <select class="form-select form-select-sm me-2" id="trading-pair-select">
+                            <option value="BTCUSDT">BTC/USDT</option>
+                            <option value="ETHUSDT">ETH/USDT</option>
+                            <option value="BNBUSDT">BNB/USDT</option>
+                            <option value="ADAUSDT">ADA/USDT</option>
+                            <option value="SOLUSDT">SOL/USDT</option>
+                            <option value="DOGEUSDT">DOGE/USDT</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="content-container">
+            <!-- Trading Dashboard View -->
+            <div id="dashboard-view" class="content-view active">
+                <div class="row m-0">
+                    <!-- Left Column - Market Data -->
+                    <div class="col-md-8 p-2">
+                        <!-- Price Chart -->
+                        <div class="card mb-3">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 class="mb-0">
+                                        <span id="chart-symbol">BTC/USDT</span>
+                                        <span class="price-display ms-2">
+                                            <span id="current-price">0.00</span>
+                                            <span id="price-change" class="ms-1">0.00%</span>
+                                        </span>
+                                    </h5>
+                                </div>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-secondary timeframe-btn active" data-interval="1m">1m</button>
+                                    <button type="button" class="btn btn-outline-secondary timeframe-btn" data-interval="5m">5m</button>
+                                    <button type="button" class="btn btn-outline-secondary timeframe-btn" data-interval="15m">15m</button>
+                                    <button type="button" class="btn btn-outline-secondary timeframe-btn" data-interval="1h">1h</button>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="price-chart" style="height: 400px;"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Recent Trades & Order Book -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">Order Book</h5>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="orderbook-container">
+                                            <div class="orderbook-asks" id="orderbook-asks"></div>
+                                            <div class="orderbook-price" id="orderbook-price">
+                                                <span id="ob-current-price">0.00</span>
+                                            </div>
+                                            <div class="orderbook-bids" id="orderbook-bids"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">Recent Trades</h5>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-hover mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Price</th>
+                                                        <th>Amount</th>
+                                                        <th>Time</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="recent-trades-body">
+                                                    <!-- Trades will be inserted here -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Column - Trading & Portfolio -->
+                    <div class="col-md-4 p-2">
+                        <!-- Paper Trading Account Summary -->
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h5 class="mb-0">Paper Trading Account</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <div class="metric-card">
+                                            <div class="metric-title">USDT Balance</div>
+                                            <div class="metric-value" id="usdt-balance">0.00</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="metric-card">
+                                            <div class="metric-title">BTC Balance</div>
+                                            <div class="metric-value" id="btc-balance">0.00000000</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row mt-3">
+                                    <div class="col-6">
+                                        <div class="metric-card">
+                                            <div class="metric-title">Portfolio Value</div>
+                                            <div class="metric-value" id="portfolio-value">$0.00</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="metric-card">
+                                            <div class="metric-title">24h P&L</div>
+                                            <div class="metric-value" id="daily-pnl">$0.00 (0.00%)</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Trading Interface -->
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h5 class="mb-0">Trading Interface</h5>
+                            </div>
+                            <div class="card-body">
+                                <ul class="nav nav-tabs" id="tradeTab" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active" id="market-tab" data-bs-toggle="tab" data-bs-target="#market-tab-pane" type="button" role="tab">Market</button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="limit-tab" data-bs-toggle="tab" data-bs-target="#limit-tab-pane" type="button" role="tab">Limit</button>
+                                    </li>
+                                </ul>
+                                <div class="tab-content" id="tradeTabContent">
+                                    <!-- Market Order Tab -->
+                                    <div class="tab-pane fade show active" id="market-tab-pane" role="tabpanel" tabindex="0">
+                                        <div class="row mt-3">
+                                            <div class="col-12">
+                                                <div class="form-floating mb-3">
+                                                    <input type="number" class="form-control" id="market-quantity" placeholder="0">
+                                                    <label for="market-quantity">Quantity</label>
+                                                </div>
+                                                <div class="d-grid gap-2">
+                                                    <button class="btn btn-success" id="market-buy-btn">Buy</button>
+                                                    <button class="btn btn-danger" id="market-sell-btn">Sell</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Limit Order Tab -->
+                                    <div class="tab-pane fade" id="limit-tab-pane" role="tabpanel" tabindex="0">
+                                        <div class="row mt-3">
+                                            <div class="col-12">
+                                                <div class="form-floating mb-3">
+                                                    <input type="number" class="form-control" id="limit-price" placeholder="0">
+                                                    <label for="limit-price">Price</label>
+                                                </div>
+                                                <div class="form-floating mb-3">
+                                                    <input type="number" class="form-control" id="limit-quantity" placeholder="0">
+                                                    <label for="limit-quantity">Quantity</label>
+                                                </div>
+                                                <div class="d-grid gap-2">
+                                                    <button class="btn btn-success" id="limit-buy-btn">Buy Limit</button>
+                                                    <button class="btn btn-danger" id="limit-sell-btn">Sell Limit</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Technical Indicators -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Technical Indicators</h5>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-sm mb-0">
+                                    <tbody>
+                                        <tr>
+                                            <td>RSI (14)</td>
+                                            <td id="rsi-value">-</td>
+                                            <td id="rsi-signal">-</td>
+                                        </tr>
+                                        <tr>
+                                            <td>MACD</td>
+                                            <td id="macd-value">-</td>
+                                            <td id="macd-signal">-</td>
+                                        </tr>
+                                        <tr>
+                                            <td>MA Crossover</td>
+                                            <td id="ma-value">-</td>
+                                            <td id="ma-signal">-</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Bollinger Bands</td>
+                                            <td id="bb-value">-</td>
+                                            <td id="bb-signal">-</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Portfolio View -->
+            <div id="portfolio-view" class="content-view">
+                <div class="row m-0">
+                    <div class="col-md-12 p-2">
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h5 class="mb-0">Portfolio Overview</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div id="portfolio-chart" style="height: 300px;"></div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="table-responsive">
+                                            <table class="table table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Asset</th>
+                                                        <th>Balance</th>
+                                                        <th>Value (USDT)</th>
+                                                        <th>Allocation</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="portfolio-assets">
+                                                    <!-- Portfolio assets will be inserted here -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">Open Positions</h5>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-hover mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Symbol</th>
+                                                        <th>Size</th>
+                                                        <th>Entry Price</th>
+                                                        <th>Current Price</th>
+                                                        <th>P&L</th>
+                                                        <th>Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="open-positions">
+                                                    <!-- Positions will be inserted here -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">Trade History</h5>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-hover mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Symbol</th>
+                                                        <th>Side</th>
+                                                        <th>Price</th>
+                                                        <th>Quantity</th>
+                                                        <th>Time</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="trade-history">
+                                                    <!-- Trade history will be inserted here -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Analytics View -->
+            <div id="analytics-view" class="content-view">
+                <div class="row m-0">
+                    <div class="col-md-12 p-2">
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h5 class="mb-0">Performance Metrics</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <div class="metric-card">
+                                            <div class="metric-title">Total Return</div>
+                                            <div class="metric-value" id="total-return">0.00%</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="metric-card">
+                                            <div class="metric-title">Win Rate</div>
+                                            <div class="metric-value" id="win-rate">0.00%</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="metric-card">
+                                            <div class="metric-title">Avg. Profit</div>
+                                            <div class="metric-value" id="avg-profit">$0.00</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="metric-card">
+                                            <div class="metric-title">Avg. Loss</div>
+                                            <div class="metric-value" id="avg-loss">$0.00</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row mt-4">
+                                    <div class="col-md-12">
+                                        <div id="performance-chart" style="height: 300px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">Trading Activity</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="activity-chart" style="height: 300px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">Asset Performance</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="asset-performance-chart" style="height: 300px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/orderbook.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/trading.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/portfolio.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

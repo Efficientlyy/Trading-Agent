@@ -1,0 +1,67 @@
+groups:
+- name: trading-performance
+  rules:
+  - alert: HighOrderExecutionLatency
+    expr: histogram_quantile(0.95, sum(rate(order_execution_latency_seconds_bucket[5m])) by (le, trading_pair)) > 0.5
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "High order execution latency"
+      description: "95th percentile order execution latency for {{ $labels.trading_pair }} is above 500ms"
+
+  - alert: LowMarketDataThroughput
+    expr: sum(rate(market_data_updates_total[1m])) by (trading_pair) < 100
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Low market data throughput"
+      description: "Market data throughput for {{ $labels.trading_pair }} is below 100 updates per second"
+
+  - alert: HighCpuUsage
+    expr: cpu_usage_percent{component="market-data-processor"} > 90
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High CPU usage"
+      description: "CPU usage for {{ $labels.component }} is above 90% for 5 minutes"
+      
+  - alert: HighMemoryUsage
+    expr: memory_usage_bytes{component="market-data-processor"} > 4294967296 # 4GB
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High memory usage"
+      description: "Memory usage for {{ $labels.component }} is above 4GB for 5 minutes"
+      
+  - alert: SlowSignalGeneration
+    expr: histogram_quantile(0.95, sum(rate(signal_generation_seconds_bucket[5m])) by (le, strategy, trading_pair)) > 0.2
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Slow signal generation"
+      description: "95th percentile signal generation time for {{ $labels.strategy }} on {{ $labels.trading_pair }} is above 200ms"
+
+- name: application-health
+  rules:
+  - alert: HighErrorRate
+    expr: rate(api_request_duration_seconds_count{status=~"5.."}[5m]) / rate(api_request_duration_seconds_count[5m]) > 0.01
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High API error rate"
+      description: "Error rate for API requests is above 1% for 2 minutes"
+      
+  - alert: SlowApiResponse
+    expr: histogram_quantile(0.95, sum(rate(api_request_duration_seconds_bucket{endpoint!="market_data"}[5m])) by (le, endpoint)) > 1
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Slow API response"
+      description: "95th percentile response time for {{ $labels.endpoint }} is above 1 second"

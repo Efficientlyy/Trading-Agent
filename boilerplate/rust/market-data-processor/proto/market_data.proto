@@ -1,0 +1,104 @@
+syntax = "proto3";
+package market_data;
+
+service MarketDataService {
+  rpc GetOrderBook (OrderBookRequest) returns (OrderBookResponse);
+  rpc GetTicker (TickerRequest) returns (TickerResponse);
+  rpc GetRecentTrades (RecentTradesRequest) returns (RecentTradesResponse);
+  rpc SubscribeToOrderBookUpdates (OrderBookSubscriptionRequest) returns (stream OrderBookUpdate);
+  rpc SubscribeToTrades (TradeSubscriptionRequest) returns (stream TradeUpdate);
+  rpc SubscribeToTickers (TickerSubscriptionRequest) returns (stream TickerUpdate);
+}
+
+message OrderBookRequest {
+  string symbol = 1;
+  int32 depth = 2;
+}
+
+message OrderBookResponse {
+  string symbol = 1;
+  uint64 last_update_id = 2;
+  repeated OrderBookEntry bids = 3;
+  repeated OrderBookEntry asks = 4;
+  uint64 timestamp = 5;
+}
+
+message OrderBookEntry {
+  double price = 1;
+  double quantity = 2;
+}
+
+message TickerRequest {
+  string symbol = 1;
+}
+
+message TickerResponse {
+  string symbol = 1;
+  double price_change = 2;
+  double price_change_percent = 3;
+  double weighted_avg_price = 4;
+  double last_price = 5;
+  double last_quantity = 6;
+  double bid_price = 7;
+  double bid_quantity = 8;
+  double ask_price = 9;
+  double ask_quantity = 10;
+  double open_price = 11;
+  double high_price = 12;
+  double low_price = 13;
+  double volume = 14;
+  double quote_volume = 15;
+  uint64 open_time = 16;
+  uint64 close_time = 17;
+  uint64 first_id = 18;
+  uint64 last_id = 19;
+  uint64 count = 20;
+}
+
+message RecentTradesRequest {
+  string symbol = 1;
+  int32 limit = 2;
+}
+
+message RecentTradesResponse {
+  repeated Trade trades = 1;
+}
+
+message Trade {
+  uint64 id = 1;
+  string symbol = 2;
+  double price = 3;
+  double quantity = 4;
+  uint64 buyer_order_id = 5;
+  uint64 seller_order_id = 6;
+  uint64 timestamp = 7;
+  bool is_buyer_maker = 8;
+}
+
+message OrderBookSubscriptionRequest {
+  string symbol = 1;
+  int32 depth = 2;
+  int32 update_speed = 3; // in milliseconds
+}
+
+message OrderBookUpdate {
+  string symbol = 1;
+  bool is_snapshot = 2;
+  OrderBookResponse order_book = 3;
+}
+
+message TradeSubscriptionRequest {
+  string symbol = 1;
+}
+
+message TradeUpdate {
+  Trade trade = 1;
+}
+
+message TickerSubscriptionRequest {
+  string symbol = 1;
+}
+
+message TickerUpdate {
+  TickerResponse ticker = 1;
+}

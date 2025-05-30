@@ -1,0 +1,10 @@
+﻿[package]
+name = "market-data-processor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+prometheus = "0.13"
+lazy_static = "1.4"
+tiny_http = "0.8"
+rand = "0.8"
