@@ -1,119 +1,156 @@
-# MEXC Trading System
+# Flash Trading System for MEXC
 
-A complete trading system for MEXC exchange with real-time BTC/USDC data, charts, and paper trading functionality.
+This repository contains an ultra-fast flash trading system designed for the MEXC exchange, with a focus on zero-fee trading pairs (BTCUSDC, ETHUSDC).
 
-## Features
+## Key Features
 
-- Real-time BTC/USDC market data from MEXC exchange
-- Interactive price charts with technical indicators
-- Live order book visualization
-- Real-time trade history
-- Paper trading with simulated account
-- System monitoring with Prometheus and Grafana
+- **Ultra-Low Latency**: Optimized for microsecond-level response times
+- **Zero-Fee Trading**: Focused on BTCUSDC and ETHUSDC pairs for maximum cost efficiency
+- **Paper Trading**: Test strategies with real market data but no financial risk
+- **Advanced Signal Generation**: Multiple signal strategies including order book imbalance, momentum, and volatility
+- **Modular Architecture**: Clean separation between data acquisition, processing, signal generation, and execution
 
-## Architecture
+## System Architecture
 
-The system follows a modular architecture with the following components:
+The system is built with a modular architecture consisting of six distinct layers:
 
-- **Market Data Processor (Rust)**: Connects to MEXC API and processes market data
-- **Dashboard (React)**: User interface for trading and market analysis
-- **Paper Trading Engine (Rust)**: Simulates trading with real market data
-- **Monitoring (Prometheus/Grafana)**: System metrics and performance monitoring
+1. **Data Acquisition Layer**: Handles market data from MEXC and external sources
+2. **Data Processing Layer**: Processes and stores market data
+3. **Signal Generation Layer**: Analyzes data to generate trading signals
+4. **Decision Making Layer**: Makes trading decisions based on signals
+5. **Execution Layer**: Executes trades and manages positions
+6. **Visualization Layer**: Provides interactive dashboards and visualizations
+
+## Components
+
+### Optimized MEXC Client
+
+The `OptimizedMexcClient` provides ultra-fast connectivity to the MEXC API with features like:
+
+- Connection pooling for reduced latency
+- Request caching for frequently accessed data
+- Asynchronous operations for non-blocking execution
+- Robust error handling and retry mechanisms
+
+### Paper Trading System
+
+The `PaperTradingSystem` allows testing strategies with real market data but without financial risk:
+
+- Simulates order placement and execution
+- Tracks virtual balances and positions
+- Applies realistic slippage and partial fills
+- Maintains order and trade history
+
+### Signal Generator
+
+The `SignalGenerator` analyzes market data to identify trading opportunities:
+
+- Order book imbalance detection
+- Price momentum analysis
+- Volatility breakout signals
+- Multi-factor signal aggregation
+
+### Flash Trading Integration
+
+The `FlashTradingSystem` integrates all components for end-to-end operation:
+
+- Configurable trading parameters
+- Real-time signal processing
+- Paper trading execution
+- Performance monitoring and statistics
 
 ## Getting Started
 
 ### Prerequisites
 
-- Docker and Docker Compose
-- MEXC API credentials (optional for public data)
+- Python 3.8+
+- Access to MEXC API (API key and secret)
 
-### Environment Setup
+### Installation
 
-1. Clone this repository:
+1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/mexc-trading-system.git
-cd mexc-trading-system
+git clone https://github.com/Efficientlyy/Trading-Agent.git
+cd Trading-Agent
 ```
 
-2. Create a `.env` file with your MEXC API credentials (optional):
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
 ```
-MEXC_API_KEY=your_api_key
-MEXC_API_SECRET=your_api_secret
+
+3. Set up environment variables:
+```bash
+mkdir -p .env-secure
+echo "MEXC_API_KEY=your_api_key" > .env-secure/.env
+echo "MEXC_API_SECRET=your_api_secret" >> .env-secure/.env
 ```
+
+### Configuration
+
+The system is configured through `flash_trading_config.py`, which creates a default configuration file:
+
+```bash
+python flash_trading_config.py
+```
+
+This generates `flash_trading_config.json` with settings for:
+- Trading pairs (BTCUSDC, ETHUSDC)
+- Paper trading parameters
+- Signal generation thresholds
+- Execution rules
 
 ### Running the System
 
-Start the entire system using Docker Compose:
+To run the flash trading system with paper trading:
 
 ```bash
-docker-compose up -d
+python flash_trading.py --duration 3600 --reset
 ```
 
-This will start all components:
-- Market Data Processor: http://localhost:8080
-- Grafana Dashboard: http://localhost:3000 (login: admin/trading123)
-- Prometheus: http://localhost:9090
-
-### Accessing the Trading Dashboard
-
-Open your browser and navigate to:
-
-```
-http://localhost:8080
-```
+Options:
+- `--duration`: Run time in seconds
+- `--reset`: Reset paper trading balances to initial values
+- `--env`: Path to environment file (default: `.env-secure/.env`)
+- `--config`: Path to configuration file (default: `flash_trading_config.json`)
 
 ## Development
 
-### Building the Market Data Processor
+### Testing Components Individually
 
+Test the optimized MEXC client:
 ```bash
-cd boilerplate/rust/market-data-processor
-cargo build --release
+python optimized_mexc_client.py --benchmark
 ```
 
-### Building the Dashboard
-
+Test the paper trading system:
 ```bash
-cd boilerplate/rust/market-data-processor/dashboard
-npm install
-npm run build
+python paper_trading.py --test
 ```
 
-### Running Tests
-
+Test the signal generator:
 ```bash
-cd boilerplate/rust/market-data-processor
-cargo test
+python flash_trading_signals.py --test --duration 60
 ```
 
-## Configuration
+### Adding New Signal Strategies
 
-The system can be configured through environment variables or a `config.json` file:
+To add a new signal strategy:
+1. Extend the `generate_signals` method in `flash_trading_signals.py`
+2. Add configuration parameters in `flash_trading_config.py`
+3. Test the strategy with paper trading before live deployment
 
-- `MEXC_DEFAULT_PAIR`: Default trading pair (default: BTCUSDC)
-- `MEXC_API_KEY`: Your MEXC API key
-- `MEXC_API_SECRET`: Your MEXC API secret
-- `PAPER_TRADING_INITIAL_USDC`: Initial USDC balance for paper trading
-- `PAPER_TRADING_INITIAL_BTC`: Initial BTC balance for paper trading
+## Security Notes
 
-## Troubleshooting
-
-### Windows Docker Issues
-
-If you encounter issues with Docker on Windows:
-
-1. Use WSL2 for Docker Desktop
-2. Ensure proper volume mounting with correct paths
-3. Check network connectivity between containers
-
-### WebSocket Connection Issues
-
-If the dashboard is not receiving real-time updates:
-
-1. Check browser console for WebSocket errors
-2. Verify the Market Data Processor is running
-3. Ensure no firewall is blocking WebSocket connections
+- API keys are stored in `.env-secure/.env` which is excluded from git
+- Never commit API keys or secrets to the repository
+- Use paper trading for all testing and development
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is proprietary and confidential.
+
+## Acknowledgments
+
+- MEXC API documentation and examples
+- Contributors to the Trading-Agent project

@@ -1,78 +1,71 @@
-# Rust build artifacts
-/target/
+# Environment variables and secrets
+.env
+.env-secure/
+.env.*
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+.pnp/
+.pnp.js
+.npm
+.yarn-integrity
+
+# Rust
+target/
+Cargo.lock
 **/*.rs.bk
 
-# Generated gRPC code
-**/src/api/market_data.rs
-
-# Local configuration
-**/config/local.toml
-
-# Environment files
-.env
-**/.env
-
-# Editor/IDE files
+# IDE
 .idea/
 .vscode/
 *.swp
 *.swo
-
-# OS files
 .DS_Store
-Thumbs.db
 
 # Logs
+logs/
 *.log
-**/logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Test coverage
-**/coverage/
+# Docker
+.docker/
+docker-compose.override.yml
 
-# Node.js dependencies
-**/node_modules/
-**/npm-debug.log*
-**/yarn-debug.log*
-**/yarn-error.log*
+# Testing
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
 
-# Python virtual environments and cache
-**/__pycache__/
-**/*.py[cod]
-**/*$py.class
-**/.venv/
-**/venv/
-**/.env/
-**/.pyenv/
-**/pip-log.txt
-**/.pytest_cache/
-
-# Build directories
-**/build/
-**/dist/
-**/.next/
-**/.nuxt/
-
-# Docker volumes
-**/data/
-
-# Binary files
-*.exe
-*.dll
-*.so
-*.dylib
-*.bin
-
-# Rust specific
-Cargo.lock
-**/*.rs.bk
-
-# Mac specific
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Windows specific
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
+# Production
+.env.production
