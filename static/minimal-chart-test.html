@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimal Chart Test</title>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        body {
+            background-color: #121826;
+            color: #e6e9f0;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        #chart-container {
+            width: 800px;
+            height: 400px;
+            margin: 20px auto;
+            border: 1px solid #2d3748;
+        }
+        
+        h1 {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Minimal Chart Test</h1>
+    <div id="chart-container"></div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("DOM loaded, initializing chart");
+            
+            // Get container
+            const container = document.getElementById('chart-container');
+            console.log("Container dimensions:", container.clientWidth, container.clientHeight);
+            
+            // Create chart
+            const chart = LightweightCharts.createChart(container, {
+                width: container.clientWidth,
+                height: container.clientHeight,
+                layout: {
+                    background: { color: '#121826' },
+                    textColor: '#a0aec0',
+                },
+                grid: {
+                    vertLines: { color: '#2d3748' },
+                    horzLines: { color: '#2d3748' },
+                },
+                timeScale: {
+                    timeVisible: true,
+                },
+            });
+            
+            console.log("Chart created:", chart);
+            
+            // Add candlestick series
+            const candleSeries = chart.addCandlestickSeries({
+                upColor: '#48bb78',
+                downColor: '#e53e3e',
+                borderUpColor: '#48bb78',
+                borderDownColor: '#e53e3e',
+                wickUpColor: '#48bb78',
+                wickDownColor: '#e53e3e',
+            });
+            
+            console.log("Candlestick series created:", candleSeries);
+            
+            // Add static data
+            const data = [
+                { time: '2023-01-01', open: 100, high: 105, low: 95, close: 102 },
+                { time: '2023-01-02', open: 102, high: 110, low: 100, close: 108 },
+                { time: '2023-01-03', open: 108, high: 115, low: 105, close: 112 },
+                { time: '2023-01-04', open: 112, high: 120, low: 110, close: 118 },
+                { time: '2023-01-05', open: 118, high: 125, low: 115, close: 120 },
+            ];
+            
+            candleSeries.setData(data);
+            console.log("Data set:", data);
+            
+            // Fit content
+            chart.timeScale().fitContent();
+            console.log("Chart fitted to content");
+        });
+    </script>
+</body>
+</html>

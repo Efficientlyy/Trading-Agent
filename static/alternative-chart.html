@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alternative Chart Solution</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #121826;
+            color: #e6e9f0;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .chart-container {
+            width: 800px;
+            height: 400px;
+            margin: 20px auto;
+            border: 1px solid #2d3748;
+            padding: 10px;
+        }
+        
+        h1 {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Alternative Chart Solution</h1>
+    <div class="chart-container">
+        <canvas id="priceChart"></canvas>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("DOM loaded, initializing chart");
+            
+            // Get canvas context
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            console.log("Canvas context obtained");
+            
+            // Generate sample data
+            const labels = ['Jan 1', 'Jan 2', 'Jan 3', 'Jan 4', 'Jan 5'];
+            const openData = [100, 102, 108, 112, 118];
+            const closeData = [102, 108, 112, 118, 120];
+            const highData = [105, 110, 115, 120, 125];
+            const lowData = [95, 100, 105, 110, 115];
+            
+            // Create chart
+            const chart = new Chart(ctx, {
+                type: 'candlestick',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'BTC/USDC',
+                        data: labels.map((label, index) => ({
+                            x: label,
+                            o: openData[index],
+                            h: highData[index],
+                            l: lowData[index],
+                            c: closeData[index]
+                        })),
+                        backgroundColor: function(context) {
+                            const index = context.dataIndex;
+                            const value = context.dataset.data[index];
+                            return value.o <= value.c ? 'rgba(72, 187, 120, 0.5)' : 'rgba(229, 62, 62, 0.5)';
+                        },
+                        borderColor: function(context) {
+                            const index = context.dataIndex;
+                            const value = context.dataset.data[index];
+                            return value.o <= value.c ? 'rgb(72, 187, 120)' : 'rgb(229, 62, 62)';
+                        },
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            grid: {
+                                color: '#2d3748'
+                            },
+                            ticks: {
+                                color: '#a0aec0'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: '#2d3748'
+                            },
+                            ticks: {
+                                color: '#a0aec0'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#a0aec0'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            console.log("Chart created:", chart);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MEXC Trading Dashboard - Standalone Chart</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        :root {
+            --bg-primary: #121826;
+            --bg-secondary: #1a2332;
+            --bg-tertiary: #232f42;
+            --text-primary: #e6e9f0;
+            --text-secondary: #a0aec0;
+            --accent-primary: #3182ce;
+            --accent-secondary: #4299e1;
+            --success: #48bb78;
+            --danger: #e53e3e;
+            --warning: #ecc94b;
+            --border-color: #2d3748;
+            --chart-grid: #2d3748;
+            --buy-color: #48bb78;
+            --sell-color: #e53e3e;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 1rem;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .ticker {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .ticker-price {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 1rem;
+        }
+
+        .card {
+            background-color: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 1rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        #chart-container {
+            height: 400px;
+            width: 100%;
+        }
+
+        .trades-container {
+            height: 300px;
+            overflow-y: auto;
+        }
+
+        .trades-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            padding: 0.5rem 0;
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .trade-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            padding: 0.25rem 0;
+            font-size: 0.875rem;
+        }
+
+        .trade-row.buy {
+            color: var(--buy-color);
+        }
+
+        .trade-row.sell {
+            color: var(--sell-color);
+        }
+
+        .time-frames {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .time-frame {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            background-color: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .time-frame.active {
+            background-color: var(--accent-primary);
+            color: white;
+        }
+
+        .time-frame:hover:not(.active) {
+            background-color: var(--border-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">MEXC Trading Dashboard</div>
+            <div class="ticker">
+                <div>BTC/USDC</div>
+                <div class="ticker-price" id="current-price">Loading...</div>
+            </div>
+        </header>
+
+        <div class="dashboard">
+            <div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">BTC/USDC Chart</div>
+                        <div class="time-frames">
+                            <div class="time-frame active" data-interval="1m">1m</div>
+                            <div class="time-frame" data-interval="5m">5m</div>
+                            <div class="time-frame" data-interval="15m">15m</div>
+                            <div class="time-frame" data-interval="1h">1h</div>
+                        </div>
+                    </div>
+                    <div id="chart-container"></div>
+                </div>
+            </div>
+
+            <div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Recent Trades</div>
+                    </div>
+                    <div class="trades-container">
+                        <div class="trades-header">
+                            <div>Price</div>
+                            <div>Amount</div>
+                            <div>Time</div>
+                        </div>
+                        <div id="trades-container"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize chart
+        function initChart() {
+            const chartContainer = document.getElementById('chart-container');
+            
+            // Create chart
+            const chart = LightweightCharts.createChart(chartContainer, {
+                width: chartContainer.clientWidth,
+                height: chartContainer.clientHeight,
+                layout: {
+                    background: { color: '#121826' },
+                    textColor: '#a0aec0',
+                },
+                grid: {
+                    vertLines: { color: '#2d3748' },
+                    horzLines: { color: '#2d3748' },
+                },
+                crosshair: {
+                    mode: LightweightCharts.CrosshairMode.Normal,
+                },
+                timeScale: {
+                    borderColor: '#2d3748',
+                    timeVisible: true,
+                },
+                rightPriceScale: {
+                    borderColor: '#2d3748',
+                },
+            });
+            
+            // Add candlestick series
+            const candleSeries = chart.addCandlestickSeries({
+                upColor: '#48bb78',
+                downColor: '#e53e3e',
+                borderUpColor: '#48bb78',
+                borderDownColor: '#e53e3e',
+                wickUpColor: '#48bb78',
+                wickDownColor: '#e53e3e',
+            });
+            
+            // Generate sample data
+            const currentTime = Math.floor(Date.now() / 1000);
+            const sampleData = [];
+            
+            for (let i = 0; i < 50; i++) {
+                const basePrice = 104000 + Math.random() * 1000;
+                const time = currentTime - (50 - i) * 60;
+                
+                sampleData.push({
+                    time: time,
+                    open: basePrice,
+                    high: basePrice + Math.random() * 200,
+                    low: basePrice - Math.random() * 200,
+                    close: basePrice + (Math.random() * 400 - 200),
+                });
+            }
+            
+            // Set sample data
+            candleSeries.setData(sampleData);
+            console.log("Chart initialized with sample data");
+            
+            // Fetch real data
+            fetch('/api/klines')
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        const formattedData = data.map(kline => ({
+                            time: Math.floor(kline.time / 1000),
+                            open: kline.open,
+                            high: kline.high,
+                            low: kline.low,
+                            close: kline.close,
+                        }));
+                        
+                        candleSeries.setData(formattedData);
+                        console.log("Updated chart with real data");
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching klines:', error);
+                });
+            
+            // Resize chart on window resize
+            window.addEventListener('resize', () => {
+                chart.applyOptions({
+                    width: chartContainer.clientWidth,
+                    height: chartContainer.clientHeight,
+                });
+            });
+            
+            return { chart, candleSeries };
+        }
+        
+        // Initialize trades
+        function initTrades() {
+            const tradesContainer = document.getElementById('trades-container');
+            
+            // Generate sample trades
+            const sampleTrades = [];
+            const currentTime = Date.now();
+            
+            for (let i = 0; i < 20; i++) {
+                const basePrice = 104000 + Math.random() * 500;
+                const isBuy = Math.random() > 0.5;
+                
+                sampleTrades.push({
+                    price: basePrice,
+                    quantity: Math.random() * 0.1,
+                    time: currentTime - i * 10000,
+                    isBuyerMaker: !isBuy
+                });
+            }
+            
+            // Render sample trades
+            renderTrades(sampleTrades);
+            console.log("Trades initialized with sample data");
+            
+            // Fetch real trades
+            fetch('/api/trades')
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        renderTrades(data);
+                        console.log("Updated trades with real data");
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching trades:', error);
+                });
+            
+            function renderTrades(trades) {
+                // Clear container
+                tradesContainer.innerHTML = '';
+                
+                // Render trades
+                for (let i = 0; i < Math.min(trades.length, 30); i++) {
+                    const trade = trades[i];
+                    const row = document.createElement('div');
+                    row.className = `trade-row ${trade.isBuyerMaker ? 'sell' : 'buy'}`;
+                    
+                    const time = new Date(trade.time);
+                    const timeStr = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}:${time.getSeconds().toString().padStart(2, '0')}`;
+                    
+                    row.innerHTML = `
+                        <div>${trade.price.toFixed(2)}</div>
+                        <div>${trade.quantity.toFixed(6)}</div>
+                        <div>${timeStr}</div>
+                    `;
+                    tradesContainer.appendChild(row);
+                }
+            }
+        }
+        
+        // Initialize ticker
+        function initTicker() {
+            const priceElement = document.getElementById('current-price');
+            
+            // Fetch ticker data
+            function fetchTicker() {
+                fetch('/api/ticker')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data && data.price) {
+                            priceElement.textContent = data.price.toFixed(2);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching ticker:', error);
+                    });
+            }
+            
+            // Initial fetch
+            fetchTicker();
+            
+            // Update every 5 seconds
+            setInterval(fetchTicker, 5000);
+        }
+        
+        // Initialize everything when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("DOM loaded, initializing dashboard");
+            
+            // Initialize components
+            initChart();
+            initTrades();
+            initTicker();
+            
+            // Set up time frame switching
+            const timeFrames = document.querySelectorAll('.time-frame');
+            timeFrames.forEach(tf => {
+                tf.addEventListener('click', () => {
+                    // Remove active class from all time frames
+                    timeFrames.forEach(t => t.classList.remove('active'));
+                    
+                    // Add active class to clicked time frame
+                    tf.classList.add('active');
+                    
+                    // Get interval
+                    const interval = tf.getAttribute('data-interval');
+                    
+                    // Fetch klines with selected interval
+                    fetch(`/api/klines?interval=${interval}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data && data.length > 0) {
+                                // Reinitialize chart with new data
+                                initChart();
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error fetching klines:', error);
+                        });
+                });
+            });
+        });
+    </script>
+</body>
+</html>

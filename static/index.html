@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MEXC Trading Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #121826;
+            --bg-secondary: #1a2332;
+            --bg-tertiary: #232f42;
+            --text-primary: #e6e9f0;
+            --text-secondary: #a0aec0;
+            --accent-primary: #3182ce;
+            --accent-secondary: #4299e1;
+            --success: #48bb78;
+            --danger: #e53e3e;
+            --warning: #ecc94b;
+            --border-color: #2d3748;
+            --chart-grid: #2d3748;
+            --buy-color: #48bb78;
+            --sell-color: #e53e3e;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 1rem;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .ticker {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .ticker-price {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .ticker-change {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        .positive {
+            background-color: rgba(72, 187, 120, 0.2);
+            color: var(--success);
+        }
+
+        .negative {
+            background-color: rgba(229, 62, 62, 0.2);
+            color: var(--danger);
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            grid-template-rows: auto 1fr;
+            gap: 1rem;
+            height: calc(100vh - 100px);
+        }
+
+        .card {
+            background-color: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .chart-container {
+            grid-column: 1;
+            grid-row: 1 / 3;
+            height: 100%;
+        }
+
+        #price-chart {
+            width: 100%;
+            height: calc(100% - 40px);
+        }
+
+        .order-book {
+            grid-column: 2;
+            grid-row: 1;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .order-book-content {
+            display: flex;
+            flex-direction: column;
+            height: calc(100% - 40px);
+            overflow-y: auto;
+        }
+
+        .order-book-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            padding: 0.5rem 0;
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .order-book-rows {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .order-book-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            padding: 0.25rem 0;
+            font-size: 0.875rem;
+            position: relative;
+        }
+
+        .order-book-row.bid {
+            color: var(--buy-color);
+        }
+
+        .order-book-row.ask {
+            color: var(--sell-color);
+        }
+
+        .depth-bar {
+            position: absolute;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.15;
+        }
+
+        .depth-bar.bid {
+            right: 0;
+            background-color: var(--buy-color);
+        }
+
+        .depth-bar.ask {
+            right: 0;
+            background-color: var(--sell-color);
+        }
+
+        .order-book-row span {
+            position: relative;
+            z-index: 1;
+        }
+
+        .spread {
+            text-align: center;
+            padding: 0.5rem 0;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .trades {
+            grid-column: 2;
+            grid-row: 2;
+            height: 100%;
+            overflow: hidden;
+            min-height: 300px;
+            display: block !important;
+        }
+
+        .trades-content {
+            height: calc(100% - 40px);
+            overflow-y: auto;
+            min-height: 250px;
+            display: block !important;
+        }
+
+        .trades-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            padding: 0.5rem 0;
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .trades-rows {
+            overflow-y: auto;
+            min-height: 200px;
+        }
+
+        .trade-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            padding: 0.25rem 0;
+            font-size: 0.875rem;
+            border-bottom: 1px solid rgba(45, 55, 72, 0.3);
+            position: relative;
+        }
+
+        .trade-row.buy {
+            color: var(--buy-color);
+        }
+
+        .trade-row.sell {
+            color: var(--sell-color);
+        }
+
+        .trade-row::before {
+            content: "";
+            position: absolute;
+            left: -10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 80%;
+            border-radius: 2px;
+        }
+
+        .trade-row.buy::before {
+            background-color: var(--buy-color);
+        }
+
+        .trade-row.sell::before {
+            background-color: var(--sell-color);
+        }
+
+        .trading-form {
+            margin-top: 1rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn-buy {
+            background-color: var(--buy-color);
+            color: white;
+        }
+
+        .btn-buy:hover {
+            background-color: #38a169;
+        }
+
+        .btn-sell {
+            background-color: var(--sell-color);
+            color: white;
+        }
+
+        .btn-sell:hover {
+            background-color: #c53030;
+        }
+
+        .account-info {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 1rem;
+            padding: 1rem;
+            background-color: var(--bg-tertiary);
+            border-radius: 8px;
+        }
+
+        .balance-item {
+            text-align: center;
+        }
+
+        .balance-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.25rem;
+        }
+
+        .balance-value {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .time-frames {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .time-frame {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            background-color: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .time-frame.active {
+            background-color: var(--accent-primary);
+            color: white;
+        }
+
+        .time-frame:hover:not(.active) {
+            background-color: var(--border-color);
+        }
+
+        /* Loading indicator */
+        .loading-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(49, 130, 206, 0.2);
+            border-radius: 50%;
+            border-top-color: var(--accent-primary);
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Empty trades placeholder */
+        #trades-container:empty::after {
+            content: "Waiting for trades...";
+            display: block;
+            text-align: center;
+            padding: 20px;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        /* API error message */
+        .api-error-message {
+            text-align: center;
+            padding: 15px;
+            color: var(--text-secondary);
+            font-style: italic;
+            border: 1px dashed var(--border-color);
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1024px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto;
+            }
+
+            .chart-container {
+                grid-column: 1;
+                grid-row: 1;
+                height: 400px;
+            }
+
+            .order-book {
+                grid-column: 1;
+                grid-row: 2;
+                height: 300px;
+            }
+
+            .trades {
+                grid-column: 1;
+                grid-row: 3;
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">MEXC Trading Dashboard</div>
+            <div class="ticker">
+                <div>BTC/USDC</div>
+                <div class="ticker-price" id="current-price">Loading...</div>
+                <div class="ticker-change" id="price-change">0.00%</div>
+            </div>
+        </header>
+
+        <div class="dashboard">
+            <div class="card chart-container">
+                <div class="card-header">
+                    <div class="card-title">BTC/USDC Chart</div>
+                    <div class="time-frames">
+                        <div class="time-frame active" data-interval="1m">1m</div>
+                        <div class="time-frame" data-interval="5m">5m</div>
+                        <div class="time-frame" data-interval="15m">15m</div>
+                        <div class="time-frame" data-interval="1h">1h</div>
+                        <div class="time-frame" data-interval="4h">4h</div>
+                        <div class="time-frame" data-interval="1d">1d</div>
+                    </div>
+                </div>
+                <div id="price-chart">
+                    <div class="loading-indicator">
+                        <div class="spinner"></div>
+                        <div>Loading chart data...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card order-book">
+                <div class="card-header">
+                    <div class="card-title">Order Book</div>
+                </div>
+                <div class="order-book-content">
+                    <div class="order-book-header">
+                        <div>Price</div>
+                        <div>Amount</div>
+                        <div>Total</div>
+                    </div>
+                    <div class="order-book-rows" id="asks-container"></div>
+                    <div class="spread" id="spread">Spread: Loading...</div>
+                    <div class="order-book-rows" id="bids-container"></div>
+                </div>
+            </div>
+
+            <div class="card trades">
+                <div class="card-header">
+                    <div class="card-title">Recent Trades</div>
+                </div>
+                <div class="trades-content">
+                    <div class="trades-header">
+                        <div>Price</div>
+                        <div>Amount</div>
+                        <div>Time</div>
+                    </div>
+                    <div class="trades-rows" id="trades-container"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top: 1rem;">
+            <div class="card-header">
+                <div class="card-title">Paper Trading</div>
+            </div>
+            <div class="account-info">
+                <div class="balance-item">
+                    <div class="balance-label">BTC Balance</div>
+                    <div class="balance-value" id="btc-balance">Loading...</div>
+                </div>
+                <div class="balance-item">
+                    <div class="balance-label">USDC Balance</div>
+                    <div class="balance-value" id="usdc-balance">Loading...</div>
+                </div>
+            </div>
+            <div class="trading-form">
+                <div>
+                    <div class="form-group">
+                        <label class="form-label" for="buy-amount">Amount (BTC)</label>
+                        <input type="number" class="form-control" id="buy-amount" step="0.001" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="buy-price">Price (USDC)</label>
+                        <input type="number" class="form-control" id="buy-price" step="0.01" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Total (USDC)</label>
+                        <div id="buy-total" class="form-control">0.00</div>
+                    </div>
+                    <button class="btn btn-buy" id="buy-btn">Buy BTC</button>
+                </div>
+                <div>
+                    <div class="form-group">
+                        <label class="form-label" for="sell-amount">Amount (BTC)</label>
+                        <input type="number" class="form-control" id="sell-amount" step="0.001" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="sell-price">Price (USDC)</label>
+                        <input type="number" class="form-control" id="sell-price" step="0.01" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Total (USDC)</label>
+                        <div id="sell-total" class="form-control">0.00</div>
+                    </div>
+                    <button class="btn btn-sell" id="sell-btn">Sell BTC</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.min.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/fixed-chart.js"></script>
+    <script src="/js/enhanced-trades-fallback.js"></script>
+</body>
+</html>
