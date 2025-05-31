@@ -1,0 +1,30 @@
+version: '3.8'
+name: btc-usdc-trading
+
+services:
+  market-data-processor:
+    build:
+      context: ./boilerplate/rust/market-data-processor
+      dockerfile: Dockerfile
+    container_name: market-data-processor
+    environment:
+      - PAPER_TRADING=true
+      - SERVE_DASHBOARD=true
+      - PAPER_TRADING_INITIAL_BALANCE_USDC=10000
+      - PAPER_TRADING_INITIAL_BALANCE_BTC=1
+      - PAPER_TRADING_SLIPPAGE_MODEL=REALISTIC
+      - PAPER_TRADING_LATENCY_MODEL=NORMAL
+      - PAPER_TRADING_FEE_RATE=0.001
+      - TRADING_PAIRS=BTCUSDC
+      - DEFAULT_ORDER_SIZE=0.1
+      - HTTP_SERVER_ADDR=0.0.0.0:8080
+      - LOG_LEVEL=info
+      - MEXC_API_KEY=${MEXC_API_KEY}
+      - MEXC_API_SECRET=${MEXC_API_SECRET}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./config:/app/config
+    restart: unless-stopped

@@ -1,0 +1,130 @@
+version: '3.8'
+name: trading-agent-system
+
+services:
+  # Market Data Processor with optimized Windows configuration
+  market-data-processor:
+    build:
+      context: ./boilerplate/rust/market-data-processor
+      dockerfile: Dockerfile.windows
+    container_name: market-data-processor
+    environment:
+      - PAPER_TRADING=true
+      - SERVE_DASHBOARD=true
+      - PAPER_TRADING_INITIAL_BALANCE_USDC=10000
+      - PAPER_TRADING_INITIAL_BALANCE_BTC=1
+      - PAPER_TRADING_SLIPPAGE_MODEL=REALISTIC
+      - PAPER_TRADING_LATENCY_MODEL=NORMAL
+      - PAPER_TRADING_FEE_RATE=0.001
+      - TRADING_PAIRS=BTCUSDC
+      - DEFAULT_ORDER_SIZE=0.1
+      - HTTP_SERVER_ADDR=0.0.0.0:8080
+      - GRPC_SERVER_ADDR=0.0.0.0:50051
+      - LOG_LEVEL=info
+      - ENABLE_TELEMETRY=true
+      # Point to Prometheus for metrics
+      - PROMETHEUS_ENDPOINT=http://prometheus:9090
+      # Connect to Jaeger for tracing
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+      # API configuration (will be populated from .env)
+      - MEXC_API_KEY=${MEXC_API_KEY:-}
+      - MEXC_API_SECRET=${MEXC_API_SECRET:-}
+    ports:
+      - "8080:8080"  # HTTP/Dashboard
+      - "50051:50051"  # gRPC
+    volumes:
+      # Use Windows-style paths with drive letter
+      - C:/Users/vp199/Documents/Projects/Trading Agent/boilerplate/rust/market-data-processor/logs:/app/logs
+      - C:/Users/vp199/Documents/Projects/Trading Agent/boilerplate/rust/market-data-processor/config:/app/config
+      - C:/Users/vp199/Documents/Projects/Trading Agent/boilerplate/rust/market-data-processor/data:/app/data
+    networks:
+      - trading-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    # Wait for Prometheus and Jaeger to be ready before starting
+    depends_on:
+      prometheus:
+        condition: service_started
+      jaeger:
+        condition: service_started
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - C:/Users/vp199/Documents/Projects/Trading Agent/boilerplate/rust/market-data-processor/monitoring/prometheus:/etc/prometheus
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - trading-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # Grafana for metrics visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - C:/Users/vp199/Documents/Projects/Trading Agent/boilerplate/rust/market-data-processor/monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=trading123
+      - GF_USERS_ALLOW_SIGN_UP=false
+      # Add Prometheus data source automatically
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    networks:
+      - trading-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    # Wait for Prometheus to be ready
+    depends_on:
+      prometheus:
+        condition: service_started
+    restart: unless-stopped
+
+  # Jaeger for distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: jaeger
+    ports:
+      - "16686:16686"  # Web UI
+      - "14268:14268"  # Collector HTTP
+      - "14250:14250"  # Collector gRPC
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+    networks:
+      - trading-network
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  trading-network:
+    driver: bridge
