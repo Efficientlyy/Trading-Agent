@@ -1,4 +1,4 @@
-// Docker Compose file for the MEXC Trading System
+# Docker Compose file for the MEXC Trading System
 version: '3.8'
 
 services:

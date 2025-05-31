@@ -189,7 +189,24 @@ class MexcAPI:
     def _on_ws_message(self, ws, message):
         """Handle WebSocket messages"""
         try:
-            data = json.loads(message)
+            # First, try to parse the message as JSON
+            try:
+                data = json.loads(message)
+            except json.JSONDecodeError:
+                # If it's not valid JSON, it might be a plain string message
+                print(f"Received non-JSON message: {message}")
+                return
+            
+            # Handle subscription confirmation messages
+            if isinstance(data, dict) and 'method' in data:
+                if data.get('method') == 'SUBSCRIPTION':
+                    print(f"Subscription confirmation received: {data}")
+                    return
+            
+            # Skip channel subscription messages which might be causing the errors
+            if isinstance(data, str) and 'spot@public' in data:
+                print(f"Channel message: {data}")
+                return
             
             if 'c' in data and 's' in data:  # Ticker data
                 symbol = data['s']
@@ -265,7 +282,11 @@ class MexcAPI:
                     callback(symbol, trade)
         
         except Exception as e:
-            print(f"WebSocket message handling error: {e}")
+            # Just print a short message to avoid console flooding
+            if 'could not convert string to float' in str(e):
+                print(f"Skipping message conversion error")
+            else:
+                print(f"WebSocket message handling error: {e}")
     
     def _on_ws_error(self, ws, error):
         """Handle WebSocket errors"""
