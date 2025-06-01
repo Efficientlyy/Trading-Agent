@@ -1,0 +1,16 @@
+{
+  "timestamp": "20250531_212501",
+  "duration": 2.0014536380767822,
+  "sessions": [],
+  "signals": [],
+  "orders": [],
+  "trades": [],
+  "balances": {},
+  "metrics": {},
+  "errors": [
+    {
+      "timestamp": 1748741101.5298426,
+      "error": "'OptimizedMexcClient' object has no attribute 'get_ticker_price'"
+    }
+  ]
+}

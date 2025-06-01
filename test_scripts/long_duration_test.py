@@ -20,6 +20,14 @@ from threading import Thread, Event
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Import error handling utilities
+from error_handling_utils import (
+    safe_get, safe_get_nested, safe_list_access,
+    validate_api_response, log_exception,
+    parse_float_safely, parse_int_safely,
+    handle_api_error, APIResponseValidationError
+)
+
 from flash_trading_signals import SignalGenerator
 from trading_session_manager import TradingSessionManager
 from optimized_mexc_client import OptimizedMexcClient
@@ -209,52 +217,177 @@ class LongDurationTest:
         except Exception as e:
             logger.error(f"Error collecting system metrics: {str(e)}")
     
+    @handle_api_error
     def _collect_hourly_metrics(self):
         """Collect and save hourly metrics"""
-        # Get current balances
-        balances = self.paper_trading.get_all_balances()
+        try:
+            # Get current balances with validation using error handling utilities
+            try:
+                if hasattr(self, 'paper_trading') and hasattr(self.paper_trading, 'get_all_balances'):
+                    balances = self.paper_trading.get_all_balances()
+                    is_valid, error_msg = validate_api_response(balances, dict)
+                    if not is_valid:
+                        logger.error(f"Invalid balances response: {error_msg}")
+                        balances = {}
+                else:
+                    logger.error("Paper trading system not accessible")
+                    balances = {}
+            except Exception as e:
+                log_exception(e, "Error getting balances")
+                balances = {}
+            
+            # Calculate total equity in USDC with validation using error handling utilities
+            total_equity = parse_float_safely(safe_get(balances, "USDC"), 0.0)
+            
+            # Add BTC value with robust validation using error handling utilities
+            btc_balance = parse_float_safely(safe_get(balances, "BTC"), 0.0)
+            if btc_balance > 0:
+                try:
+                    btc_price_data = self.client.get_ticker_price("BTCUSDC")
+                    
+                    # Validate price data using error handling utilities
+                    is_valid, error_msg = validate_api_response(btc_price_data, dict, ["price"])
+                    if is_valid:
+                        btc_price = parse_float_safely(safe_get(btc_price_data, "price"))
+                        if btc_price > 0:
+                            total_equity += btc_balance * btc_price
+                        else:
+                            logger.error(f"Invalid BTC price value: {btc_price}")
+                    else:
+                        logger.error(f"Invalid BTC price data: {error_msg}")
+                except Exception as e:
+                    log_exception(e, "Error getting BTC price")
+            
+            # Add ETH value with robust validation using error handling utilities
+            eth_balance = parse_float_safely(safe_get(balances, "ETH"), 0.0)
+            if eth_balance > 0:
+                try:
+                    eth_price_data = self.client.get_ticker_price("ETHUSDC")
+                    
+                    # Validate price data using error handling utilities
+                    is_valid, error_msg = validate_api_response(eth_price_data, dict, ["price"])
+                    if is_valid:
+                        eth_price = parse_float_safely(safe_get(eth_price_data, "price"))
+                        if eth_price > 0:
+                            total_equity += eth_balance * eth_price
+                        else:
+                            logger.error(f"Invalid ETH price value: {eth_price}")
+                    else:
+                        logger.error(f"Invalid ETH price data: {error_msg}")
+                except Exception as e:
+                    log_exception(e, "Error getting ETH price")
         
-        # Calculate total equity in USDC
-        total_equity = balances.get("USDC", 0.0)
+        # Get current session with validation using error handling utilities
+        try:
+            current_session = "UNKNOWN"
+            if hasattr(self, 'session_manager') and hasattr(self.session_manager, 'get_current_session_name'):
+                session = self.session_manager.get_current_session_name()
+                if session and isinstance(session, str):
+                    current_session = session
+            else:
+                logger.error("Session manager not accessible")
+        except Exception as e:
+            log_exception(e, "Error getting current session")
+            current_session = "UNKNOWN"
         
-        # Add BTC value
-        btc_balance = balances.get("BTC", 0.0)
-        if btc_balance > 0:
-            btc_price = self.client.get_ticker_price("BTCUSDC")
-            if btc_price:
-                total_equity += btc_balance * float(btc_price["price"])
+        # Create hourly metrics with validation using error handling utilities
+        try:
+            hourly_metric = {
+                "timestamp": int(time.time() * 1000),
+                "session": current_session,
+                "balances": balances,
+                "total_equity": total_equity
+            }
+            
+            # Add metrics with validation using error handling utilities
+            try:
+                # Validate metrics structure
+                is_valid, error_msg = validate_api_response(self.metrics, dict, [
+                    "signals_by_session", "trades_by_session", 
+                    "wins_by_session", "losses_by_session", "pnl_by_session"
+                ])
+                
+                if is_valid:
+                    # Add signals with validation
+                    hourly_metric["signals"] = dict(safe_get(self.metrics, "signals_by_session", 
+                                                   {"ASIA": 0, "EUROPE": 0, "US": 0}))
+                    
+                    # Add trades with validation
+                    hourly_metric["trades"] = dict(safe_get(self.metrics, "trades_by_session", 
+                                                  {"ASIA": 0, "EUROPE": 0, "US": 0}))
+                    
+                    # Add wins with validation
+                    hourly_metric["wins"] = dict(safe_get(self.metrics, "wins_by_session", 
+                                                {"ASIA": 0, "EUROPE": 0, "US": 0}))
+                    
+                    # Add losses with validation
+                    hourly_metric["losses"] = dict(safe_get(self.metrics, "losses_by_session", 
+                                                  {"ASIA": 0, "EUROPE": 0, "US": 0}))
+                    
+                    # Add pnl with validation
+                    hourly_metric["pnl"] = dict(safe_get(self.metrics, "pnl_by_session", 
+                                               {"ASIA": 0.0, "EUROPE": 0.0, "US": 0.0}))
+                else:
+                    logger.error(f"Metrics object is invalid: {error_msg}")
+                    hourly_metric["signals"] = {"ASIA": 0, "EUROPE": 0, "US": 0}
+                    hourly_metric["trades"] = {"ASIA": 0, "EUROPE": 0, "US": 0}
+                    hourly_metric["wins"] = {"ASIA": 0, "EUROPE": 0, "US": 0}
+                    hourly_metric["losses"] = {"ASIA": 0, "EUROPE": 0, "US": 0}
+                    hourly_metric["pnl"] = {"ASIA": 0.0, "EUROPE": 0.0, "US": 0.0}
+            except Exception as e:
+                log_exception(e, "Error adding metrics to hourly data")
+                hourly_metric["error"] = str(e)
+        except Exception as e:
+            log_exception(e, "Error creating hourly metric")
+            hourly_metric = {
+                "timestamp": int(time.time() * 1000),
+                "error": str(e)
+            }
         
-        # Add ETH value
-        eth_balance = balances.get("ETH", 0.0)
-        if eth_balance > 0:
-            eth_price = self.client.get_ticker_price("ETHUSDC")
-            if eth_price:
-                total_equity += eth_balance * float(eth_price["price"])
+        # Add to metrics with validation using error handling utilities
+        try:
+            is_valid, error_msg = validate_api_response(self.metrics, dict, ["hourly_metrics"])
+            if is_valid:
+                hourly_metrics = safe_get(self.metrics, "hourly_metrics")
+                if not isinstance(hourly_metrics, list):
+                    self.metrics["hourly_metrics"] = []
+                self.metrics["hourly_metrics"].append(hourly_metric)
+            else:
+                logger.error(f"Cannot add hourly metric: {error_msg}")
+        except Exception as e:
+            log_exception(e, "Error adding hourly metric to metrics")
         
-        # Get current session
-        current_session = self.session_manager.get_current_session_name()
-        
-        # Create hourly metrics
-        hourly_metric = {
-            "timestamp": int(time.time() * 1000),
-            "session": current_session,
-            "balances": balances,
-            "total_equity": total_equity,
-            "signals": dict(self.metrics["signals_by_session"]),
-            "trades": dict(self.metrics["trades_by_session"]),
-            "wins": dict(self.metrics["wins_by_session"]),
-            "losses": dict(self.metrics["losses_by_session"]),
-            "pnl": dict(self.metrics["pnl_by_session"])
-        }
-        
-        # Add to metrics
-        self.metrics["hourly_metrics"].append(hourly_metric)
-        
-        # Log hourly update
-        logger.info(f"Hour {len(self.metrics['hourly_metrics'])} metrics collected")
-        logger.info(f"Current session: {current_session}")
-        logger.info(f"Total equity: {total_equity:.2f} USDC")
-        logger.info(f"Trades by session: {self.metrics['trades_by_session']}")
+        # Log hourly update with validation
+        try:
+            # Log metrics count with validation
+            try:
+                if isinstance(self.metrics, dict) and "hourly_metrics" in self.metrics and isinstance(self.metrics["hourly_metrics"], list):
+                    logger.info(f"Hour {len(self.metrics['hourly_metrics'])} metrics collected")
+                else:
+                    logger.info("Hourly metrics collected (count unknown)")
+            except Exception as e:
+                logger.error(f"Error logging metrics count: {str(e)}")
+            
+            # Log session with validation
+            logger.info(f"Current session: {current_session}")
+            
+            # Log equity with validation
+            if isinstance(total_equity, (int, float)):
+                logger.info(f"Total equity: {total_equity:.2f} USDC")
+            else:
+                logger.info("Total equity: Unknown")
+            
+            # Log trades with validation
+            try:
+                if isinstance(self.metrics, dict) and "trades_by_session" in self.metrics and isinstance(self.metrics["trades_by_session"], dict):
+                    logger.info(f"Trades by session: {self.metrics['trades_by_session']}")
+                else:
+                    logger.info("Trades by session: Data unavailable")
+            except Exception as e:
+                logger.error(f"Error logging trades data: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error in hourly update logging: {str(e)}")
+            logger.info("Hourly metrics collection completed with errors")
     
     def run(self):
         """Run the long duration test"""

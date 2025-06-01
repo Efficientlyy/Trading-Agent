@@ -1,0 +1,16 @@
+{
+  "timestamp": "20250531_235747",
+  "duration": 9.5367431640625e-05,
+  "sessions": [],
+  "signals": [],
+  "orders": [],
+  "trades": [],
+  "balances": {},
+  "metrics": {},
+  "errors": [
+    {
+      "timestamp": 1748750267.6114402,
+      "error": "'FlashTradingSignals' object has no attribute 'start'"
+    }
+  ]
+}

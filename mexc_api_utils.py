@@ -44,17 +44,50 @@ class MexcApiClient:
     
     def get_server_time(self):
         """Get server time from MEXC API"""
-        url = f"{self.base_url}{self.api_v3}/time"
-        response = requests.get(url)
-        if response.status_code == 200:
-            try:
-                data = response.json()
-                return data.get('serverTime', int(time.time() * 1000))
-            except ValueError:
-                # Return current time if JSON parsing fails
+        try:
+            url = f"{self.base_url}{self.api_v3}/time"
+            
+            # Add timeout to prevent hanging
+            response = requests.get(url, timeout=5.0)
+            
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    
+                    # Validate response structure
+                    if not isinstance(data, dict):
+                        print(f"Invalid server time response type: {type(data)}")
+                        return int(time.time() * 1000)
+                        
+                    server_time = data.get('serverTime')
+                    if server_time is None:
+                        print("Missing serverTime in response")
+                        return int(time.time() * 1000)
+                        
+                    # Validate server time is a reasonable value
+                    try:
+                        server_time = int(server_time)
+                        current_time = int(time.time() * 1000)
+                        
+                        # Check if server time is within 24 hours of current time
+                        if abs(server_time - current_time) > 86400000:  # 24 hours in milliseconds
+                            print(f"Server time appears invalid: {server_time}")
+                            return current_time
+                            
+                        return server_time
+                    except (ValueError, TypeError):
+                        print(f"Invalid serverTime format: {server_time}")
+                        return int(time.time() * 1000)
+                except ValueError as e:
+                    # Return current time if JSON parsing fails
+                    print(f"Error parsing server time response: {str(e)}")
+                    return int(time.time() * 1000)
+            else:
+                # Return current time instead of raising exception for robustness
+                print(f"Server time request failed with status {response.status_code}")
                 return int(time.time() * 1000)
-        else:
-            # Return current time instead of raising exception for robustness
+        except Exception as e:
+            print(f"Error getting server time: {str(e)}")
             return int(time.time() * 1000)
     
     def generate_signature(self, params):
@@ -82,10 +115,24 @@ class MexcApiClient:
         """
         url = f"{self.base_url}{endpoint}"
         try:
-            response = requests.request(method, url, params=params)
+            # Add timeout to prevent hanging
+            response = requests.request(method, url, params=params, timeout=10.0)
+            
             if response.status_code == 200:
-                return response.json()
+                try:
+                    result = response.json()
+                    
+                    # Validate response is a dict or list
+                    if not isinstance(result, (dict, list)):
+                        print(f"Invalid response type from {endpoint}: {type(result)}")
+                        return {} if endpoint.endswith('account') else []
+                        
+                    return result
+                except ValueError as e:
+                    print(f"JSON parsing error for {endpoint}: {str(e)}")
+                    return {}
             else:
+                print(f"API request failed with status {response.status_code}: {response.text}")
                 return {}
         except Exception as e:
             print(f"Error in public request: {str(e)}")
@@ -97,41 +144,86 @@ class MexcApiClient:
         Returns:
             dict: JSON response if successful, empty dict if failed
         """
-        url = f"{self.base_url}{endpoint}"
-        
-        # Prepare parameters
-        request_params = params.copy() if params else {}
-        
-        # Add timestamp
-        request_params['timestamp'] = self.get_server_time()
-        
-        # Generate signature
-        signature = self.generate_signature(request_params)
-        request_params['signature'] = signature
-        
-        # Set headers
-        headers = {
-            'X-MEXC-APIKEY': self.api_key,
-        }
-        
         try:
-            # Make request
-            if method == 'GET':
-                response = requests.get(url, params=request_params, headers=headers)
-            elif method == 'POST':
-                response = requests.post(url, params=request_params, headers=headers)
-            elif method == 'DELETE':
-                response = requests.delete(url, params=request_params, headers=headers)
-            else:
-                raise ValueError(f"Unsupported HTTP method: {method}")
+            url = f"{self.base_url}{endpoint}"
             
-            # Parse response
-            if response.status_code == 200:
-                try:
-                    return response.json()
-                except ValueError:
+            # Validate method
+            if not method or method not in ['GET', 'POST', 'DELETE']:
+                print(f"Invalid HTTP method: {method}")
+                return {}
+                
+            # Prepare parameters with validation
+            if params is not None and not isinstance(params, dict):
+                print(f"Invalid params type: {type(params)}, expected dict")
+                params = {}
+                
+            request_params = params.copy() if params else {}
+            
+            # Add timestamp with validation
+            try:
+                timestamp = self.get_server_time()
+                if not timestamp or not isinstance(timestamp, int):
+                    print(f"Invalid timestamp: {timestamp}")
+                    timestamp = int(time.time() * 1000)
+                request_params['timestamp'] = timestamp
+            except Exception as e:
+                print(f"Error getting timestamp: {str(e)}")
+                request_params['timestamp'] = int(time.time() * 1000)
+            
+            # Generate signature with validation
+            try:
+                signature = self.generate_signature(request_params)
+                if not signature or not isinstance(signature, str):
+                    print(f"Invalid signature: {signature}")
                     return {}
-            else:
+                request_params['signature'] = signature
+            except Exception as e:
+                print(f"Error generating signature: {str(e)}")
+                return {}
+            
+            # Set headers with validation
+            if not self.api_key or not isinstance(self.api_key, str):
+                print(f"Invalid API key: {self.api_key}")
+                return {}
+                
+            headers = {
+                'X-MEXC-APIKEY': self.api_key,
+            }
+            
+            # Make request with timeout to prevent hanging
+            try:
+                if method == 'GET':
+                    response = requests.get(url, params=request_params, headers=headers, timeout=10.0)
+                elif method == 'POST':
+                    response = requests.post(url, params=request_params, headers=headers, timeout=10.0)
+                elif method == 'DELETE':
+                    response = requests.delete(url, params=request_params, headers=headers, timeout=10.0)
+                else:
+                    print(f"Unsupported HTTP method: {method}")
+                    return {}
+                
+                # Parse response with validation
+                if response.status_code == 200:
+                    try:
+                        result = response.json()
+                        
+                        # Validate response is a dict or list
+                        if not isinstance(result, (dict, list)):
+                            print(f"Invalid response type from {endpoint}: {type(result)}")
+                            return {} if endpoint.endswith('account') or endpoint.endswith('order') else []
+                            
+                        return result
+                    except ValueError as e:
+                        print(f"JSON parsing error for {endpoint}: {str(e)}")
+                        return {}
+                else:
+                    print(f"API signed request failed with status {response.status_code}: {response.text}")
+                    return {}
+            except requests.exceptions.Timeout:
+                print(f"Request timeout for {endpoint}")
+                return {}
+            except requests.exceptions.RequestException as e:
+                print(f"Request error for {endpoint}: {str(e)}")
                 return {}
         except Exception as e:
             print(f"Error in signed request: {str(e)}")
@@ -139,17 +231,36 @@ class MexcApiClient:
     
     def test_connectivity(self):
         """Test API connectivity and authentication"""
-        # Test public endpoint
-        ping_response = self.public_request('GET', f"{self.api_v3}/ping")
-        if not ping_response:
-            return False, "Public API test failed: Empty response"
-        
-        # Test authenticated endpoint with minimal parameters
-        account_response = self.signed_request('GET', f"{self.api_v3}/account")
-        if not account_response:
-            return False, "Authentication failed: Empty response"
-        
-        return True, "API connectivity and authentication successful"
+        try:
+            # Test public endpoint with validation
+            ping_response = self.public_request('GET', f"{self.api_v3}/ping")
+            if not ping_response and ping_response != {}:  # Empty dict is valid for ping
+                return False, "Public API test failed: Empty response"
+            
+            # Test authenticated endpoint with minimal parameters
+            account_response = self.signed_request('GET', f"{self.api_v3}/account")
+            
+            # Validate account response
+            if not account_response:
+                return False, "Authentication failed: Empty response"
+                
+            if not isinstance(account_response, dict):
+                return False, f"Authentication failed: Invalid response type: {type(account_response)}"
+                
+            # Check for required fields in account response
+            required_fields = ["makerCommission", "takerCommission", "balances"]
+            for field in required_fields:
+                if field not in account_response:
+                    return False, f"Authentication failed: Missing required field '{field}' in response"
+            
+            # Validate balances field
+            balances = account_response.get("balances")
+            if not isinstance(balances, list):
+                return False, f"Authentication failed: Invalid balances type: {type(balances)}"
+            
+            return True, "API connectivity and authentication successful"
+        except Exception as e:
+            return False, f"API connectivity test failed with error: {str(e)}"
 
 # Example usage
 if __name__ == "__main__":

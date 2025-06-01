@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Flash Trading Signals with Session Awareness
 
@@ -17,6 +16,7 @@ from threading import Thread, Event, RLock
 from collections import deque
 from optimized_mexc_client import OptimizedMexcClient
 from trading_session_manager import TradingSessionManager
+from error_handling_utils import safe_get, safe_get_nested, validate_api_response, handle_api_error, log_exception, parse_float_safely
 
 # Configure logging
 logging.basicConfig(
@@ -98,186 +98,193 @@ class MarketState:
         prices = np.array(list(self.price_history))
         
         # Calculate momentum (rate of change)
-        self.momentum = prices[-1] - prices[0]
+        if len(prices) >= 10:
+            self.momentum = (prices[-1] - prices[-10]) / prices[-10]
         
-        # Calculate volatility (standard deviation)
-        self.volatility = np.std(prices)
+        # Calculate volatility (standard deviation of returns)
+        if len(prices) >= 6:  # Need at least 6 prices for 5 returns
+            try:
+                # Get price differences (n-1 elements)
+                price_diffs = np.diff(prices[-5:])
+                
+                # Get denominator prices (must be same length as price_diffs)
+                denominator_prices = prices[-6:-1]
+                
+                # Ensure both arrays have the same shape
+                min_length = min(len(price_diffs), len(denominator_prices))
+                price_diffs = price_diffs[:min_length]
+                denominator_prices = denominator_prices[:min_length]
+                
+                # Calculate returns with validated shapes
+                returns = price_diffs / denominator_prices
+                
+                # Calculate volatility
+                if len(returns) > 0:
+                    self.volatility = np.std(returns) * np.sqrt(len(returns))
+                else:
+                    self.volatility = 0.0
+            except Exception as e:
+                logger.error(f"Error calculating volatility: {str(e)}")
+                self.volatility = 0.0
         
-        # Calculate trend (positive = uptrend, negative = downtrend)
+        # Calculate trend (simple moving average direction)
         if len(prices) >= 20:
-            short_ma = np.mean(prices[-10:])
-            long_ma = np.mean(prices[-20:])
-            self.trend = short_ma - long_ma
-        else:
-            self.trend = self.momentum
-    
-    def update_trade(self, price, side, timestamp=None):
-        """Update last trade information"""
-        self.last_trade_price = price
-        self.last_trade_side = side
-        self.last_trade_time = timestamp or int(time.time() * 1000)
+            sma_short = np.mean(prices[-5:])
+            sma_long = np.mean(prices[-20:])
+            self.trend = sma_short - sma_long
 
-
-class SignalGenerator:
-    """Generates trading signals based on market state with session awareness"""
+class FlashTradingSignals:
+    """Signal generation and decision making for flash trading"""
     
-    def __init__(self, client=None, env_path=None, config=None):
-        """Initialize signal generator with API client and configuration"""
-        self.client = client or OptimizedMexcClient(env_path=env_path)
-        self.config = {
-            "imbalance_threshold": 0.2,
-            "volatility_threshold": 0.1,
-            "momentum_threshold": 0.05,
-            "min_spread_bps": 1.0,
-            "max_spread_bps": 50.0,
-            "order_book_depth": 10,
-            "update_interval_ms": 100,
-            "signal_interval_ms": 50,
-            "use_cached_data": True,
-            "cache_max_age_ms": 200
-        }
+    def __init__(self, api_key=None, api_secret=None, env_path=None):
+        """Initialize flash trading signals"""
+        # Initialize API client
+        self.api_client = OptimizedMexcClient(api_key, api_secret, env_path)
         
-        if config:
-            self.config.update(config)
-        
-        # Market states by symbol
-        self.market_states = {}
-        
-        # Recent signals
-        self.recent_signals = deque(maxlen=1000)
-        
-        # Running state
-        self.running = False
-        self.stop_event = Event()
-        self.update_thread = None
-        self.signal_thread = None
-        
-        # Lock for thread safety
-        self.lock = RLock()
-        
-        # Session manager for session-aware parameters
+        # Initialize session manager
         self.session_manager = TradingSessionManager()
         
-        # Statistics
-        self.stats = {
-            "updates_processed": 0,
-            "signals_generated": 0,
-            "decisions_made": 0,
-            "orders_placed": 0,
-            "errors": 0
+        # Signal history
+        self.signals = []
+        self.max_signals = 1000
+        
+        # Market state cache
+        self.market_states = {}
+        
+        # Thread safety for client access
+        self.client_lock = RLock()
+        
+        # Thread safety for market state updates
+        self.market_state_lock = RLock()
+        
+        # Configuration dictionary for compatibility with flash_trading.py
+        self.config = {
+            "imbalance_threshold": 0.2,
+            "momentum_threshold": 0.005,
+            "volatility_threshold": 0.002,
+            "min_signal_strength": 0.1,
+            "position_size": 0.1
         }
+        
+        # Thread management for compatibility with flash_trading.py
+        self.running = False
+        self.symbols = []
+        self.update_thread = None
+        self.stop_event = Event()
     
+    @handle_api_error
     def start(self, symbols):
-        """Start signal generation for specified symbols"""
+        """Start signal generation for specified symbols
+        
+        Args:
+            symbols: List of trading pair symbols (e.g., ['BTCUSDC', 'ETHUSDC'])
+            
+        Returns:
+            bool: True if started successfully, False otherwise
+        """
         if self.running:
             logger.warning("Signal generator already running")
             return False
+            
+        if not symbols or not isinstance(symbols, list):
+            logger.error(f"Invalid symbols list: {symbols}")
+            return False
+            
+        # Store symbols
+        self.symbols = symbols
         
-        with self.lock:
-            # Initialize market states
-            for symbol in symbols:
-                self.market_states[symbol] = MarketState(symbol)
-            
-            # Reset stop event
-            self.stop_event.clear()
-            
-            # Start update thread
-            self.update_thread = Thread(target=self._update_loop, args=(symbols,))
-            self.update_thread.daemon = True
-            self.update_thread.start()
-            
-            # Start signal thread
-            self.signal_thread = Thread(target=self._signal_loop, args=(symbols,))
-            self.signal_thread.daemon = True
-            self.signal_thread.start()
-            
-            # Set running state
-            self.running = True
-            
-            logger.info(f"Signal generator started for symbols: {symbols}")
-            return True
-    
+        # Reset stop event
+        self.stop_event = Event()
+        
+        # Start update thread
+        self.update_thread = Thread(target=self._update_loop)
+        self.update_thread.daemon = True
+        self.update_thread.start()
+        
+        # Set running state
+        self.running = True
+        
+        logger.info(f"Signal generator started for symbols: {symbols}")
+        return True
+        
+    @handle_api_error
     def stop(self):
-        """Stop signal generation"""
+        """Stop signal generation
+        
+        Returns:
+            bool: True if stopped successfully, False otherwise
+        """
         if not self.running:
             logger.warning("Signal generator not running")
             return False
+            
+        # Signal thread to stop
+        self.stop_event.set()
         
-        with self.lock:
-            # Set stop event
-            self.stop_event.set()
+        # Wait for thread to finish
+        if self.update_thread and self.update_thread.is_alive():
+            self.update_thread.join(timeout=5.0)
             
-            # Wait for threads to stop
-            if self.update_thread:
-                self.update_thread.join(timeout=2.0)
-            
-            if self.signal_thread:
-                self.signal_thread.join(timeout=2.0)
-            
-            # Reset running state
-            self.running = False
-            
-            # Save state
-            self._save_state()
-            
-            logger.info("Signal generator stopped")
-            return True
-    
-    def _update_loop(self, symbols):
+        # Set running state
+        self.running = False
+        
+        logger.info("Signal generator stopped")
+        return True
+        
+    @handle_api_error
+    def _update_loop(self):
         """Background thread for updating market states"""
-        while not self.stop_event.is_set():
-            try:
-                # Update market states for all symbols
-                for symbol in symbols:
-                    self._update_market_state(symbol)
-                
-                # Update statistics
-                self.stats["updates_processed"] += 1
-                
-                # Sleep for update interval
-                self.stop_event.wait(self.config["update_interval_ms"] / 1000)
-                
-            except Exception as e:
-                logger.error(f"Error in update loop: {str(e)}")
-                self.stats["errors"] += 1
-                self.stop_event.wait(1.0)  # Sleep longer on error
-    
-    def _signal_loop(self, symbols):
-        """Background thread for generating signals"""
-        while not self.stop_event.is_set():
-            try:
-                # Generate signals for all symbols
-                for symbol in symbols:
-                    signals = self.generate_signals(symbol)
-                    
-                    # Add signals to recent signals
-                    with self.lock:
-                        for signal in signals:
-                            self.recent_signals.append(signal)
-                            self.stats["signals_generated"] += 1
-                
-                # Sleep for signal interval
-                self.stop_event.wait(self.config["signal_interval_ms"] / 1000)
-                
-            except Exception as e:
-                logger.error(f"Error in signal loop: {str(e)}")
-                self.stats["errors"] += 1
-                self.stop_event.wait(1.0)  # Sleep longer on error
-    
-    def _update_market_state(self, symbol):
-        """Update market state for a symbol"""
         try:
-            # Get order book with robust error handling
-            order_book = self.client.get_order_book(
-                symbol, 
-                limit=self.config["order_book_depth"],
-                use_cache=self.config["use_cached_data"],
-                max_age_ms=self.config["cache_max_age_ms"]
-            )
+            logger.info("Market state update loop started")
             
-            # Validate order book structure
-            if not order_book:
-                logger.warning(f"Empty order book response for {symbol}")
+            while not self.stop_event.is_set():
+                try:
+                    # Update market state for each symbol
+                    for symbol in self.symbols:
+                        if self.stop_event.is_set():
+                            break
+                            
+                        try:
+                            self._update_market_state(symbol)
+                        except Exception as e:
+                            log_exception(e, f"_update_market_state for {symbol}")
+                            
+                    # Sleep for a short interval
+                    self.stop_event.wait(0.5)
+                    
+                except Exception as e:
+                    log_exception(e, "_update_loop iteration")
+                    # Sleep before retrying
+                    self.stop_event.wait(1.0)
+                    
+        except Exception as e:
+            log_exception(e, "_update_loop")
+        finally:
+            logger.info("Market state update loop stopped")
+    @handle_api_error
+    def _update_market_state(self, symbol):
+        """Update market state for a symbol with thread safety and robust validation
+        
+        Args:
+            symbol: Trading pair symbol (e.g., 'BTCUSDC')
+            
+        Returns:
+            bool: True if update was successful, False otherwise
+        """
+        # DIAGNOSTIC: Log before API call
+        logger.debug(f"Updating market state for {symbol}")
+        
+        try:
+            # Thread-safe client access
+            with self.client_lock:
+                # Get order book with diagnostics
+                logger.debug(f"Requesting order book for {symbol}")
+                order_book = self.api_client.get_order_book(symbol, limit=20)
+                logger.debug(f"Order book response type: {type(order_book)}")
+            
+            # Validate order book structure with diagnostics
+            if order_book is None:
+                logger.error(f"CRITICAL: Null order book response for {symbol}")
                 return False
                 
             if not isinstance(order_book, dict):
@@ -287,64 +294,88 @@ class SignalGenerator:
             if 'bids' not in order_book or 'asks' not in order_book:
                 logger.error(f"Missing bids or asks in order book for {symbol}")
                 return False
-                
-            if not order_book.get("bids") or not order_book.get("asks"):
+            
+            # Safe access with validation
+            bids = safe_get(order_book, "bids", [])
+            asks = safe_get(order_book, "asks", [])
+            
+            if not bids or not asks:
                 logger.warning(f"Empty bids or asks in order book for {symbol}")
                 return False
             
-            # Update market state with validated data
-            with self.lock:
-                if symbol not in self.market_states:
-                    self.market_states[symbol] = MarketState(symbol)
+            # Validate bid/ask structure with diagnostics
+            try:
+                # Validate at least one valid bid and ask
+                if len(bids) == 0 or len(asks) == 0:
+                    logger.warning(f"No bids or asks available for {symbol}")
+                    return False
                 
-                self.market_states[symbol].update_order_book(
-                    order_book["bids"],
-                    order_book["asks"]
-                )
-            
-            return True
-            
-            # Return false if validation fails
-            return False
-            
+                # Validate bid/ask format
+                if not isinstance(bids[0], list) or len(bids[0]) < 2:
+                    logger.error(f"Invalid bid format for {symbol}: {bids[0]}")
+                    return False
+                
+                if not isinstance(asks[0], list) or len(asks[0]) < 2:
+                    logger.error(f"Invalid ask format for {symbol}: {asks[0]}")
+                    return False
+                
+                # Thread-safe market state update
+                with self.market_state_lock:
+                    # Create market state if it doesn't exist
+                    if symbol not in self.market_states:
+                        self.market_states[symbol] = MarketState(symbol)
+                    
+                    # Update market state
+                    return self.market_states[symbol].update_order_book(bids, asks)
+            except Exception as e:
+                log_exception(e, f"_update_market_state validation for {symbol}")
+                return False
+                
         except Exception as e:
-            logger.error(f"Error updating market state for {symbol}: {str(e)}")
+            log_exception(e, f"_update_market_state for {symbol}")
             return False
     
+    @handle_api_error
     def generate_signals(self, symbol):
-        """Generate trading signals based on market state and current session"""
+        """Generate trading signals for a symbol
+        
+        Args:
+            symbol: Trading pair symbol (e.g., 'BTCUSDC')
+            
+        Returns:
+            list: List of trading signals
+        """
+        # DIAGNOSTIC: Log before generating signals
+        logger.debug(f"Generating signals for {symbol}")
+        
         try:
-            with self.lock:
+            # Update market state
+            if not self._update_market_state(symbol):
+                logger.warning(f"Failed to update market state for {symbol}")
+                return []
+            
+            # Get current trading session
+            current_session = self.session_manager.get_current_session_name()
+            
+            # Thread-safe market state access
+            with self.market_state_lock:
                 if symbol not in self.market_states:
                     logger.warning(f"No market state available for {symbol}")
                     return []
                 
                 market_state = self.market_states[symbol]
             
-            # Skip if we don't have enough data
-            if not market_state.bids or not market_state.asks or len(market_state.price_history) < 10:
-                return []
-            
-            # Get current trading session
-            current_session = self.session_manager.get_current_session_name()
-            
             # Get session-specific parameters
-            session_params = self.session_manager.get_session_parameter
+            session_params = self.session_manager.get_session_parameters(current_session)
             
-            # Use session-specific thresholds or fall back to defaults
-            imbalance_threshold = session_params("imbalance_threshold", self.config["imbalance_threshold"])
-            volatility_threshold = session_params("volatility_threshold", self.config["volatility_threshold"])
-            momentum_threshold = session_params("momentum_threshold", self.config["momentum_threshold"])
-            min_spread_bps = session_params("min_spread_bps", self.config["min_spread_bps"])
-            max_spread_bps = session_params("max_spread_bps", self.config["max_spread_bps"])
+            # Extract thresholds from session parameters with safe defaults
+            imbalance_threshold = safe_get(session_params, "imbalance_threshold", 0.2)
+            momentum_threshold = safe_get(session_params, "momentum_threshold", 0.005)
+            volatility_threshold = safe_get(session_params, "volatility_threshold", 0.002)
             
             signals = []
             
-            # Check if spread is within acceptable range
-            if market_state.spread_bps < min_spread_bps or market_state.spread_bps > max_spread_bps:
-                return []
-            
-            # Order book imbalance signal
+            # Order imbalance signal
             if abs(market_state.order_imbalance) > imbalance_threshold:
                 signal_type = "BUY" if market_state.order_imbalance > 0 else "SELL"
                 signals.append({
@@ -390,247 +421,143 @@ class SignalGenerator:
             return signals
             
         except Exception as e:
-            logger.error(f"Error generating signals for {symbol}: {str(e)}")
+            log_exception(e, f"generate_signals for {symbol}")
             return []
     
+    @handle_api_error
     def get_recent_signals(self, count=10, symbol=None):
         """Get recent signals, optionally filtered by symbol"""
-        with self.lock:
-            if symbol:
-                filtered = [s for s in self.recent_signals if s["symbol"] == symbol]
-                return list(filtered)[-count:]
-            else:
-                return list(self.recent_signals)[-count:]
-    
-    def make_trading_decision(self, symbol, signals=None):
-        """Make trading decision based on signals and current session"""
         try:
-            # Get signals if not provided
-            if signals is None:
-                signals = self.get_recent_signals(10, symbol)
+            # Thread-safe signals access
+            signals_copy = self.signals.copy()
             
-            if not signals:
+            # Filter by symbol if provided
+            if symbol:
+                signals_copy = [s for s in signals_copy if s.get("symbol") == symbol]
+            
+            # Return most recent signals
+            return signals_copy[-count:]
+        except Exception as e:
+            log_exception(e, "get_recent_signals")
+            return []
+    
+    @handle_api_error
+    def add_signal(self, signal):
+        """Add a new signal to history"""
+        try:
+            # Thread-safe signals update
+            self.signals.append(signal)
+            
+            # Trim signal history if needed
+            if len(self.signals) > self.max_signals:
+                self.signals = self.signals[-self.max_signals:]
+        except Exception as e:
+            log_exception(e, "add_signal")
+    
+    @handle_api_error
+    def make_trading_decision(self, symbol, signals):
+        """Make a trading decision based on signals
+        
+        Args:
+            symbol: Trading pair symbol (e.g., 'BTCUSDC')
+            signals: List of trading signals
+            
+        Returns:
+            dict: Trading decision or None if no decision
+        """
+        # DIAGNOSTIC: Log before making decision
+        logger.debug(f"Making trading decision for {symbol} with {len(signals)} signals")
+        
+        try:
+            # Validate inputs with diagnostics
+            if not symbol or not isinstance(symbol, str):
+                logger.error(f"Invalid symbol: {symbol}")
+                return None
+                
+            if not signals or not isinstance(signals, list):
+                logger.debug(f"No valid signals for {symbol}")
                 return None
             
-            # Get current trading session
+            # Filter signals for this symbol and session
             current_session = self.session_manager.get_current_session_name()
-            logger.info(f"Making decision for session: {current_session}")
+            valid_signals = [
+                s for s in signals 
+                if s.get("symbol") == symbol and s.get("session") == current_session
+            ]
             
-            # Get session-specific parameters directly from session_parameters
-            session_params = self.session_manager.get_all_session_parameters()
+            if not valid_signals:
+                logger.debug(f"No valid signals for {symbol} in session {current_session}")
+                return None
             
-            # Use session-specific parameters with explicit fallbacks
-            position_size_factor = session_params.get("position_size_factor", 1.0)
-            take_profit_bps = session_params.get("take_profit_bps", 20.0)
-            stop_loss_bps = session_params.get("stop_loss_bps", 10.0)
-            time_in_force = session_params.get("time_in_force", "IOC")
+            # Get session-specific parameters
+            session_params = self.session_manager.get_session_parameters(current_session)
             
-            # Log the session-specific parameters being used
-            logger.info(f"Using session parameters: position_size_factor={position_size_factor}, "
-                       f"take_profit_bps={take_profit_bps}, stop_loss_bps={stop_loss_bps}")
+            # Extract decision parameters with safe defaults
+            min_signal_strength = safe_get(session_params, "min_signal_strength", 0.1)
+            position_size = safe_get(session_params, "position_size", 0.1)
             
-            # Group signals by type
-            buy_signals = [s for s in signals if s["type"] == "BUY"]
-            sell_signals = [s for s in signals if s["type"] == "SELL"]
+            # Calculate aggregate signal
+            buy_strength = sum(s.get("strength", 0) for s in valid_signals if s.get("type") == "BUY")
+            sell_strength = sum(s.get("strength", 0) for s in valid_signals if s.get("type") == "SELL")
             
-            # Calculate aggregate strength
-            buy_strength = sum(s["strength"] for s in buy_signals)
-            sell_strength = sum(s["strength"] for s in sell_signals)
-            
-            # Get market state
-            with self.lock:
-                if symbol not in self.market_states:
-                    return None
-                market_state = self.market_states[symbol]
-            
-            # Make decision
-            decision = None
-            
-            # Adjust thresholds based on session
-            buy_threshold = 0.5
-            sell_threshold = 0.5
-            strength_ratio = 1.5
-            
-            if current_session == "ASIA":
-                # More conservative in Asian session due to higher volatility
-                buy_threshold = 0.6
-                sell_threshold = 0.6
-                strength_ratio = 1.8
-            elif current_session == "US":
-                # More aggressive in US session due to higher liquidity
-                buy_threshold = 0.4
-                sell_threshold = 0.4
-                strength_ratio = 1.3
-            
-            # BUY decision
-            if buy_strength > buy_threshold and buy_strength > sell_strength * strength_ratio:
-                # Calculate base size
-                base_size = 0.1 * min(buy_strength, 10.0)
-                
-                # Apply session-specific position size factor
-                size = base_size * position_size_factor
-                
-                # Get trading pair config
-                pair_config = None
-                for pair in self.config.get("trading_pairs", []):
-                    if pair["symbol"] == symbol:
-                        pair_config = pair
-                        break
-                
-                # Cap size based on max position and minimum order size
-                if pair_config:
-                    size = min(size, pair_config.get("max_position", 0.1))
-                    min_order_size = pair_config.get("min_order_size", 0.001)
-                    if size < min_order_size:
-                        size = min_order_size
-                
-                # Get available balance from paper trading system if possible
-                try:
-                    from paper_trading import PaperTradingSystem
-                    paper_trading = PaperTradingSystem()
-                    quote_asset = symbol[-4:] if symbol.endswith("USDC") else "USDT"
-                    available_balance = paper_trading.get_balance(quote_asset)
+            # Determine decision
+            if buy_strength > sell_strength and buy_strength >= min_signal_strength:
+                # Thread-safe market state access
+                with self.market_state_lock:
+                    if symbol not in self.market_states:
+                        logger.warning(f"No market state available for {symbol}")
+                        return None
                     
-                    # Calculate maximum affordable size
-                    if market_state.ask_price > 0 and available_balance > 0:
-                        max_size = available_balance / market_state.ask_price * 0.99  # 99% to account for price movement
-                        size = min(size, max_size)
-                except Exception as e:
-                    logger.debug(f"Could not check balance for size capping: {str(e)}")
+                    price = self.market_states[symbol].ask_price
                 
-                # Round to appropriate precision
-                size = round(size, 6)
-                
-                decision = {
-                    "side": "BUY",  # Changed from "action" to "side" for consistency
+                return {
                     "symbol": symbol,
-                    "size": size,
-                    "price": market_state.bid_price,  # Place at bid for limit orders
-                    "order_type": "LIMIT",
-                    "time_in_force": time_in_force,
+                    "side": "BUY",
+                    "order_type": "MARKET",
+                    "size": position_size,
+                    "price": price,
+                    "time_in_force": "GTC",
                     "timestamp": int(time.time() * 1000),
-                    "signal_count": len(buy_signals),
-                    "signal_strength": buy_strength,
                     "session": current_session,
-                    "position_size_factor": position_size_factor  # Include for debugging
+                    "signal_strength": buy_strength
+                }
+            elif sell_strength > buy_strength and sell_strength >= min_signal_strength:
+                # Thread-safe market state access
+                with self.market_state_lock:
+                    if symbol not in self.market_states:
+                        logger.warning(f"No market state available for {symbol}")
+                        return None
+                    
+                    price = self.market_states[symbol].bid_price
+                
+                return {
+                    "symbol": symbol,
+                    "side": "SELL",
+                    "order_type": "MARKET",
+                    "size": position_size,
+                    "price": price,
+                    "time_in_force": "GTC",
+                    "timestamp": int(time.time() * 1000),
+                    "session": current_session,
+                    "signal_strength": sell_strength
                 }
             
-            # SELL decision
-            elif sell_strength > sell_threshold and sell_strength > buy_strength * strength_ratio:
-                # Calculate base size
-                base_size = 0.1 * min(sell_strength, 10.0)
-                
-                # Apply session-specific position size factor
-                size = base_size * position_size_factor
-                
-                # Get trading pair config
-                pair_config = None
-                for pair in self.config.get("trading_pairs", []):
-                    if pair["symbol"] == symbol:
-                        pair_config = pair
-                        break
-                
-                # Cap size based on max position and minimum order size
-                if pair_config:
-                    size = min(size, pair_config.get("max_position", 0.1))
-                    min_order_size = pair_config.get("min_order_size", 0.001)
-                    if size < min_order_size:
-                        size = min_order_size
-                
-                # Get available balance from paper trading system if possible
-                try:
-                    from paper_trading import PaperTradingSystem
-                    paper_trading = PaperTradingSystem()
-                    base_asset = symbol[:-4] if symbol.endswith("USDC") else symbol[:-4]  # Extract BTC or ETH
-                    available_balance = paper_trading.get_balance(base_asset)
-                    
-                    # Cap size by available balance
-                    if available_balance > 0:
-                        size = min(size, available_balance * 0.99)  # 99% to account for rounding
-                except Exception as e:
-                    logger.debug(f"Could not check balance for size capping: {str(e)}")
-                
-                # Round to appropriate precision
-                size = round(size, 6)
-                
-                decision = {
-                    "side": "SELL",  # Changed from "action" to "side" for consistency
-                    "symbol": symbol,
-                    "size": size,
-                    "price": market_state.ask_price,  # Place at ask for limit orders
-                    "order_type": "LIMIT",
-                    "time_in_force": time_in_force,
-                    "timestamp": int(time.time() * 1000),
-                    "signal_count": len(sell_signals),
-                    "signal_strength": sell_strength,
-                    "session": current_session,
-                    "position_size_factor": position_size_factor  # Include for debugging
-                }
-            
-            # Update statistics
-            if decision:
-                self.stats["decisions_made"] += 1
-                logger.info(f"Decision made: {decision['side']} {decision['size']} {symbol} with factor {position_size_factor}")
-            
-            return decision
+            return None
             
         except Exception as e:
-            logger.error(f"Error making trading decision: {str(e)}")
+            log_exception(e, f"make_trading_decision for {symbol}")
             return None
     
-    def _save_state(self):
-        """Save state to file"""
-        try:
-            # Create state directory if it doesn't exist
-            os.makedirs("state", exist_ok=True)
-            
-            # Save statistics
-            with open("state/signal_generator_stats.json", "w") as f:
-                json.dump(self.stats, f, indent=2)
-            
-            logger.info("Signal generator state saved")
-            
-        except Exception as e:
-            logger.error(f"Error saving state: {str(e)}")
-
-
-# Example usage
-if __name__ == "__main__":
-    import argparse
+    def get_account(self):
+        """Compatibility method for extended_testing.py - calls get_account_info()"""
+        return self.get_account_info()
     
-    parser = argparse.ArgumentParser(description='Flash Trading Signal Generator')
-    parser.add_argument('--env', default=".env-secure/.env", help='Path to .env file')
-    parser.add_argument('--symbols', default="BTCUSDC,ETHUSDC", help='Comma-separated list of symbols')
-    parser.add_argument('--duration', type=int, default=60, help='Duration in seconds')
-    
-    args = parser.parse_args()
-    
-    # Parse symbols
-    symbols = args.symbols.split(",")
-    
-    # Create signal generator
-    signal_generator = SignalGenerator(env_path=args.env)
-    
-    # Start signal generation
-    signal_generator.start(symbols)
-    
-    try:
-        # Run for specified duration
-        print(f"Running for {args.duration} seconds...")
-        time.sleep(args.duration)
-        
-        # Print statistics
-        print(f"Signals generated: {signal_generator.stats['signals_generated']}")
-        print(f"Decisions made: {signal_generator.stats['decisions_made']}")
-        
-        # Get recent signals
-        recent_signals = signal_generator.get_recent_signals(10)
-        print(f"Recent signals: {len(recent_signals)}")
-        for signal in recent_signals:
-            print(f"  {signal['type']} {signal['symbol']} @ {signal['price']} (strength: {signal['strength']:.4f})")
-        
-    except KeyboardInterrupt:
-        print("Interrupted by user")
-    finally:
-        # Stop signal generation
-        signal_generator.stop()
+    def get_account_info(self):
+        """Get account information (placeholder for paper trading)"""
+        return {
+            "balances": {
+                "USDC": 10000.0,
+                "BTC": 0.5,
+                "ETH": 5.0
+            }
+        }

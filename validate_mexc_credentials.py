@@ -48,70 +48,155 @@ def generate_signature(api_secret, params):
 def get_server_time():
     """Get MEXC server time."""
     try:
-        response = requests.get(f"{BASE_URL}{SERVER_TIME_ENDPOINT}")
+        # Add timeout to prevent hanging
+        response = requests.get(f"{BASE_URL}{SERVER_TIME_ENDPOINT}", timeout=5.0)
         response.raise_for_status()
-        # Return the parsed JSON directly
-        return response.json()
+        
+        # Parse and validate response
+        try:
+            data = response.json()
+            
+            # Validate response structure
+            if not isinstance(data, dict):
+                logger.error(f"Invalid server time response type: {type(data)}")
+                return {"serverTime": int(time.time() * 1000)}
+                
+            if "serverTime" not in data:
+                logger.error("Missing serverTime in response")
+                return {"serverTime": int(time.time() * 1000)}
+                
+            # Validate server time is a reasonable value
+            server_time = data.get("serverTime")
+            if not isinstance(server_time, (int, float)):
+                logger.error(f"Invalid serverTime format: {server_time}")
+                return {"serverTime": int(time.time() * 1000)}
+                
+            # Check if server time is within 24 hours of current time
+            current_time = int(time.time() * 1000)
+            if abs(server_time - current_time) > 86400000:  # 24 hours in milliseconds
+                logger.error(f"Server time appears invalid: {server_time}")
+                return {"serverTime": current_time}
+                
+            return data
+        except ValueError as e:
+            logger.error(f"Error parsing server time response: {e}")
+            return {"serverTime": int(time.time() * 1000)}
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed to get server time: {e}")
-        # Return empty dict instead of None for consistency
-        return {}
+        # Return dict with current time instead of empty dict
+        return {"serverTime": int(time.time() * 1000)}
 
 def validate_credentials(api_key, api_secret):
     """Validate MEXC API credentials by making an authenticated request."""
-    # Get server time first to ensure timestamp is synchronized
-    server_time = get_server_time()
-    if not server_time or 'serverTime' not in server_time:
-        logger.error("Failed to get server time. Cannot validate credentials.")
-        return False
-    
-    # Prepare parameters for authenticated request
-    params = {
-        'timestamp': server_time['serverTime'],
-        'recvWindow': 5000
-    }
-    
-    # Generate signature
-    signature = generate_signature(api_secret, params)
-    params['signature'] = signature
-    
-    # Set headers
-    headers = {
-        'X-MEXC-APIKEY': api_key
-    }
-    
     try:
-        # Make authenticated request
-        url = f"{BASE_URL}{ACCOUNT_INFO_ENDPOINT}"
-        logger.info(f"Making authenticated request to {url}")
-        logger.info(f"Headers: {headers}")
-        logger.info(f"Params: {params}")
-        
-        response = requests.get(
-            url,
-            params=params,
-            headers=headers
-        )
-        
-        # Parse response to dict
-        try:
-            account_info = response.json()
-        except ValueError:
-            account_info = {}
-        
-        # Check response
-        if response.status_code == 200 and account_info:
-            logger.info("MEXC API credentials are valid!")
-            logger.info(f"Account type: {account_info.get('accountType', 'Unknown')}")
-            logger.info(f"Can trade: {account_info.get('canTrade', False)}")
-            logger.info(f"Can deposit: {account_info.get('canDeposit', False)}")
-            logger.info(f"Can withdraw: {account_info.get('canWithdraw', False)}")
-            return True
-        else:
-            logger.error(f"Failed to validate credentials: {response.status_code} - {response.text}")
+        # Validate input parameters
+        if not api_key or not isinstance(api_key, str) or len(api_key) < 10:
+            logger.error(f"Invalid API key format: {api_key}")
             return False
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Request error: {e}")
+            
+        if not api_secret or not isinstance(api_secret, str) or len(api_secret) < 10:
+            logger.error("Invalid API secret format")
+            return False
+        
+        # Get server time first to ensure timestamp is synchronized
+        server_time = get_server_time()
+        if not server_time or not isinstance(server_time, dict) or 'serverTime' not in server_time:
+            logger.error("Failed to get server time. Cannot validate credentials.")
+            return False
+        
+        # Validate server time value
+        timestamp = server_time.get('serverTime')
+        if not isinstance(timestamp, (int, float)):
+            logger.error(f"Invalid server time format: {timestamp}")
+            return False
+        
+        # Prepare parameters for authenticated request with validation
+        try:
+            params = {
+                'timestamp': int(timestamp),
+                'recvWindow': 5000
+            }
+        except (ValueError, TypeError) as e:
+            logger.error(f"Error preparing request parameters: {e}")
+            return False
+        
+        # Generate signature with validation
+        try:
+            signature = generate_signature(api_secret, params)
+            if not signature or not isinstance(signature, str) or len(signature) != 64:
+                logger.error(f"Invalid signature generated: {signature}")
+                return False
+                
+            params['signature'] = signature
+        except Exception as e:
+            logger.error(f"Error generating signature: {e}")
+            return False
+        
+        # Set headers with validation
+        headers = {
+            'X-MEXC-APIKEY': api_key
+        }
+        
+        try:
+            # Make authenticated request with timeout
+            url = f"{BASE_URL}{ACCOUNT_INFO_ENDPOINT}"
+            logger.info(f"Making authenticated request to {url}")
+            logger.info(f"Headers: {headers}")
+            logger.info(f"Params: {params}")
+            
+            response = requests.get(
+                url,
+                params=params,
+                headers=headers,
+                timeout=10.0
+            )
+            
+            # Parse response to dict with validation
+            try:
+                account_info = response.json()
+                
+                # Validate response structure
+                if not isinstance(account_info, dict):
+                    logger.error(f"Invalid account info response type: {type(account_info)}")
+                    return False
+            except ValueError as e:
+                logger.error(f"Error parsing account info response: {e}")
+                account_info = {}
+            
+            # Check response with robust validation
+            if response.status_code == 200 and account_info:
+                # Validate required fields exist
+                required_fields = ["accountType", "canTrade", "canDeposit", "canWithdraw", "balances"]
+                missing_fields = [field for field in required_fields if field not in account_info]
+                
+                if missing_fields:
+                    logger.error(f"Missing required fields in account response: {missing_fields}")
+                    return False
+                
+                # Validate balances field
+                balances = account_info.get("balances")
+                if not isinstance(balances, list):
+                    logger.error(f"Invalid balances type: {type(balances)}")
+                    return False
+                
+                logger.info("MEXC API credentials are valid!")
+                logger.info(f"Account type: {account_info.get('accountType', 'Unknown')}")
+                logger.info(f"Can trade: {account_info.get('canTrade', False)}")
+                logger.info(f"Can deposit: {account_info.get('canDeposit', False)}")
+                logger.info(f"Can withdraw: {account_info.get('canWithdraw', False)}")
+                return True
+            else:
+                error_msg = response.text if hasattr(response, 'text') else "No error message"
+                logger.error(f"Failed to validate credentials: {response.status_code} - {error_msg}")
+                return False
+        except requests.exceptions.Timeout:
+            logger.error("Request timed out while validating credentials")
+            return False
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request error: {e}")
+            return False
+    except Exception as e:
+        logger.error(f"Unexpected error during credential validation: {e}")
         return False
 
 def main():

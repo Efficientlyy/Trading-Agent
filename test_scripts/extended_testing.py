@@ -155,99 +155,320 @@ class ExtendedTestingFramework:
     
     def _collect_metrics(self):
         """Collect performance metrics"""
-        # Get signal count
-        self.metrics["signal_count"] = self.flash_trading.signal_generator.stats["signals_generated"]
+        try:
+            # Get signal count with validation
+            if hasattr(self.flash_trading, 'signal_generator') and hasattr(self.flash_trading.signal_generator, 'stats'):
+                stats = self.flash_trading.signal_generator.stats
+                if isinstance(stats, dict) and "signals_generated" in stats:
+                    self.metrics["signal_count"] = stats["signals_generated"]
+            
+            # Get order count with validation
+            if hasattr(self.flash_trading, 'stats'):
+                stats = self.flash_trading.stats
+                if isinstance(stats, dict) and "orders_placed" in stats:
+                    self.metrics["order_count"] = stats["orders_placed"]
+            
+            # Get API request count with validation
+            try:
+                request_count = self.client.get_request_count()
+                if isinstance(request_count, (int, float)):
+                    self.metrics["api_requests"] = request_count
+            except Exception as e:
+                logger.error(f"Error getting API request count: {str(e)}")
+            
+            # Collect latency sample with validation
+            try:
+                start_time = time.time()
+                ticker_response = self.client.get_ticker_price("BTCUSDC")
+                
+                # Validate response before calculating latency
+                if ticker_response is not None:
+                    latency_ms = (time.time() - start_time) * 1000
+                    if isinstance(latency_ms, (int, float)) and latency_ms > 0:
+                        self.metrics["latency_ms"].append(latency_ms)
+            except Exception as e:
+                logger.error(f"Error collecting latency sample: {str(e)}")
+            
+            # Update results with validation
+            self.results["metrics"] = self.metrics.copy()
+            
+            # Get current balances with validation
+            try:
+                account = self.flash_trading.paper_trading.get_account()
+                
+                # Validate account response
+                if isinstance(account, dict) and "balances" in account:
+                    balances_list = account["balances"]
+                    
+                    # Validate balances list
+                    if isinstance(balances_list, list):
+                        balances = {}
+                        for balance in balances_list:
+                            # Validate each balance entry
+                            if isinstance(balance, dict) and "asset" in balance and "free" in balance:
+                                asset = balance["asset"]
+                                free = balance["free"]
+                                
+                                # Validate values
+                                if isinstance(asset, str) and isinstance(free, (int, float)) and free > 0:
+                                    balances[asset] = free
+                        
+                        self.results["balances"] = balances
+            except Exception as e:
+                logger.error(f"Error getting account balances: {str(e)}")
+            
+            # Get recent signals with validation
+            try:
+                if hasattr(self.flash_trading, 'signal_generator') and hasattr(self.flash_trading.signal_generator, 'get_recent_signals'):
+                    signals = self.flash_trading.signal_generator.get_recent_signals(100)
+                    
+                    # Validate signals
+                    if isinstance(signals, list):
+                        self.results["signals"] = signals
+            except Exception as e:
+                logger.error(f"Error getting recent signals: {str(e)}")
+            
+            # Get order history with validation
+            try:
+                if hasattr(self.flash_trading, 'paper_trading') and hasattr(self.flash_trading.paper_trading, 'order_history'):
+                    order_history = self.flash_trading.paper_trading.order_history
+                    
+                    # Validate order history
+                    if isinstance(order_history, list):
+                        self.results["orders"] = order_history
+            except Exception as e:
+                logger.error(f"Error getting order history: {str(e)}")
+            
+            # Get trade history with validation
+            try:
+                if hasattr(self.flash_trading, 'paper_trading') and hasattr(self.flash_trading.paper_trading, 'trade_history'):
+                    trade_history = self.flash_trading.paper_trading.trade_history
+                    
+                    # Validate trade history
+                    if isinstance(trade_history, list):
+                        self.results["trades"] = trade_history
+            except Exception as e:
+                logger.error(f"Error getting trade history: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error collecting metrics: {str(e)}")
         
-        # Get order count
-        self.metrics["order_count"] = self.flash_trading.stats["orders_placed"]
-        
-        # Get API request count
-        self.metrics["api_requests"] = self.client.get_request_count()
-        
-        # Collect latency sample
-        start_time = time.time()
-        self.client.get_ticker_price("BTCUSDC")
-        latency_ms = (time.time() - start_time) * 1000
-        self.metrics["latency_ms"].append(latency_ms)
-        
-        # Update results
-        self.results["metrics"] = self.metrics.copy()
-        
-        # Get current balances
-        account = self.flash_trading.paper_trading.get_account()
-        balances = {balance["asset"]: balance["free"] for balance in account["balances"] if balance["free"] > 0}
-        self.results["balances"] = balances
-        
-        # Get recent signals
-        signals = self.flash_trading.signal_generator.get_recent_signals(100)
-        self.results["signals"] = signals
-        
-        # Get order history
-        self.results["orders"] = self.flash_trading.paper_trading.order_history
-        
-        # Get trade history
-        self.results["trades"] = self.flash_trading.paper_trading.trade_history
-        
-        # Get current session
-        current_session = self.session_manager.get_current_session()
-        if current_session not in [s["session"] for s in self.results["sessions"]]:
-            self.results["sessions"].append({
-                "session": current_session,
-                "start_time": time.time(),
-                "signals": 0,
-                "orders": 0,
-                "trades": 0
-            })
-        
-        # Update session metrics
-        for session in self.results["sessions"]:
-            if session["session"] == current_session:
-                session["signals"] = len([s for s in signals if s["timestamp"] > session["start_time"] * 1000])
-                session["orders"] = len([o for o in self.results["orders"] if o["timestamp"] > session["start_time"] * 1000])
-                session["trades"] = len([t for t in self.results["trades"] if t["timestamp"] > session["start_time"] * 1000])
+        # Get current session with validation
+        try:
+            if hasattr(self, 'session_manager') and hasattr(self.session_manager, 'get_current_session'):
+                current_session = self.session_manager.get_current_session()
+                
+                # Validate current session
+                if current_session and isinstance(current_session, str):
+                    # Check if session exists in results
+                    session_exists = False
+                    if isinstance(self.results.get("sessions"), list):
+                        session_exists = current_session in [s.get("session") for s in self.results["sessions"] if isinstance(s, dict)]
+                    
+                    # Add new session if needed
+                    if not session_exists:
+                        if not isinstance(self.results.get("sessions"), list):
+                            self.results["sessions"] = []
+                            
+                        self.results["sessions"].append({
+                            "session": current_session,
+                            "start_time": time.time(),
+                            "signals": 0,
+                            "orders": 0,
+                            "trades": 0
+                        })
+                    
+                    # Update session metrics with validation
+                    try:
+                        for session in self.results["sessions"]:
+                            if isinstance(session, dict) and session.get("session") == current_session:
+                                # Validate session data
+                                start_time = session.get("start_time", 0)
+                                if not isinstance(start_time, (int, float)):
+                                    start_time = 0
+                                
+                                # Validate signals with safe access
+                                signals_count = 0
+                                if isinstance(self.results.get("signals"), list):
+                                    signals_count = sum(1 for s in self.results["signals"] 
+                                                      if isinstance(s, dict) 
+                                                      and isinstance(s.get("timestamp"), (int, float)) 
+                                                      and s.get("timestamp", 0) > start_time * 1000)
+                                session["signals"] = signals_count
+                                
+                                # Validate orders with safe access
+                                orders_count = 0
+                                if isinstance(self.results.get("orders"), list):
+                                    orders_count = sum(1 for o in self.results["orders"] 
+                                                     if isinstance(o, dict) 
+                                                     and isinstance(o.get("timestamp"), (int, float)) 
+                                                     and o.get("timestamp", 0) > start_time * 1000)
+                                session["orders"] = orders_count
+                                
+                                # Validate trades with safe access
+                                trades_count = 0
+                                if isinstance(self.results.get("trades"), list):
+                                    trades_count = sum(1 for t in self.results["trades"] 
+                                                     if isinstance(t, dict) 
+                                                     and isinstance(t.get("timestamp"), (int, float)) 
+                                                     and t.get("timestamp", 0) > start_time * 1000)
+                                session["trades"] = trades_count
+                    except Exception as e:
+                        logger.error(f"Error updating session metrics: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error processing session information: {str(e)}")
     
     def _save_interim_results(self):
         """Save interim test results"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"test_results/interim_{timestamp}.json"
-        
-        with open(filename, "w") as f:
-            json.dump(self.results, f, indent=2)
-        
-        logger.info(f"Interim results saved to {filename}")
+        try:
+            # Generate timestamp with validation
+            try:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            except Exception as e:
+                logger.error(f"Error generating timestamp: {str(e)}")
+                timestamp = str(int(time.time()))
+            
+            # Create filename with validation
+            filename = f"test_results/interim_{timestamp}.json"
+            
+            # Ensure directory exists
+            os.makedirs("test_results", exist_ok=True)
+            
+            # Save with error handling
+            try:
+                with open(filename, "w") as f:
+                    json.dump(self.results, f, indent=2)
+                
+                logger.info(f"Interim results saved to {filename}")
+            except (IOError, OSError) as e:
+                logger.error(f"Error saving interim results to file: {str(e)}")
+                # Try alternative location
+                alt_filename = f"interim_results_{timestamp}.json"
+                try:
+                    with open(alt_filename, "w") as f:
+                        json.dump(self.results, f, indent=2)
+                    logger.info(f"Interim results saved to alternative location: {alt_filename}")
+                except Exception as e2:
+                    logger.error(f"Failed to save interim results to alternative location: {str(e2)}")
+        except Exception as e:
+            logger.error(f"Unexpected error saving interim results: {str(e)}")
     
     def _save_final_results(self):
         """Save final test results"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"test_results/extended_test_{timestamp}.json"
-        
-        with open(filename, "w") as f:
-            json.dump(self.results, f, indent=2)
-        
-        logger.info(f"Final results saved to {filename}")
-        return filename
+        try:
+            # Generate timestamp with validation
+            try:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            except Exception as e:
+                logger.error(f"Error generating timestamp: {str(e)}")
+                timestamp = str(int(time.time()))
+            
+            # Create filename with validation
+            filename = f"test_results/extended_test_{timestamp}.json"
+            
+            # Ensure directory exists
+            os.makedirs("test_results", exist_ok=True)
+            
+            # Save with error handling
+            try:
+                with open(filename, "w") as f:
+                    json.dump(self.results, f, indent=2)
+                
+                logger.info(f"Final results saved to {filename}")
+                return filename
+            except (IOError, OSError) as e:
+                logger.error(f"Error saving final results to file: {str(e)}")
+                # Try alternative location
+                alt_filename = f"extended_test_results_{timestamp}.json"
+                try:
+                    with open(alt_filename, "w") as f:
+                        json.dump(self.results, f, indent=2)
+                    logger.info(f"Final results saved to alternative location: {alt_filename}")
+                    return alt_filename
+                except Exception as e2:
+                    logger.error(f"Failed to save final results to alternative location: {str(e2)}")
+                    return None
+        except Exception as e:
+            logger.error(f"Unexpected error saving final results: {str(e)}")
+            return None
     
     def _print_status(self, elapsed, current_session):
         """Print current test status"""
-        # Get account information
-        account = self.flash_trading.paper_trading.get_account()
-        
-        # Print status
-        print("\n--- Extended Test Status ---")
-        print(f"Elapsed Time: {elapsed / 3600:.2f} hours")
-        print(f"Current Session: {current_session}")
-        
-        print("\nBalances:")
-        for balance in account["balances"]:
-            if balance["free"] > 0:
-                print(f"  {balance['asset']}: {balance['free']}")
-        
-        print("\nMetrics:")
-        print(f"  Signals: {self.metrics['signal_count']}")
-        print(f"  Orders: {self.metrics['order_count']}")
-        print(f"  API Requests: {self.metrics['api_requests']}")
-        if self.metrics["latency_ms"]:
-            print(f"  Avg Latency: {sum(self.metrics['latency_ms']) / len(self.metrics['latency_ms']):.2f} ms")
+        try:
+            # Get account information with validation
+            try:
+                if hasattr(self.flash_trading, 'paper_trading') and hasattr(self.flash_trading.paper_trading, 'get_account'):
+                    account = self.flash_trading.paper_trading.get_account()
+                else:
+                    logger.error("Paper trading system not accessible")
+                    account = {"balances": []}
+            except Exception as e:
+                logger.error(f"Error getting account information: {str(e)}")
+                account = {"balances": []}
+            
+            # Print status with validation
+            print("\n--- Extended Test Status ---")
+            
+            # Validate elapsed time
+            if isinstance(elapsed, (int, float)) and elapsed > 0:
+                print(f"Elapsed Time: {elapsed / 3600:.2f} hours")
+            else:
+                print(f"Elapsed Time: Unknown")
+            
+            # Validate current session
+            if current_session and isinstance(current_session, str):
+                print(f"Current Session: {current_session}")
+            else:
+                print(f"Current Session: Unknown")
+            
+            # Print balances with validation
+            print("\nBalances:")
+            if isinstance(account, dict) and "balances" in account and isinstance(account["balances"], list):
+                for balance in account["balances"]:
+                    if isinstance(balance, dict) and "asset" in balance and "free" in balance:
+                        free_balance = balance.get("free", 0)
+                        if isinstance(free_balance, (int, float)) and free_balance > 0:
+                            asset = balance.get("asset", "Unknown")
+                            print(f"  {asset}: {free_balance}")
+            else:
+                print("  No balance information available")
+            
+            # Print metrics with validation
+            print("\nMetrics:")
+            
+            # Validate signal count
+            signal_count = self.metrics.get("signal_count", "Unknown")
+            if not isinstance(signal_count, (int, float)):
+                signal_count = "Unknown"
+            print(f"  Signals: {signal_count}")
+            
+            # Validate order count
+            order_count = self.metrics.get("order_count", "Unknown")
+            if not isinstance(order_count, (int, float)):
+                order_count = "Unknown"
+            print(f"  Orders: {order_count}")
+            
+            # Validate API request count
+            api_requests = self.metrics.get("api_requests", "Unknown")
+            if not isinstance(api_requests, (int, float)):
+                api_requests = "Unknown"
+            print(f"  API Requests: {api_requests}")
+            
+            # Validate latency metrics
+            latency_ms = self.metrics.get("latency_ms", [])
+            if isinstance(latency_ms, list) and latency_ms:
+                try:
+                    avg_latency = sum(latency_ms) / len(latency_ms)
+                    if isinstance(avg_latency, (int, float)):
+                        print(f"  Avg Latency: {avg_latency:.2f} ms")
+                    else:
+                        print(f"  Avg Latency: Unknown")
+                except Exception as e:
+                    logger.error(f"Error calculating average latency: {str(e)}")
+                    print(f"  Avg Latency: Error")
+        except Exception as e:
+            logger.error(f"Error printing status: {str(e)}")
+            print("\n--- Extended Test Status ---")
+            print("Error retrieving status information")
     
     def _generate_performance_charts(self):
         """Generate performance charts from test results"""

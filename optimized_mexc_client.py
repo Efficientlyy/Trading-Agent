@@ -76,12 +76,25 @@ class OptimizedMexcClient:
     
     def __init_connection(self):
         """Initialize connection pool and sync time if not already done"""
-        if self.session is None:
-            # Initialize connection pool
-            self._init_session()
+        # Add thread synchronization to prevent race conditions
+        import threading
+        if not hasattr(self, '_init_lock'):
+            self._init_lock = threading.Lock()
             
-            # Synchronize time with server
-            self._sync_server_time()
+        with self._init_lock:
+            if self.session is None:
+                # Initialize connection pool
+                self._init_session()
+                
+                # Synchronize time with server
+                self._sync_server_time()
+                
+                # Verify session is properly initialized
+                if self.session is None:
+                    logger.error("CRITICAL: Session initialization failed")
+                    # Create a minimal session as fallback
+                    import requests
+                    self.session = requests.Session()
     
     def get_ticker_price(self, symbol):
         """Get latest price for a symbol
@@ -105,10 +118,23 @@ class OptimizedMexcClient:
         
         result = self.public_request('GET', endpoint, params)
         
-        # Validate result
+        # Enhanced validation of result
         if not result:
             logger.warning(f"Empty ticker price response for {symbol}")
             return {"symbol": symbol, "price": "0.0"}
+            
+        # Validate required fields exist
+        if not isinstance(result, dict):
+            logger.error(f"Invalid ticker price response type for {symbol}: {type(result)}")
+            return {"symbol": symbol, "price": "0.0"}
+            
+        if "price" not in result:
+            logger.warning(f"Missing price in ticker response for {symbol}")
+            return {"symbol": symbol, "price": "0.0"}
+            
+        if "symbol" not in result:
+            # Add symbol if missing
+            result["symbol"] = symbol
         
         # Update cache
         self.cache[cache_key] = result
@@ -140,23 +166,37 @@ class OptimizedMexcClient:
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
         
-        # Set default headers
+        # Set default headers - FIX: Ensure api_key is a string, not the client object
+        if self.api_key is not None and isinstance(self.api_key, str):
+            api_key_str = self.api_key
+        else:
+            logger.warning("API key is not a valid string, using empty string as fallback")
+            api_key_str = ""
+            
         self.session.headers.update({
             'User-Agent': 'FlashTradingBot/1.0',
             'Accept': 'application/json',
-            'X-MEXC-APIKEY': self.api_key
+            'X-MEXC-APIKEY': api_key_str
         })
     
     async def _init_async_session(self):
         """Initialize async HTTP session with connection pooling"""
         if self.async_session is None:
             timeout = aiohttp.ClientTimeout(total=5)
+            
+            # FIX: Ensure api_key is a string, not the client object
+            if self.api_key is not None and isinstance(self.api_key, str):
+                api_key_str = self.api_key
+            else:
+                logger.warning("API key is not a valid string for async session, using empty string as fallback")
+                api_key_str = ""
+                
             self.async_session = aiohttp.ClientSession(
                 timeout=timeout,
                 headers={
                     'User-Agent': 'FlashTradingBot/1.0',
                     'Accept': 'application/json',
-                    'X-MEXC-APIKEY': self.api_key
+                    'X-MEXC-APIKEY': api_key_str
                 }
             )
     
@@ -198,12 +238,27 @@ class OptimizedMexcClient:
             max_retries: Maximum number of retry attempts
             
         Returns:
-            dict: JSON response if successful, None if failed after retries
+            dict: JSON response if successful, empty dict if failed after retries
         """
+        # CRITICAL: Ensure session is initialized before making request
+        self.__init_connection()
+        
         url = f"{self.base_url}{endpoint}"
         
         # Increment request counter
         self.request_count += 1
+        
+        # Determine expected response type based on endpoint
+        is_order_book = 'depth' in endpoint
+        is_ticker = 'ticker' in endpoint
+        is_account = 'account' in endpoint
+        
+        # Prepare default empty response based on endpoint type
+        default_empty_response = {}
+        if is_order_book:
+            default_empty_response = {"bids": [], "asks": []}
+        elif is_ticker:
+            default_empty_response = {"symbol": params.get("symbol", ""), "price": "0.0"} if params else {}
         
         # Retry logic
         retries = 0
@@ -218,7 +273,15 @@ class OptimizedMexcClient:
                 
                 # Check for successful response
                 if response.status_code == 200:
-                    return response.json()  # Return parsed JSON directly
+                    try:
+                        json_response = response.json()
+                        if json_response is None:
+                            logger.warning(f"API returned null JSON response for {endpoint}")
+                            return default_empty_response
+                        return json_response  # Return parsed JSON directly
+                    except ValueError as e:
+                        logger.error(f"Error parsing JSON response: {str(e)}")
+                        return default_empty_response
                 else:
                     logger.warning(f"API request failed with status {response.status_code}: {response.text}")
                     
@@ -230,8 +293,8 @@ class OptimizedMexcClient:
                         time.sleep(retry_delay)
                         continue
                     
-                    # Return empty dict for client errors to avoid NoneType errors
-                    return {}
+                    # Return appropriate empty response for client errors
+                    return default_empty_response
                     
             except Exception as e:
                 logger.error(f"Error in public request: {str(e)}")
@@ -243,8 +306,8 @@ class OptimizedMexcClient:
                     logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
                     time.sleep(retry_delay)
                 else:
-                    # Return empty dict after all retries failed
-                    return {}
+                    # Return appropriate empty response after all retries failed
+                    return default_empty_response
     
     def signed_request(self, method, endpoint, params=None, max_retries=3):
         """Make a signed API request (authentication required)
@@ -258,6 +321,9 @@ class OptimizedMexcClient:
         Returns:
             dict: JSON response if successful, empty dict if failed after retries
         """
+        # CRITICAL: Ensure session is initialized before making request
+        self.__init_connection()
+        
         url = f"{self.base_url}{endpoint}"
         
         # Increment request counter
@@ -338,62 +404,46 @@ class OptimizedMexcClient:
         retries = 0
         while retries <= max_retries:
             try:
+                # Unified request handling with common response processing
                 if method == 'GET':
-                    async with self.async_session.get(url, params=params) as response:
-                        if response.status == 200:
-                            return await response.json()
-                        else:
-                            text = await response.text()
-                            logger.warning(f"Async API request failed with status {response.status}: {text}")
-                            
-                            # Retry on server errors (5xx)
-                            if 500 <= response.status < 600 and retries < max_retries:
-                                retries += 1
-                                retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
-                                logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
-                                await asyncio.sleep(retry_delay)
-                                continue
-                            
-                            # Return empty dict for client errors to avoid NoneType errors
-                            return {}
+                    response_obj = self.async_session.get(url, params=params)
                 elif method == 'POST':
-                    async with self.async_session.post(url, params=params) as response:
-                        if response.status == 200:
-                            return await response.json()
-                        else:
-                            text = await response.text()
-                            logger.warning(f"Async API request failed with status {response.status}: {text}")
-                            
-                            # Retry on server errors (5xx)
-                            if 500 <= response.status < 600 and retries < max_retries:
-                                retries += 1
-                                retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
-                                logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
-                                await asyncio.sleep(retry_delay)
-                                continue
-                            
-                            # Return empty dict for client errors to avoid NoneType errors
-                            return {}
+                    response_obj = self.async_session.post(url, params=params)
                 else:
-                    async with self.async_session.request(method, url, params=params) as response:
-                        if response.status == 200:
-                            return await response.json()
-                        else:
-                            text = await response.text()
-                            logger.warning(f"Async API request failed with status {response.status}: {text}")
+                    response_obj = self.async_session.request(method, url, params=params)
+                
+                async with response_obj as response:
+                    if response.status == 200:
+                        try:
+                            result = await response.json()
                             
-                            # Retry on server errors (5xx)
-                            if 500 <= response.status < 600 and retries < max_retries:
-                                retries += 1
-                                retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
-                                logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
-                                await asyncio.sleep(retry_delay)
-                                continue
-                            
-                            # Return empty dict for client errors to avoid NoneType errors
-                            return {}
+                            # Validate response is a dict or list
+                            if not isinstance(result, (dict, list)):
+                                logger.error(f"Invalid response type from {endpoint}: {type(result)}")
+                                return {} if endpoint.endswith('account') else []
+                                
+                            return result
+                        except (ValueError, TypeError) as e:
+                            logger.error(f"JSON parsing error for {endpoint}: {str(e)}")
+                            return {} if endpoint.endswith('account') else []
+                    else:
+                        text = await response.text()
+                        logger.warning(f"Async API request failed with status {response.status}: {text}")
+                        
+                        # Retry on server errors (5xx)
+                        if 500 <= response.status < 600 and retries < max_retries:
+                            retries += 1
+                            retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
+                            logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
+                            await asyncio.sleep(retry_delay)
+                            continue
+                        
+                        # Return appropriate empty result based on endpoint
+                        # Account endpoints typically return objects, list endpoints return arrays
+                        return {} if endpoint.endswith('account') else []
+                        
             except Exception as e:
-                logger.error(f"Error in async public request: {str(e)}")
+                logger.error(f"Error in async public request to {endpoint}: {str(e)}")
                 
                 # Retry on connection errors
                 if retries < max_retries:
@@ -402,9 +452,8 @@ class OptimizedMexcClient:
                     logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
                     await asyncio.sleep(retry_delay)
                 else:
-                    # Return empty dict after all retries failed
-                    return {}
-    
+                    # Return appropriate empty result based on endpoint
+                    return {} if endpoint.endswith('account') else []
     async def async_signed_request(self, method, endpoint, params=None, max_retries=3):
         """Make an asynchronous signed API request
         
@@ -423,94 +472,60 @@ class OptimizedMexcClient:
         # Increment request counter
         self.request_count += 1
         
+        # Prepare parameters
+        request_params = params.copy() if params else {}
+        
         # Retry logic
         retries = 0
         while retries <= max_retries:
             try:
-                # Prepare parameters (refreshed on each retry)
-                request_params = params.copy() if params else {}
-                
-                # Add timestamp
+                # Add timestamp (refreshed on each retry)
                 request_params['timestamp'] = self.get_server_time()
                 
                 # Generate signature
                 signature = self.generate_signature(request_params)
                 request_params['signature'] = signature
                 
+                # Unified request handling with common response processing
                 if method == 'GET':
-                    async with self.async_session.get(url, params=request_params) as response:
-                        if response.status == 200:
-                            return await response.json()
-                        else:
-                            text = await response.text()
-                            logger.warning(f"Async API signed request failed with status {response.status}: {text}")
-                            
-                            # Retry on server errors (5xx)
-                            if 500 <= response.status < 600 and retries < max_retries:
-                                retries += 1
-                                retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
-                                logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
-                                await asyncio.sleep(retry_delay)
-                                continue
-                            
-                            # Return empty dict for client errors to avoid NoneType errors
-                            return {}
+                    response_obj = self.async_session.get(url, params=request_params)
                 elif method == 'POST':
-                    async with self.async_session.post(url, params=request_params) as response:
-                        if response.status == 200:
-                            return await response.json()
-                        else:
-                            text = await response.text()
-                            logger.warning(f"Async API signed request failed with status {response.status}: {text}")
-                            
-                            # Retry on server errors (5xx)
-                            if 500 <= response.status < 600 and retries < max_retries:
-                                retries += 1
-                                retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
-                                logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
-                                await asyncio.sleep(retry_delay)
-                                continue
-                            
-                            # Return empty dict for client errors to avoid NoneType errors
-                            return {}
+                    response_obj = self.async_session.post(url, params=request_params)
                 elif method == 'DELETE':
-                    async with self.async_session.delete(url, params=request_params) as response:
-                        if response.status == 200:
-                            return await response.json()
-                        else:
-                            text = await response.text()
-                            logger.warning(f"Async API signed request failed with status {response.status}: {text}")
-                            
-                            # Retry on server errors (5xx)
-                            if 500 <= response.status < 600 and retries < max_retries:
-                                retries += 1
-                                retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
-                                logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
-                                await asyncio.sleep(retry_delay)
-                                continue
-                            
-                            # Return empty dict for client errors to avoid NoneType errors
-                            return {}
+                    response_obj = self.async_session.delete(url, params=request_params)
                 else:
-                    async with self.async_session.request(method, url, params=request_params) as response:
-                        if response.status == 200:
-                            return await response.json()
-                        else:
-                            text = await response.text()
-                            logger.warning(f"Async API signed request failed with status {response.status}: {text}")
+                    response_obj = self.async_session.request(method, url, params=request_params)
+                
+                async with response_obj as response:
+                    if response.status == 200:
+                        try:
+                            result = await response.json()
                             
-                            # Retry on server errors (5xx)
-                            if 500 <= response.status < 600 and retries < max_retries:
-                                retries += 1
-                                retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
-                                logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
-                                await asyncio.sleep(retry_delay)
-                                continue
-                            
-                            # Return empty dict for client errors to avoid NoneType errors
-                            return {}
+                            # Validate response is a dict or list
+                            if not isinstance(result, (dict, list)):
+                                logger.error(f"Invalid response type from {endpoint}: {type(result)}")
+                                return {} if endpoint.endswith('account') or endpoint.endswith('order') else []
+                                
+                            return result
+                        except (ValueError, TypeError) as e:
+                            logger.error(f"JSON parsing error for {endpoint}: {str(e)}")
+                            return {} if endpoint.endswith('account') or endpoint.endswith('order') else []
+                    else:
+                        text = await response.text()
+                        logger.warning(f"Async API signed request failed with status {response.status}: {text}")
+                        
+                        # Retry on server errors (5xx)
+                        if 500 <= response.status < 600 and retries < max_retries:
+                            retries += 1
+                            retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
+                            logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
+                            await asyncio.sleep(retry_delay)
+                            continue
+                        
+                        # Return appropriate empty result based on endpoint
+                        return {} if endpoint.endswith('account') or endpoint.endswith('order') else []
             except Exception as e:
-                logger.error(f"Error in async signed request: {str(e)}")
+                logger.error(f"Error in async signed request to {endpoint}: {str(e)}")
                 
                 # Retry on connection errors
                 if retries < max_retries:
@@ -519,8 +534,8 @@ class OptimizedMexcClient:
                     logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
                     await asyncio.sleep(retry_delay)
                 else:
-                    # Return empty dict after all retries failed
-                    return {}
+                    # Return appropriate empty result based on endpoint
+                    return {} if endpoint.endswith('account') or endpoint.endswith('order') else []
     
     def get_order_book(self, symbol, limit=5, use_cache=True, max_age_ms=500):
         """Get order book with optional caching for reduced latency
