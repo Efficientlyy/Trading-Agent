@@ -267,7 +267,7 @@ class SignalGenerator:
     def _update_market_state(self, symbol):
         """Update market state for a symbol"""
         try:
-            # Get order book
+            # Get order book with robust error handling
             order_book = self.client.get_order_book(
                 symbol, 
                 limit=self.config["order_book_depth"],
@@ -275,18 +275,36 @@ class SignalGenerator:
                 max_age_ms=self.config["cache_max_age_ms"]
             )
             
-            if order_book and 'bids' in order_book and 'asks' in order_book:
-                with self.lock:
-                    if symbol not in self.market_states:
-                        self.market_states[symbol] = MarketState(symbol)
-                    
-                    self.market_states[symbol].update_order_book(
-                        order_book["bids"],
-                        order_book["asks"]
-                    )
+            # Validate order book structure
+            if not order_book:
+                logger.warning(f"Empty order book response for {symbol}")
+                return False
                 
-                return True
+            if not isinstance(order_book, dict):
+                logger.error(f"Invalid order book response type for {symbol}: {type(order_book)}")
+                return False
+                
+            if 'bids' not in order_book or 'asks' not in order_book:
+                logger.error(f"Missing bids or asks in order book for {symbol}")
+                return False
+                
+            if not order_book.get("bids") or not order_book.get("asks"):
+                logger.warning(f"Empty bids or asks in order book for {symbol}")
+                return False
             
+            # Update market state with validated data
+            with self.lock:
+                if symbol not in self.market_states:
+                    self.market_states[symbol] = MarketState(symbol)
+                
+                self.market_states[symbol].update_order_book(
+                    order_book["bids"],
+                    order_book["asks"]
+                )
+            
+            return True
+            
+            # Return false if validation fails
             return False
             
         except Exception as e:
