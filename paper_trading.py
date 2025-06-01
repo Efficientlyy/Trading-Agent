@@ -110,16 +110,38 @@ class PaperTradingSystem:
     def _update_market_data(self, symbol):
         """Update market data for a symbol"""
         try:
-            # Get order book
+            # Validate symbol
+            if not symbol or not isinstance(symbol, str):
+                logger.error(f"Invalid symbol for market data update: {symbol}")
+                return False
+                
+            # Get order book with robust error handling
             order_book = self.client.get_order_book(symbol, limit=10)
-            if order_book and 'bids' in order_book and 'asks' in order_book:
-                self.market_data[symbol] = {
-                    "timestamp": int(time.time() * 1000),
-                    "bids": order_book["bids"],
-                    "asks": order_book["asks"]
-                }
-                return True
-            return False
+            
+            # Validate order book data
+            if not order_book:
+                logger.warning(f"Empty order book response for {symbol}")
+                return False
+                
+            if not isinstance(order_book, dict):
+                logger.error(f"Invalid order book response type for {symbol}: {type(order_book)}")
+                return False
+                
+            if 'bids' not in order_book or 'asks' not in order_book:
+                logger.error(f"Missing bids or asks in order book for {symbol}")
+                return False
+                
+            if not order_book["bids"] or not order_book["asks"]:
+                logger.warning(f"Empty bids or asks in order book for {symbol}")
+                return False
+                
+            # Store validated market data
+            self.market_data[symbol] = {
+                "timestamp": int(time.time() * 1000),
+                "bids": order_book["bids"],
+                "asks": order_book["asks"]
+            }
+            return True
         except Exception as e:
             logger.error(f"Error updating market data for {symbol}: {str(e)}")
             return False
