@@ -73,12 +73,48 @@ class OptimizedMexcClient:
             int: Total number of API requests
         """
         return self.request_count
+    
+    def __init_connection(self):
+        """Initialize connection pool and sync time if not already done"""
+        if self.session is None:
+            # Initialize connection pool
+            self._init_session()
+            
+            # Synchronize time with server
+            self._sync_server_time()
+    
+    def get_ticker_price(self, symbol):
+        """Get latest price for a symbol
         
-        # Initialize connection pool
-        self._init_session()
+        Args:
+            symbol: Trading pair symbol (e.g., 'BTCUSDC')
+            
+        Returns:
+            dict: Ticker data with price information
+        """
+        self.__init_connection()
         
-        # Synchronize time with server
-        self._sync_server_time()
+        # Check cache first
+        cache_key = f"ticker_{symbol}"
+        if cache_key in self.cache and time.time() - self.cache["last_update"].get(cache_key, 0) < 1.0:
+            return self.cache[cache_key]
+        
+        # Make API request
+        endpoint = f"{self.api_v3}/ticker/price"
+        params = {"symbol": symbol}
+        
+        result = self.public_request('GET', endpoint, params)
+        
+        # Validate result
+        if not result:
+            logger.warning(f"Empty ticker price response for {symbol}")
+            return {"symbol": symbol, "price": "0.0"}
+        
+        # Update cache
+        self.cache[cache_key] = result
+        self.cache["last_update"][cache_key] = time.time()
+        
+        return result
     
     def _init_session(self):
         """Initialize HTTP session with connection pooling"""
