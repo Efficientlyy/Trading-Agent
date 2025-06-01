@@ -136,10 +136,23 @@ class MarketState:
 class FlashTradingSignals:
     """Signal generation and decision making for flash trading"""
     
-    def __init__(self, api_key=None, api_secret=None, env_path=None):
-        """Initialize flash trading signals"""
-        # Initialize API client
-        self.api_client = OptimizedMexcClient(api_key, api_secret, env_path)
+    def __init__(self, client_instance=None, api_key=None, api_secret=None, env_path=None):
+        """Initialize flash trading signals
+        
+        Args:
+            client_instance: Existing OptimizedMexcClient instance to use (preferred)
+            api_key: API key for MEXC (used only if client_instance is None)
+            api_secret: API secret for MEXC (used only if client_instance is None)
+            env_path: Path to .env file (used only if client_instance is None)
+        """
+        # Use existing client instance if provided, otherwise create new one
+        if client_instance is not None and isinstance(client_instance, OptimizedMexcClient):
+            self.api_client = client_instance
+            logger.info("Using provided client instance for SignalGenerator")
+        else:
+            # Initialize API client with direct credentials
+            self.api_client = OptimizedMexcClient(api_key, api_secret, env_path)
+            logger.info("Created new client instance for SignalGenerator")
         
         # Initialize session manager
         self.session_manager = TradingSessionManager()

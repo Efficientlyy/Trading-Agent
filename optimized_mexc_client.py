@@ -184,12 +184,8 @@ class OptimizedMexcClient:
         if self.async_session is None:
             timeout = aiohttp.ClientTimeout(total=5)
             
-            # FIX: Ensure api_key is a string, not the client object
-            if self.api_key is not None and isinstance(self.api_key, str):
-                api_key_str = self.api_key
-            else:
-                logger.warning("API key is not a valid string for async session, using empty string as fallback")
-                api_key_str = ""
+            # Ensure API key is a string
+            api_key_str = str(self.api_key) if self.api_key is not None else ""
                 
             self.async_session = aiohttp.ClientSession(
                 timeout=timeout,
@@ -199,7 +195,6 @@ class OptimizedMexcClient:
                     'X-MEXC-APIKEY': api_key_str
                 }
             )
-    
     def _sync_server_time(self):
         """Synchronize local time with server time"""
         try:

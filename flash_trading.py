@@ -46,12 +46,8 @@ class FlashTradingSystem:
         # Create paper trading system
         self.paper_trading = PaperTradingSystem(self.client, self.config)
         
-        # Create signal generator
-        self.signal_generator = SignalGenerator(self.client, env_path)
-        
-        # Configure signal generator with our settings
-        signal_config = self.config.get_signal_config()
-        self.signal_generator.config.update(signal_config)
+        # Create signal generator with shared client instance
+        self.signal_generator = SignalGenerator(client_instance=self.client)
         
         # Running state
         self.running = False
@@ -426,7 +422,13 @@ class FlashTradingSystem:
                         print(f"  {asset}: {free}")
             
             print("\nStatistics:")
-            signals = safe_get_nested(self.signal_generator, ["stats", "signals_generated"], 0)
+            # Fix type mismatch - ensure we're accessing a dictionary, not an object
+            if hasattr(self.signal_generator, 'stats') and isinstance(self.signal_generator.stats, dict):
+                signals = safe_get(self.signal_generator.stats, "signals_generated", 0)
+            else:
+                signals = 0
+                logger.debug("Signal generator stats not available as dictionary")
+            
             orders = safe_get(self.stats, "orders_placed", 0)
             uptime = time.time() - (self.start_time or time.time())
             print(f"  Signals Generated: {signals}")
