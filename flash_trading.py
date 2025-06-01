@@ -135,13 +135,47 @@ class FlashTradingSystem:
     def _execute_paper_trading_decision(self, decision):
         """Execute trading decision using paper trading"""
         try:
-            # Extract decision details
-            symbol = decision["symbol"]
-            side = decision.get("side", decision.get("action"))  # Support both "side" and legacy "action" fields
-            order_type = decision["order_type"]
-            quantity = decision["size"]
-            price = decision["price"]
-            time_in_force = decision["time_in_force"]
+            # Validate decision object
+            if not isinstance(decision, dict):
+                logger.error(f"Invalid decision object: {decision}")
+                return None
+                
+            # Extract and validate required fields with robust error handling
+            try:
+                symbol = decision["symbol"]
+                if not symbol or not isinstance(symbol, str):
+                    logger.error(f"Invalid symbol in decision: {symbol}")
+                    return None
+                    
+                # Support both "side" and legacy "action" fields with validation
+                side = decision.get("side", decision.get("action"))
+                if not side or side not in ["BUY", "SELL"]:
+                    logger.error(f"Invalid side in decision: {side}")
+                    return None
+                    
+                order_type = decision.get("order_type")
+                if not order_type or order_type not in ["LIMIT", "MARKET"]:
+                    logger.error(f"Invalid order_type in decision: {order_type}")
+                    return None
+                    
+                quantity = decision.get("size")
+                if not quantity or not isinstance(quantity, (int, float, str)) or float(quantity) <= 0:
+                    logger.error(f"Invalid quantity in decision: {quantity}")
+                    return None
+                    
+                price = decision.get("price")
+                if order_type == "LIMIT" and (not price or not isinstance(price, (int, float, str)) or float(price) <= 0):
+                    logger.error(f"Invalid price in decision: {price}")
+                    return None
+                    
+                time_in_force = decision.get("time_in_force", "GTC")
+                if order_type == "LIMIT" and time_in_force not in ["GTC", "IOC", "FOK"]:
+                    logger.error(f"Invalid time_in_force in decision: {time_in_force}")
+                    return None
+                    
+            except KeyError as e:
+                logger.error(f"Missing required field in decision: {e}")
+                return None
             
             # Place paper trading order
             order = self.paper_trading.place_order(
