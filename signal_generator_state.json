@@ -1,0 +1,924 @@
+{
+  "timestamp": 1748733149624,
+  "stats": {
+    "updates_processed": 46,
+    "signals_generated": 360,
+    "decisions_made": 0,
+    "orders_placed": 0,
+    "errors": 0
+  },
+  "recent_signals": [
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.9077663289967847,
+      "timestamp": 1748733140221,
+      "price": 2534.1099999999997,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.9077663289967847,
+      "timestamp": 1748733140272,
+      "price": 2534.1099999999997,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.9077663289967847,
+      "timestamp": 1748733140323,
+      "price": 2534.1099999999997,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.9077663289967847,
+      "timestamp": 1748733140373,
+      "price": 2534.1099999999997,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.9077663289967847,
+      "timestamp": 1748733140424,
+      "price": 2534.1099999999997,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.9077663289967847,
+      "timestamp": 1748733140474,
+      "price": 2534.1099999999997,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.9077663289967847,
+      "timestamp": 1748733140525,
+      "price": 2534.1099999999997,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.9077663289967847,
+      "timestamp": 1748733140576,
+      "price": 2534.1099999999997,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.9077663289967847,
+      "timestamp": 1748733140626,
+      "price": 2534.1099999999997,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.9077663289967847,
+      "timestamp": 1748733140677,
+      "price": 2534.1099999999997,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.9077663289967847,
+      "timestamp": 1748733140727,
+      "price": 2534.1099999999997,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.9077663289967847,
+      "timestamp": 1748733140778,
+      "price": 2534.1099999999997,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.9077663289967847,
+      "timestamp": 1748733140828,
+      "price": 2534.1099999999997,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8384713192428568,
+      "timestamp": 1748733140879,
+      "price": 104776.63,
+      "symbol": "BTCUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.9077663289967847,
+      "timestamp": 1748733140879,
+      "price": 2534.1099999999997,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8384713192428568,
+      "timestamp": 1748733140929,
+      "price": 104776.63,
+      "symbol": "BTCUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.9077663289967847,
+      "timestamp": 1748733140930,
+      "price": 2534.1099999999997,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8384713192428568,
+      "timestamp": 1748733140980,
+      "price": 104776.63,
+      "symbol": "BTCUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.9077663289967847,
+      "timestamp": 1748733140980,
+      "price": 2534.1099999999997,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8384713192428568,
+      "timestamp": 1748733141030,
+      "price": 104776.63,
+      "symbol": "BTCUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.9077663289967847,
+      "timestamp": 1748733141031,
+      "price": 2534.1099999999997,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8384713192428568,
+      "timestamp": 1748733141081,
+      "price": 104776.63,
+      "symbol": "BTCUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733141081,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8384713192428568,
+      "timestamp": 1748733141132,
+      "price": 104776.63,
+      "symbol": "BTCUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733141132,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8384713192428568,
+      "timestamp": 1748733141182,
+      "price": 104776.63,
+      "symbol": "BTCUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733141182,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8384713192428568,
+      "timestamp": 1748733141233,
+      "price": 104776.63,
+      "symbol": "BTCUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733141233,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8384713192428568,
+      "timestamp": 1748733141284,
+      "price": 104776.63,
+      "symbol": "BTCUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733141284,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733141334,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733141385,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733141436,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733141486,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733141537,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733141587,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733141638,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733141817,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733141868,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733141918,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733141969,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733142019,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733142070,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733142120,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733142171,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733142222,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733142272,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733142323,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8324686404647802,
+      "timestamp": 1748733142373,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8324686404647802,
+      "timestamp": 1748733142424,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8324686404647802,
+      "timestamp": 1748733142475,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8324686404647802,
+      "timestamp": 1748733142525,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8324686404647802,
+      "timestamp": 1748733142576,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8324686404647802,
+      "timestamp": 1748733142627,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8324686404647802,
+      "timestamp": 1748733142677,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8324686404647802,
+      "timestamp": 1748733142728,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8324686404647802,
+      "timestamp": 1748733142779,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8324686404647802,
+      "timestamp": 1748733142830,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8324686404647802,
+      "timestamp": 1748733142880,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8324686404647802,
+      "timestamp": 1748733142931,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8324686404647802,
+      "timestamp": 1748733142982,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8324686404647802,
+      "timestamp": 1748733143032,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8324686404647802,
+      "timestamp": 1748733143083,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8324686404647802,
+      "timestamp": 1748733143134,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8324686404647802,
+      "timestamp": 1748733143184,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733143235,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733143285,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733143336,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733143387,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733143438,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733143488,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733143539,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733143590,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8594629611762321,
+      "timestamp": 1748733143640,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.7862531454501548,
+      "timestamp": 1748733143691,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.7862531454501548,
+      "timestamp": 1748733143742,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.7862531454501548,
+      "timestamp": 1748733143792,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.7862531454501548,
+      "timestamp": 1748733143843,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.7862531454501548,
+      "timestamp": 1748733143894,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.7862531454501548,
+      "timestamp": 1748733143944,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.7862531454501548,
+      "timestamp": 1748733143995,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.7862531454501548,
+      "timestamp": 1748733144046,
+      "price": 2533.6,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8205541843554183,
+      "timestamp": 1748733144096,
+      "price": 2533.38,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8205541843554183,
+      "timestamp": 1748733144147,
+      "price": 2533.38,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8205541843554183,
+      "timestamp": 1748733144197,
+      "price": 2533.38,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8205541843554183,
+      "timestamp": 1748733144248,
+      "price": 2533.38,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8205541843554183,
+      "timestamp": 1748733144299,
+      "price": 2533.38,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8205541843554183,
+      "timestamp": 1748733144349,
+      "price": 2533.38,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8205541843554183,
+      "timestamp": 1748733144400,
+      "price": 2533.38,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8205541843554183,
+      "timestamp": 1748733144451,
+      "price": 2533.38,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8205541843554183,
+      "timestamp": 1748733144502,
+      "price": 2533.38,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8226120238862731,
+      "timestamp": 1748733144553,
+      "price": 2534.3050000000003,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8226120238862731,
+      "timestamp": 1748733144603,
+      "price": 2534.3050000000003,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8226120238862731,
+      "timestamp": 1748733144654,
+      "price": 2534.3050000000003,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8226120238862731,
+      "timestamp": 1748733144704,
+      "price": 2534.3050000000003,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8226120238862731,
+      "timestamp": 1748733144755,
+      "price": 2534.3050000000003,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8226120238862731,
+      "timestamp": 1748733144806,
+      "price": 2534.3050000000003,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8226120238862731,
+      "timestamp": 1748733144856,
+      "price": 2534.3050000000003,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    },
+    {
+      "type": "SELL",
+      "source": "order_imbalance",
+      "strength": 0.8226120238862731,
+      "timestamp": 1748733144907,
+      "price": 2534.3050000000003,
+      "symbol": "ETHUSDC",
+      "session": "US"
+    }
+  ],
+  "config": {
+    "imbalance_threshold": 0.2,
+    "volatility_threshold": 0.1,
+    "momentum_threshold": 0.05,
+    "min_spread_bps": 1.0,
+    "max_spread_bps": 50.0,
+    "order_book_depth": 10,
+    "update_interval_ms": 100,
+    "signal_interval_ms": 50,
+    "use_cached_data": true,
+    "cache_max_age_ms": 200
+  }
+}

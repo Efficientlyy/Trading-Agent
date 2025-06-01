@@ -452,11 +452,39 @@ class SignalGenerator:
                 # Apply session-specific position size factor
                 size = base_size * position_size_factor
                 
+                # Get trading pair config
+                pair_config = None
+                for pair in self.config.get("trading_pairs", []):
+                    if pair["symbol"] == symbol:
+                        pair_config = pair
+                        break
+                
+                # Cap size based on max position and minimum order size
+                if pair_config:
+                    size = min(size, pair_config.get("max_position", 0.1))
+                    min_order_size = pair_config.get("min_order_size", 0.001)
+                    if size < min_order_size:
+                        size = min_order_size
+                
+                # Get available balance from paper trading system if possible
+                try:
+                    from paper_trading import PaperTradingSystem
+                    paper_trading = PaperTradingSystem()
+                    quote_asset = symbol[-4:] if symbol.endswith("USDC") else "USDT"
+                    available_balance = paper_trading.get_balance(quote_asset)
+                    
+                    # Calculate maximum affordable size
+                    if market_state.ask_price > 0 and available_balance > 0:
+                        max_size = available_balance / market_state.ask_price * 0.99  # 99% to account for price movement
+                        size = min(size, max_size)
+                except Exception as e:
+                    logger.debug(f"Could not check balance for size capping: {str(e)}")
+                
                 # Round to appropriate precision
                 size = round(size, 6)
                 
                 decision = {
-                    "action": "BUY",
+                    "side": "BUY",  # Changed from "action" to "side" for consistency
                     "symbol": symbol,
                     "size": size,
                     "price": market_state.bid_price,  # Place at bid for limit orders
@@ -477,11 +505,38 @@ class SignalGenerator:
                 # Apply session-specific position size factor
                 size = base_size * position_size_factor
                 
+                # Get trading pair config
+                pair_config = None
+                for pair in self.config.get("trading_pairs", []):
+                    if pair["symbol"] == symbol:
+                        pair_config = pair
+                        break
+                
+                # Cap size based on max position and minimum order size
+                if pair_config:
+                    size = min(size, pair_config.get("max_position", 0.1))
+                    min_order_size = pair_config.get("min_order_size", 0.001)
+                    if size < min_order_size:
+                        size = min_order_size
+                
+                # Get available balance from paper trading system if possible
+                try:
+                    from paper_trading import PaperTradingSystem
+                    paper_trading = PaperTradingSystem()
+                    base_asset = symbol[:-4] if symbol.endswith("USDC") else symbol[:-4]  # Extract BTC or ETH
+                    available_balance = paper_trading.get_balance(base_asset)
+                    
+                    # Cap size by available balance
+                    if available_balance > 0:
+                        size = min(size, available_balance * 0.99)  # 99% to account for rounding
+                except Exception as e:
+                    logger.debug(f"Could not check balance for size capping: {str(e)}")
+                
                 # Round to appropriate precision
                 size = round(size, 6)
                 
                 decision = {
-                    "action": "SELL",
+                    "side": "SELL",  # Changed from "action" to "side" for consistency
                     "symbol": symbol,
                     "size": size,
                     "price": market_state.ask_price,  # Place at ask for limit orders
@@ -497,82 +552,38 @@ class SignalGenerator:
             # Update statistics
             if decision:
                 self.stats["decisions_made"] += 1
-                logger.info(f"Decision made: {decision['action']} {decision['size']} {symbol} with factor {position_size_factor}")
+                logger.info(f"Decision made: {decision['side']} {decision['size']} {symbol} with factor {position_size_factor}")
             
             return decision
             
         except Exception as e:
-            logger.error(f"Error making trading decision for {symbol}: {str(e)}")
+            logger.error(f"Error making trading decision: {str(e)}")
             return None
     
-    def place_order(self, decision):
-        """Place an order based on trading decision"""
+    def _save_state(self):
+        """Save state to file"""
         try:
-            if not decision:
-                return None
+            # Create state directory if it doesn't exist
+            os.makedirs("state", exist_ok=True)
             
-            # Extract decision details
-            symbol = decision["symbol"]
-            side = decision["action"]
-            order_type = decision["order_type"]
-            quantity = decision["size"]
-            price = decision["price"]
-            time_in_force = decision["time_in_force"]
+            # Save statistics
+            with open("state/signal_generator_stats.json", "w") as f:
+                json.dump(self.stats, f, indent=2)
             
-            # Place order
-            response = self.client.create_order(
-                symbol=symbol,
-                side=side,
-                type=order_type,
-                quantity=quantity,
-                price=price,
-                timeInForce=time_in_force
-            )
+            logger.info("Signal generator state saved")
             
-            if response and "orderId" in response:
-                # Update statistics
-                self.stats["orders_placed"] += 1
-                
-                # Log order
-                logger.info(f"Order placed: {side} {quantity} {symbol} @ {price}")
-                
-                return response
-            else:
-                logger.warning(f"Order placement failed: {response}")
-                return None
-                
-        except Exception as e:
-            logger.warning(f"Failed to place order: {str(e)}")
-            return None
-    
-    def _save_state(self, filename="signal_generator_state.json"):
-        """Save current state to file"""
-        try:
-            state = {
-                "timestamp": int(time.time() * 1000),
-                "stats": self.stats,
-                "recent_signals": list(self.recent_signals)[-100:],  # Save last 100 signals
-                "config": self.config
-            }
-            
-            with open(filename, "w") as f:
-                json.dump(state, f, indent=2)
-            
-            return True
         except Exception as e:
             logger.error(f"Error saving state: {str(e)}")
-            return False
 
 
 # Example usage
 if __name__ == "__main__":
     import argparse
     
-    parser = argparse.ArgumentParser(description='Flash Trading Signals')
+    parser = argparse.ArgumentParser(description='Flash Trading Signal Generator')
     parser.add_argument('--env', default=".env-secure/.env", help='Path to .env file')
-    parser.add_argument('--test', action='store_true', help='Run test mode')
-    parser.add_argument('--duration', type=int, default=60, help='Test duration in seconds')
     parser.add_argument('--symbols', default="BTCUSDC,ETHUSDC", help='Comma-separated list of symbols')
+    parser.add_argument('--duration', type=int, default=60, help='Duration in seconds')
     
     args = parser.parse_args()
     
@@ -582,59 +593,26 @@ if __name__ == "__main__":
     # Create signal generator
     signal_generator = SignalGenerator(env_path=args.env)
     
-    # Print current session
-    current_session = signal_generator.session_manager.get_current_session_name()
-    print(f"Current trading session: {current_session}")
+    # Start signal generation
+    signal_generator.start(symbols)
     
-    # Print session parameters
-    session_params = signal_generator.session_manager.get_all_session_parameters()
-    print("Session parameters:")
-    for param, value in session_params.items():
-        print(f"  {param}: {value}")
-    
-    # Run test if requested
-    if args.test:
-        print(f"Running signal generator test for {args.duration} seconds...")
+    try:
+        # Run for specified duration
+        print(f"Running for {args.duration} seconds...")
+        time.sleep(args.duration)
         
-        # Start signal generator
-        signal_generator.start(symbols)
+        # Print statistics
+        print(f"Signals generated: {signal_generator.stats['signals_generated']}")
+        print(f"Decisions made: {signal_generator.stats['decisions_made']}")
         
-        try:
-            # Run for specified duration
-            start_time = time.time()
-            end_time = start_time + args.duration
-            
-            while time.time() < end_time:
-                # Sleep for a bit
-                time.sleep(1)
-                
-                # Print status every 5 seconds
-                elapsed = time.time() - start_time
-                if int(elapsed) % 5 == 0:
-                    # Get recent signals
-                    signals = signal_generator.get_recent_signals(10)
-                    
-                    # Print status
-                    print(f"\nElapsed: {elapsed:.1f}s, Signals: {len(signals)}")
-                    
-                    # Make trading decisions
-                    for symbol in symbols:
-                        symbol_signals = [s for s in signals if s["symbol"] == symbol]
-                        if symbol_signals:
-                            decision = signal_generator.make_trading_decision(symbol, symbol_signals)
-                            if decision:
-                                print(f"Decision for {symbol}: {decision['action']} {decision['size']} @ {decision['price']}")
-                                
-                                # Place order in test mode
-                                response = signal_generator.place_order(decision)
-                                if response:
-                                    print(f"Order placed: {response.get('orderId')}")
+        # Get recent signals
+        recent_signals = signal_generator.get_recent_signals(10)
+        print(f"Recent signals: {len(recent_signals)}")
+        for signal in recent_signals:
+            print(f"  {signal['type']} {signal['symbol']} @ {signal['price']} (strength: {signal['strength']:.4f})")
         
-        finally:
-            # Stop signal generator
-            signal_generator.stop()
-            
-            # Print statistics
-            print("\nSignal Generator Statistics:")
-            for stat, value in signal_generator.stats.items():
-                print(f"  {stat}: {value}")
+    except KeyboardInterrupt:
+        print("Interrupted by user")
+    finally:
+        # Stop signal generation
+        signal_generator.stop()

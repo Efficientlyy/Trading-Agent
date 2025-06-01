@@ -137,7 +137,7 @@ class FlashTradingSystem:
         try:
             # Extract decision details
             symbol = decision["symbol"]
-            side = decision["action"]
+            side = decision.get("side", decision.get("action"))  # Support both "side" and legacy "action" fields
             order_type = decision["order_type"]
             quantity = decision["size"]
             price = decision["price"]

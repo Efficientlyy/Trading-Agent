@@ -1,0 +1,64 @@
+{
+  "timestamp": 1748734903082,
+  "results_file": "results/test_results_20250531_193854.json",
+  "performance_metrics": {
+    "signal_metrics": {
+      "total_signals": 4325,
+      "signals_per_minute": 4053.99072034494,
+      "signal_counts_by_symbol": {
+        "ETHUSDC": {
+          "SELL": 2730
+        },
+        "BTCUSDC": {
+          "SELL": 845,
+          "BUY": 750
+        }
+      },
+      "signal_types": {
+        "SELL": 3575,
+        "BUY": 750
+      }
+    },
+    "decision_metrics": {
+      "total_decisions": 436,
+      "decisions_per_minute": 408.6797581665651,
+      "decision_counts_by_symbol": {
+        "ETHUSDC": {
+          "SELL": 275
+        },
+        "BTCUSDC": {
+          "SELL": 86,
+          "BUY": 75
+        }
+      },
+      "decision_sides": {
+        "SELL": 361,
+        "BUY": 75
+      },
+      "signal_to_decision_ratio": 0.1008092485549133
+    },
+    "trade_metrics": {
+      "total_trades": 0,
+      "trades_per_minute": 0.0,
+      "trade_counts_by_symbol": {},
+      "trade_sides": {},
+      "avg_latency_ms": 0,
+      "max_latency_ms": 0,
+      "min_latency_ms": 0,
+      "profit_loss": 0.0,
+      "win_rate": 0.0,
+      "decision_to_trade_ratio": 0.0
+    },
+    "session_performance": {},
+    "equity_metrics": {
+      "initial_equity": 440.4290946500003,
+      "final_equity": 440.4290946500003,
+      "max_equity": 440.4290946500003,
+      "min_equity": 440.4290946500003,
+      "total_return": 0.0,
+      "percent_return": 0.0,
+      "max_drawdown": 0.0,
+      "max_drawdown_percent": 0.0
+    }
+  }
+}

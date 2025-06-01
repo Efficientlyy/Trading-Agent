@@ -1,0 +1,112 @@
+{
+  "timestamp": "20250531_181030",
+  "api_latency": {
+    "ping": {
+      "endpoint": "/api/v3/ping",
+      "method": "GET",
+      "success": true,
+      "iterations": 10,
+      "errors": 0,
+      "error_rate": 0.0,
+      "min_latency_ms": 179.89182472229004,
+      "max_latency_ms": 233.71052742004395,
+      "avg_latency_ms": 192.92070865631104,
+      "median_latency_ms": 190.11759757995605,
+      "p95_latency_ms": null,
+      "std_dev_ms": 14.995304814575958
+    },
+    "time": {
+      "endpoint": "/api/v3/time",
+      "method": "GET",
+      "success": true,
+      "iterations": 10,
+      "errors": 0,
+      "error_rate": 0.0,
+      "min_latency_ms": 175.99892616271973,
+      "max_latency_ms": 256.7887306213379,
+      "avg_latency_ms": 204.9830198287964,
+      "median_latency_ms": 201.83753967285156,
+      "p95_latency_ms": null,
+      "std_dev_ms": 23.691973380490015
+    },
+    "exchangeInfo": {
+      "endpoint": "/api/v3/exchangeInfo",
+      "method": "GET",
+      "success": true,
+      "iterations": 10,
+      "errors": 0,
+      "error_rate": 0.0,
+      "min_latency_ms": 224.35951232910156,
+      "max_latency_ms": 468.1098461151123,
+      "avg_latency_ms": 299.2528438568115,
+      "median_latency_ms": 270.6007957458496,
+      "p95_latency_ms": null,
+      "std_dev_ms": 71.51145430927383
+    },
+    "depth": {
+      "endpoint": "/api/v3/depth",
+      "method": "GET",
+      "success": true,
+      "iterations": 10,
+      "errors": 0,
+      "error_rate": 0.0,
+      "min_latency_ms": 368.43347549438477,
+      "max_latency_ms": 482.9707145690918,
+      "avg_latency_ms": 393.52433681488037,
+      "median_latency_ms": 378.21030616760254,
+      "p95_latency_ms": null,
+      "std_dev_ms": 37.862880987647394
+    },
+    "24hr": {
+      "endpoint": "/api/v3/ticker/24hr",
+      "method": "GET",
+      "success": true,
+      "iterations": 10,
+      "errors": 0,
+      "error_rate": 0.0,
+      "min_latency_ms": 214.25676345825195,
+      "max_latency_ms": 440.8390522003174,
+      "avg_latency_ms": 259.4284772872925,
+      "median_latency_ms": 243.7131404876709,
+      "p95_latency_ms": null,
+      "std_dev_ms": 64.93523733263518
+    },
+    "account": {
+      "endpoint": "/api/v3/account",
+      "method": "GET",
+      "success": true,
+      "iterations": 10,
+      "errors": 0,
+      "error_rate": 0.0,
+      "min_latency_ms": 365.0250434875488,
+      "max_latency_ms": 679.1131496429443,
+      "avg_latency_ms": 413.4632110595703,
+      "median_latency_ms": 385.13481616973877,
+      "p95_latency_ms": null,
+      "std_dev_ms": 94.24539579982317
+    }
+  },
+  "system_resources": {
+    "during_api_calls": {
+      "duration_seconds": 5,
+      "samples": 10,
+      "cpu_usage_avg": 0.54,
+      "cpu_usage_max": 1.0,
+      "memory_usage_avg": 23.8,
+      "memory_usage_max": 23.8
+    }
+  },
+  "order_workflow": {
+    "BTCUSDT": {
+      "symbol": "BTCUSDT",
+      "success": true,
+      "iterations": 3,
+      "errors": 0,
+      "error_rate": 0.0,
+      "min_workflow_ms": 371.3359832763672,
+      "max_workflow_ms": 392.2150135040283,
+      "avg_workflow_ms": 379.9705505371094,
+      "median_workflow_ms": 376.3606548309326
+    }
+  }
+}

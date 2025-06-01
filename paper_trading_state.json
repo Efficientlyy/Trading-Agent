@@ -1,0 +1,11 @@
+{
+  "timestamp": 1748738553760,
+  "balances": {
+    "USDC": 10000.0,
+    "BTC": 0.0,
+    "ETH": 0.0
+  },
+  "open_orders": {},
+  "order_history": [],
+  "trade_history": []
+}

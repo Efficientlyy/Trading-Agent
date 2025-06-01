@@ -1,0 +1,139 @@
+{
+  "trading_pairs": [
+    {
+      "symbol": "BTCUSDC",
+      "base_asset": "BTC",
+      "quote_asset": "USDC",
+      "min_order_size": 0.001,
+      "price_precision": 2,
+      "quantity_precision": 6,
+      "max_position": 0.1,
+      "enabled": true,
+      "description": "Bitcoin/USDC - Zero fee trading pair"
+    },
+    {
+      "symbol": "ETHUSDC",
+      "base_asset": "ETH",
+      "quote_asset": "USDC",
+      "min_order_size": 0.01,
+      "price_precision": 2,
+      "quantity_precision": 5,
+      "max_position": 1.0,
+      "enabled": true,
+      "description": "Ethereum/USDC - Zero fee trading pair"
+    }
+  ],
+  "paper_trading": {
+    "enabled": true,
+    "initial_balance": {
+      "USDC": 10000.0,
+      "BTC": 0.0,
+      "ETH": 0.0
+    },
+    "simulate_slippage": true,
+    "slippage_bps": 2.0,
+    "simulate_partial_fills": true,
+    "partial_fill_probability": 0.2,
+    "log_trades": true,
+    "persist_state": true,
+    "state_file": "paper_trading_state.json"
+  },
+  "session_management": {
+    "enabled": true,
+    "config_file": "trading_session_config.json",
+    "auto_update_interval": 300,
+    "sessions": {
+      "ASIA": {
+        "start_hour_utc": 0,
+        "end_hour_utc": 8,
+        "description": "Asian Trading Session (00:00-08:00 UTC)"
+      },
+      "EUROPE": {
+        "start_hour_utc": 8,
+        "end_hour_utc": 16,
+        "description": "European Trading Session (08:00-16:00 UTC)"
+      },
+      "US": {
+        "start_hour_utc": 13,
+        "end_hour_utc": 21,
+        "description": "US Trading Session (13:00-21:00 UTC)"
+      }
+    }
+  },
+  "session_parameters": {
+    "ASIA": {
+      "imbalance_threshold": 0.15,
+      "volatility_threshold": 0.12,
+      "momentum_threshold": 0.04,
+      "min_spread_bps": 2.0,
+      "max_spread_bps": 60.0,
+      "order_book_depth": 10,
+      "signal_interval_ms": 50,
+      "position_size_factor": 0.8,
+      "take_profit_bps": 25.0,
+      "stop_loss_bps": 15.0,
+      "max_open_orders": 3,
+      "time_in_force": "IOC"
+    },
+    "EUROPE": {
+      "imbalance_threshold": 0.2,
+      "volatility_threshold": 0.1,
+      "momentum_threshold": 0.05,
+      "min_spread_bps": 1.0,
+      "max_spread_bps": 50.0,
+      "order_book_depth": 10,
+      "signal_interval_ms": 50,
+      "position_size_factor": 1.0,
+      "take_profit_bps": 20.0,
+      "stop_loss_bps": 10.0,
+      "max_open_orders": 5,
+      "time_in_force": "IOC"
+    },
+    "US": {
+      "imbalance_threshold": 0.25,
+      "volatility_threshold": 0.08,
+      "momentum_threshold": 0.06,
+      "min_spread_bps": 0.8,
+      "max_spread_bps": 40.0,
+      "order_book_depth": 15,
+      "signal_interval_ms": 30,
+      "position_size_factor": 1.2,
+      "take_profit_bps": 15.0,
+      "stop_loss_bps": 8.0,
+      "max_open_orders": 8,
+      "time_in_force": "IOC"
+    }
+  },
+  "signal_generation": {
+    "imbalance_threshold": 0.2,
+    "volatility_threshold": 0.1,
+    "momentum_threshold": 0.05,
+    "min_spread_bps": 1.0,
+    "max_spread_bps": 50.0,
+    "order_book_depth": 10,
+    "update_interval_ms": 100,
+    "signal_interval_ms": 50,
+    "use_cached_data": true,
+    "cache_max_age_ms": 200
+  },
+  "execution": {
+    "order_type": "LIMIT",
+    "time_in_force": "IOC",
+    "take_profit_bps": 20.0,
+    "stop_loss_bps": 10.0,
+    "max_open_orders": 5,
+    "max_daily_orders": 1000,
+    "retry_failed_orders": true,
+    "max_retries": 3,
+    "retry_delay_ms": 500
+  },
+  "system": {
+    "log_level": "INFO",
+    "log_to_file": true,
+    "log_file": "flash_trading.log",
+    "metrics_enabled": true,
+    "metrics_interval_ms": 5000,
+    "persist_metrics": true,
+    "metrics_file": "flash_trading_metrics.json"
+  }
+}

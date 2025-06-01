@@ -48,6 +48,9 @@ class OptimizedMexcClient:
         
         # Connection pooling for HTTP requests
         self.session = None
+        
+        # Request counter for metrics
+        self.request_count = 0
         self.async_session = None
         
         # Thread pool for parallel operations
@@ -58,8 +61,18 @@ class OptimizedMexcClient:
             "server_time_offset": 0,  # Offset between local and server time
             "symbols_info": {},       # Symbol information cache
             "order_book": {},         # Order book cache
+            "ticker": {},             # Ticker cache
+            "klines": {},             # Klines cache
             "last_update": {}         # Timestamp of last cache update
         }
+        
+    def get_request_count(self):
+        """Get the total number of API requests made
+        
+        Returns:
+            int: Total number of API requests
+        """
+        return self.request_count
         
         # Initialize connection pool
         self._init_session()
@@ -139,51 +152,133 @@ class OptimizedMexcClient:
         ).hexdigest()
         return signature
     
-    def public_request(self, method, endpoint, params=None):
-        """Make a public API request (no authentication required)"""
+    def public_request(self, method, endpoint, params=None, max_retries=3):
+        """Make a public API request (no authentication required)
+        
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            endpoint: API endpoint
+            params: Request parameters
+            max_retries: Maximum number of retry attempts
+            
+        Returns:
+            dict: JSON response if successful, None if failed after retries
+        """
         url = f"{self.base_url}{endpoint}"
         
-        try:
-            if method == 'GET':
-                response = self.session.get(url, params=params)
-            elif method == 'POST':
-                response = self.session.post(url, params=params)
-            else:
-                response = self.session.request(method, url, params=params)
+        # Increment request counter
+        self.request_count += 1
+        
+        # Retry logic
+        retries = 0
+        while retries <= max_retries:
+            try:
+                if method == 'GET':
+                    response = self.session.get(url, params=params)
+                elif method == 'POST':
+                    response = self.session.post(url, params=params)
+                else:
+                    response = self.session.request(method, url, params=params)
                 
-            return response
-        except Exception as e:
-            logger.error(f"Error in public request: {str(e)}")
-            raise
+                # Check for successful response
+                if response.status_code == 200:
+                    return response.json()  # Return parsed JSON directly
+                else:
+                    logger.warning(f"API request failed with status {response.status_code}: {response.text}")
+                    
+                    # Retry on server errors (5xx)
+                    if 500 <= response.status_code < 600 and retries < max_retries:
+                        retries += 1
+                        retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
+                        logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
+                        time.sleep(retry_delay)
+                        continue
+                    
+                    # Return empty dict for client errors to avoid NoneType errors
+                    return {}
+                    
+            except Exception as e:
+                logger.error(f"Error in public request: {str(e)}")
+                
+                # Retry on connection errors
+                if retries < max_retries:
+                    retries += 1
+                    retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
+                    logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
+                    time.sleep(retry_delay)
+                else:
+                    # Return empty dict after all retries failed
+                    return {}
     
-    def signed_request(self, method, endpoint, params=None):
-        """Make a signed API request (authentication required)"""
+    def signed_request(self, method, endpoint, params=None, max_retries=3):
+        """Make a signed API request (authentication required)
+        
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            endpoint: API endpoint
+            params: Request parameters
+            max_retries: Maximum number of retry attempts
+            
+        Returns:
+            dict: JSON response if successful, empty dict if failed after retries
+        """
         url = f"{self.base_url}{endpoint}"
+        
+        # Increment request counter
+        self.request_count += 1
         
         # Prepare parameters
         request_params = params.copy() if params else {}
         
-        # Add timestamp
-        request_params['timestamp'] = self.get_server_time()
-        
-        # Generate signature
-        signature = self.generate_signature(request_params)
-        request_params['signature'] = signature
-        
-        try:
-            if method == 'GET':
-                response = self.session.get(url, params=request_params)
-            elif method == 'POST':
-                response = self.session.post(url, params=request_params)
-            elif method == 'DELETE':
-                response = self.session.delete(url, params=request_params)
-            else:
-                response = self.session.request(method, url, params=request_params)
+        # Retry logic
+        retries = 0
+        while retries <= max_retries:
+            try:
+                # Add timestamp (refreshed on each retry)
+                request_params['timestamp'] = self.get_server_time()
                 
-            return response
-        except Exception as e:
-            logger.error(f"Error in signed request: {str(e)}")
-            raise
+                # Generate signature
+                signature = self.generate_signature(request_params)
+                request_params['signature'] = signature
+                
+                if method == 'GET':
+                    response = self.session.get(url, params=request_params)
+                elif method == 'POST':
+                    response = self.session.post(url, params=request_params)
+                elif method == 'DELETE':
+                    response = self.session.delete(url, params=request_params)
+                else:
+                    response = self.session.request(method, url, params=request_params)
+                
+                # Check for successful response
+                if response.status_code == 200:
+                    return response.json()  # Return parsed JSON directly
+                else:
+                    logger.warning(f"API signed request failed with status {response.status_code}: {response.text}")
+                    
+                    # Retry on server errors (5xx)
+                    if 500 <= response.status_code < 600 and retries < max_retries:
+                        retries += 1
+                        retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
+                        logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
+                        time.sleep(retry_delay)
+                        continue
+                    
+                    # Return empty dict for client errors to avoid NoneType errors
+                    return {}
+                    
+            except Exception as e:
+                logger.error(f"Error in signed request: {str(e)}")
+                
+                # Retry on connection errors
+                if retries < max_retries:
+                    retries += 1
+                    retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
+                    logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
+                    time.sleep(retry_delay)
+                else:
+                    # Return empty dict after all retries failed
+                    return {}
     
     async def async_public_request(self, method, endpoint, params=None):
         """Make an asynchronous public API request"""
@@ -237,7 +332,17 @@ class OptimizedMexcClient:
             raise
     
     def get_order_book(self, symbol, limit=5, use_cache=True, max_age_ms=500):
-        """Get order book with optional caching for reduced latency"""
+        """Get order book with optional caching for reduced latency
+        
+        Args:
+            symbol: Trading pair symbol
+            limit: Order book depth
+            use_cache: Whether to use cached data
+            max_age_ms: Maximum age of cached data in milliseconds
+            
+        Returns:
+            dict: Order book data with bids and asks, or empty dict if failed
+        """
         cache_key = f"{symbol}_{limit}"
         current_time = int(time.time() * 1000)
         
@@ -247,27 +352,35 @@ class OptimizedMexcClient:
             if current_time - last_update < max_age_ms:
                 return self.cache["order_book"][cache_key]
         
-        # Fetch fresh data
-        response = self.public_request('GET', f"{self.api_v3}/depth", {
+        # Fetch fresh data - public_request now returns parsed JSON directly
+        order_book = self.public_request('GET', f"{self.api_v3}/depth", {
             "symbol": symbol,
             "limit": limit
         })
         
-        if response.status_code == 200:
-            order_book = response.json()
-            
-            # Cache the result
+        # Cache the result if it has the expected structure
+        if order_book and 'bids' in order_book and 'asks' in order_book:
             if use_cache:
                 self.cache["order_book"][cache_key] = order_book
                 self.cache["last_update"][cache_key] = current_time
             
             return order_book
         else:
-            logger.warning(f"Failed to get order book: {response.text}")
-            return None
+            logger.warning(f"Failed to get valid order book for {symbol}")
+            return {}
     
     def place_order(self, symbol, side, type, **kwargs):
-        """Place an order with optimized latency"""
+        """Place an order with optimized latency
+        
+        Args:
+            symbol: Trading pair symbol
+            side: Order side (BUY or SELL)
+            type: Order type (LIMIT, MARKET, etc.)
+            **kwargs: Additional order parameters
+            
+        Returns:
+            dict: Order data if successful, empty dict if failed
+        """
         # Prepare order parameters
         params = {
             "symbol": symbol,
@@ -280,17 +393,28 @@ class OptimizedMexcClient:
             if value is not None:
                 params[key] = value
         
-        # Send order request
-        response = self.signed_request('POST', f"{self.api_v3}/order", params)
+        # Send order request - signed_request now returns parsed JSON directly
+        order_data = self.signed_request('POST', f"{self.api_v3}/order", params)
         
-        if response.status_code == 200:
-            return response.json()
+        # Check if order data is valid
+        if order_data and 'orderId' in order_data:
+            return order_data
         else:
-            logger.warning(f"Order placement failed: {response.text}")
-            return None
+            logger.warning(f"Order placement failed for {symbol}")
+            return {}
     
     async def async_place_order(self, symbol, side, type, **kwargs):
-        """Place an order asynchronously for minimum latency"""
+        """Place an order asynchronously for minimum latency
+        
+        Args:
+            symbol: Trading pair symbol
+            side: Order side (BUY or SELL)
+            type: Order type (LIMIT, MARKET, etc.)
+            **kwargs: Additional order parameters
+            
+        Returns:
+            dict: Order data if successful, empty dict if failed
+        """
         # Prepare order parameters
         params = {
             "symbol": symbol,
@@ -304,16 +428,34 @@ class OptimizedMexcClient:
                 params[key] = value
         
         # Send order request
-        result, status = await self.async_signed_request('POST', f"{self.api_v3}/order", params)
+        try:
+            result, status = await self.async_signed_request('POST', f"{self.api_v3}/order", params)
+            
+            # Check if order data is valid
+            if result and 'orderId' in result:
+                return result
+            else:
+                logger.warning(f"Async order placement failed for {symbol}")
+                return {}
+        except Exception as e:
+            logger.error(f"Error in async order placement: {str(e)}")
+            return {}
         
-        if status == 200:
-            return result
-        else:
-            logger.warning(f"Async order placement failed: {result}")
-            return None
+        # Code below is unreachable due to the try/except block above
+        # Removed to avoid confusion
     
     def place_test_order(self, symbol, side, type, **kwargs):
-        """Test order placement without executing"""
+        """Test order placement without executing
+        
+        Args:
+            symbol: Trading pair symbol
+            side: Order side (BUY or SELL)
+            type: Order type (LIMIT, MARKET, etc.)
+            **kwargs: Additional order parameters
+            
+        Returns:
+            dict: Success response if successful, empty dict if failed
+        """
         # Prepare order parameters
         params = {
             "symbol": symbol,
@@ -326,41 +468,66 @@ class OptimizedMexcClient:
             if value is not None:
                 params[key] = value
         
-        # Send test order request
-        response = self.signed_request('POST', f"{self.api_v3}/order/test", params)
+        # Send test order request - signed_request now returns parsed JSON directly
+        result = self.signed_request('POST', f"{self.api_v3}/order/test", params)
         
-        if response.status_code == 200:
-            return response.json()
+        # For test orders, an empty dict is a successful response
+        if result is not None:
+            return result
         else:
-            logger.warning(f"Test order failed: {response.text}")
-            return None
+            logger.warning(f"Test order failed for {symbol}")
+            return {}
     
     def get_account_info(self):
-        """Get account information"""
-        response = self.signed_request('GET', f"{self.api_v3}/account")
+        """Get account information
         
-        if response.status_code == 200:
-            return response.json()
+        Returns:
+            dict: Account information if successful, empty dict if failed
+        """
+        # signed_request now returns parsed JSON directly
+        account_data = self.signed_request('GET', f"{self.api_v3}/account")
+        
+        # Check if account data is valid
+        if account_data and 'balances' in account_data:
+            return account_data
         else:
-            logger.warning(f"Failed to get account info: {response.text}")
-            return None
+            logger.warning("Failed to get valid account information")
+            return {}
     
     def get_open_orders(self, symbol=None):
-        """Get open orders with optional symbol filter"""
+        """Get open orders with optional symbol filter
+        
+        Args:
+            symbol: Optional trading pair symbol to filter orders
+            
+        Returns:
+            list: List of open orders if successful, empty list if failed
+        """
         params = {}
         if symbol:
             params["symbol"] = symbol
             
-        response = self.signed_request('GET', f"{self.api_v3}/openOrders", params)
+        # signed_request now returns parsed JSON directly
+        orders_data = self.signed_request('GET', f"{self.api_v3}/openOrders", params)
         
-        if response.status_code == 200:
-            return response.json()
+        # Open orders response should be a list
+        if isinstance(orders_data, list):
+            return orders_data
         else:
-            logger.warning(f"Failed to get open orders: {response.text}")
-            return None
+            logger.warning(f"Failed to get valid open orders data")
+            return []
     
     def cancel_order(self, symbol, order_id=None, client_order_id=None):
-        """Cancel an order by ID or client order ID"""
+        """Cancel an order by ID or client order ID
+        
+        Args:
+            symbol: Trading pair symbol
+            order_id: Order ID to cancel
+            client_order_id: Client order ID to cancel
+            
+        Returns:
+            dict: Cancellation result if successful, empty dict if failed
+        """
         params = {"symbol": symbol}
         
         if order_id:
@@ -370,24 +537,29 @@ class OptimizedMexcClient:
         else:
             raise ValueError("Either order_id or client_order_id must be provided")
             
-        response = self.signed_request('DELETE', f"{self.api_v3}/order", params)
+        # signed_request now returns parsed JSON directly
+        cancel_data = self.signed_request('DELETE', f"{self.api_v3}/order", params)
         
-        if response.status_code == 200:
-            return response.json()
+        # Check if cancellation data is valid
+        if cancel_data and 'orderId' in cancel_data:
+            return cancel_data
         else:
-            logger.warning(f"Failed to cancel order: {response.text}")
-            return None
+            logger.warning(f"Failed to cancel order for {symbol}")
+            return {}
     
     def cancel_all_orders(self, symbol):
         """Cancel all open orders for a symbol"""
         params = {"symbol": symbol}
-        response = self.signed_request('DELETE', f"{self.api_v3}/openOrders", params)
         
-        if response.status_code == 200:
-            return response.json()
+        # signed_request now returns parsed JSON directly
+        cancel_data = self.signed_request('DELETE', f"{self.api_v3}/openOrders", params)
+        
+        # Check if cancellation data is valid (should be a list of cancelled orders)
+        if isinstance(cancel_data, list):
+            return cancel_data
         else:
-            logger.warning(f"Failed to cancel all orders: {response.text}")
-            return None
+            logger.warning(f"Failed to cancel all orders for {symbol}")
+            return []
     
     def close(self):
         """Close connections and clean up resources"""
@@ -427,7 +599,7 @@ if __name__ == "__main__":
         
         # Get account info
         account = client.get_account_info()
-        print(f"Account status: canTrade={account.get('canTrade', False)}")
+        print(f"Account status: canTrade={account.get('canTrade', False) if account else False}")
         
         # Run benchmark if requested
         if args.benchmark:
