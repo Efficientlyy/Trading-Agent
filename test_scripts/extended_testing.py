@@ -22,7 +22,7 @@ from threading import Thread
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from flash_trading import FlashTradingSystem
-from trading_session_manager import SessionManager
+from trading_session_manager import TradingSessionManager as SessionManager
 from optimized_mexc_client import OptimizedMexcClient
 from paper_trading import PaperTradingSystem
 from flash_trading_config import FlashTradingConfig
