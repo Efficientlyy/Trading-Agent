@@ -47,9 +47,15 @@ class MexcApiClient:
         url = f"{self.base_url}{self.api_v3}/time"
         response = requests.get(url)
         if response.status_code == 200:
-            return response.json()['serverTime']
+            try:
+                data = response.json()
+                return data.get('serverTime', int(time.time() * 1000))
+            except ValueError:
+                # Return current time if JSON parsing fails
+                return int(time.time() * 1000)
         else:
-            raise ConnectionError(f"Failed to get server time: {response.text}")
+            # Return current time instead of raising exception for robustness
+            return int(time.time() * 1000)
     
     def generate_signature(self, params):
         """Generate HMAC SHA256 signature for API request
@@ -69,13 +75,28 @@ class MexcApiClient:
         return signature
     
     def public_request(self, method, endpoint, params=None):
-        """Make a public API request (no authentication required)"""
+        """Make a public API request (no authentication required)
+        
+        Returns:
+            dict: JSON response if successful, empty dict if failed
+        """
         url = f"{self.base_url}{endpoint}"
-        response = requests.request(method, url, params=params)
-        return response
+        try:
+            response = requests.request(method, url, params=params)
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {}
+        except Exception as e:
+            print(f"Error in public request: {str(e)}")
+            return {}
     
     def signed_request(self, method, endpoint, params=None):
-        """Make a signed API request (authentication required)"""
+        """Make a signed API request (authentication required)
+        
+        Returns:
+            dict: JSON response if successful, empty dict if failed
+        """
         url = f"{self.base_url}{endpoint}"
         
         # Prepare parameters
@@ -93,29 +114,40 @@ class MexcApiClient:
             'X-MEXC-APIKEY': self.api_key,
         }
         
-        # Make request
-        if method == 'GET':
-            response = requests.get(url, params=request_params, headers=headers)
-        elif method == 'POST':
-            response = requests.post(url, params=request_params, headers=headers)
-        elif method == 'DELETE':
-            response = requests.delete(url, params=request_params, headers=headers)
-        else:
-            raise ValueError(f"Unsupported HTTP method: {method}")
+        try:
+            # Make request
+            if method == 'GET':
+                response = requests.get(url, params=request_params, headers=headers)
+            elif method == 'POST':
+                response = requests.post(url, params=request_params, headers=headers)
+            elif method == 'DELETE':
+                response = requests.delete(url, params=request_params, headers=headers)
+            else:
+                raise ValueError(f"Unsupported HTTP method: {method}")
             
-        return response
+            # Parse response
+            if response.status_code == 200:
+                try:
+                    return response.json()
+                except ValueError:
+                    return {}
+            else:
+                return {}
+        except Exception as e:
+            print(f"Error in signed request: {str(e)}")
+            return {}
     
     def test_connectivity(self):
         """Test API connectivity and authentication"""
         # Test public endpoint
         ping_response = self.public_request('GET', f"{self.api_v3}/ping")
-        if ping_response.status_code != 200:
-            return False, f"Public API test failed: {ping_response.text}"
+        if not ping_response:
+            return False, "Public API test failed: Empty response"
         
         # Test authenticated endpoint with minimal parameters
         account_response = self.signed_request('GET', f"{self.api_v3}/account")
-        if account_response.status_code != 200:
-            return False, f"Authentication failed: {account_response.text} (URL: {account_response.url})"
+        if not account_response:
+            return False, "Authentication failed: Empty response"
         
         return True, "API connectivity and authentication successful"
 
@@ -131,7 +163,7 @@ if __name__ == "__main__":
     if success:
         # Get account information
         account_info = client.signed_request('GET', "/api/v3/account")
-        print(f"Account info: {account_info.json()}")
+        print(f"Account info: {account_info}")
     else:
         # Print debug information
         print("Debug information:")

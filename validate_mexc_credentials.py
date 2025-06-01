@@ -50,16 +50,18 @@ def get_server_time():
     try:
         response = requests.get(f"{BASE_URL}{SERVER_TIME_ENDPOINT}")
         response.raise_for_status()
+        # Return the parsed JSON directly
         return response.json()
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed to get server time: {e}")
-        return None
+        # Return empty dict instead of None for consistency
+        return {}
 
 def validate_credentials(api_key, api_secret):
     """Validate MEXC API credentials by making an authenticated request."""
     # Get server time first to ensure timestamp is synchronized
     server_time = get_server_time()
-    if not server_time:
+    if not server_time or 'serverTime' not in server_time:
         logger.error("Failed to get server time. Cannot validate credentials.")
         return False
     
@@ -91,10 +93,15 @@ def validate_credentials(api_key, api_secret):
             headers=headers
         )
         
-        # Check response
-        if response.status_code == 200:
-            logger.info("MEXC API credentials are valid!")
+        # Parse response to dict
+        try:
             account_info = response.json()
+        except ValueError:
+            account_info = {}
+        
+        # Check response
+        if response.status_code == 200 and account_info:
+            logger.info("MEXC API credentials are valid!")
             logger.info(f"Account type: {account_info.get('accountType', 'Unknown')}")
             logger.info(f"Can trade: {account_info.get('canTrade', False)}")
             logger.info(f"Can deposit: {account_info.get('canDeposit', False)}")
