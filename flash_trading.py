@@ -104,31 +104,70 @@ class FlashTradingSystem:
             logger.warning("Flash trading system not running")
             return False
         
-        # Get enabled trading pairs
-        trading_pairs = self.config.get_enabled_trading_pairs()
-        if not trading_pairs:
+        # Get enabled trading pairs with robust error handling
+        try:
+            trading_pairs = self.config.get_enabled_trading_pairs()
+            if not trading_pairs:
+                logger.warning("No enabled trading pairs found in configuration")
+                return False
+                
+            if not isinstance(trading_pairs, list):
+                logger.error(f"Invalid trading pairs format: {type(trading_pairs)}, expected list")
+                return False
+        except Exception as e:
+            logger.error(f"Error getting enabled trading pairs: {str(e)}")
             return False
         
-        # Process each trading pair
+        # Process each trading pair with validation
         for pair_config in trading_pairs:
-            symbol = pair_config["symbol"]
-            
-            # Get recent signals
-            signals = self.signal_generator.get_recent_signals(10)
-            signals = [s for s in signals if s["symbol"] == symbol]
-            
-            if not signals:
+            try:
+                # Validate pair configuration
+                if not isinstance(pair_config, dict):
+                    logger.error(f"Invalid pair configuration format: {type(pair_config)}, expected dict")
+                    continue
+                    
+                symbol = pair_config.get("symbol")
+                if not symbol or not isinstance(symbol, str):
+                    logger.error(f"Invalid symbol in pair configuration: {symbol}")
+                    continue
+                
+                # Get recent signals with validation
+                signals = self.signal_generator.get_recent_signals(10)
+                if signals is None:
+                    logger.warning(f"Failed to get recent signals for {symbol}")
+                    continue
+                    
+                if not isinstance(signals, list):
+                    logger.error(f"Invalid signals format: {type(signals)}, expected list")
+                    continue
+                
+                # Filter signals for current symbol
+                signals = [s for s in signals if isinstance(s, dict) and s.get("symbol") == symbol]
+                
+                if not signals:
+                    logger.debug(f"No signals found for {symbol}")
+                    continue
+                
+                # Make trading decision with validation
+                try:
+                    decision = self.signal_generator.make_trading_decision(symbol, signals)
+                    
+                    if decision:
+                        # Execute with paper trading
+                        self._execute_paper_trading_decision(decision)
+                except Exception as e:
+                    logger.error(f"Error making trading decision for {symbol}: {str(e)}")
+                    continue
+                
+            except Exception as e:
+                logger.error(f"Error processing trading pair {pair_config}: {str(e)}")
                 continue
-            
-            # Make trading decision
-            decision = self.signal_generator.make_trading_decision(symbol, signals)
-            
-            if decision:
-                # Execute with paper trading
-                self._execute_paper_trading_decision(decision)
         
-        # Process open paper trading orders
-        self.paper_trading.process_open_orders()
+        # Process open paper trading orders with error handling
+        try:
+            self.paper_trading.process_open_orders()
+        except Exception as e:
+            logger.error(f"Error processing open orders: {str(e)}")
         
         return True
     
