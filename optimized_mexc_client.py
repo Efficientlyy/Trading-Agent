@@ -280,56 +280,211 @@ class OptimizedMexcClient:
                     # Return empty dict after all retries failed
                     return {}
     
-    async def async_public_request(self, method, endpoint, params=None):
-        """Make an asynchronous public API request"""
+    async def async_public_request(self, method, endpoint, params=None, max_retries=3):
+        """Make an asynchronous public API request
+        
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            endpoint: API endpoint
+            params: Request parameters
+            max_retries: Maximum number of retry attempts
+            
+        Returns:
+            dict: JSON response if successful, empty dict if failed after retries
+        """
         await self._init_async_session()
         url = f"{self.base_url}{endpoint}"
         
-        try:
-            if method == 'GET':
-                async with self.async_session.get(url, params=params) as response:
-                    return await response.json(), response.status
-            elif method == 'POST':
-                async with self.async_session.post(url, params=params) as response:
-                    return await response.json(), response.status
-            else:
-                async with self.async_session.request(method, url, params=params) as response:
-                    return await response.json(), response.status
-        except Exception as e:
-            logger.error(f"Error in async public request: {str(e)}")
-            raise
+        # Increment request counter
+        self.request_count += 1
+        
+        # Retry logic
+        retries = 0
+        while retries <= max_retries:
+            try:
+                if method == 'GET':
+                    async with self.async_session.get(url, params=params) as response:
+                        if response.status == 200:
+                            return await response.json()
+                        else:
+                            text = await response.text()
+                            logger.warning(f"Async API request failed with status {response.status}: {text}")
+                            
+                            # Retry on server errors (5xx)
+                            if 500 <= response.status < 600 and retries < max_retries:
+                                retries += 1
+                                retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
+                                logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
+                                await asyncio.sleep(retry_delay)
+                                continue
+                            
+                            # Return empty dict for client errors to avoid NoneType errors
+                            return {}
+                elif method == 'POST':
+                    async with self.async_session.post(url, params=params) as response:
+                        if response.status == 200:
+                            return await response.json()
+                        else:
+                            text = await response.text()
+                            logger.warning(f"Async API request failed with status {response.status}: {text}")
+                            
+                            # Retry on server errors (5xx)
+                            if 500 <= response.status < 600 and retries < max_retries:
+                                retries += 1
+                                retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
+                                logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
+                                await asyncio.sleep(retry_delay)
+                                continue
+                            
+                            # Return empty dict for client errors to avoid NoneType errors
+                            return {}
+                else:
+                    async with self.async_session.request(method, url, params=params) as response:
+                        if response.status == 200:
+                            return await response.json()
+                        else:
+                            text = await response.text()
+                            logger.warning(f"Async API request failed with status {response.status}: {text}")
+                            
+                            # Retry on server errors (5xx)
+                            if 500 <= response.status < 600 and retries < max_retries:
+                                retries += 1
+                                retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
+                                logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
+                                await asyncio.sleep(retry_delay)
+                                continue
+                            
+                            # Return empty dict for client errors to avoid NoneType errors
+                            return {}
+            except Exception as e:
+                logger.error(f"Error in async public request: {str(e)}")
+                
+                # Retry on connection errors
+                if retries < max_retries:
+                    retries += 1
+                    retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
+                    logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
+                    await asyncio.sleep(retry_delay)
+                else:
+                    # Return empty dict after all retries failed
+                    return {}
     
-    async def async_signed_request(self, method, endpoint, params=None):
-        """Make an asynchronous signed API request"""
+    async def async_signed_request(self, method, endpoint, params=None, max_retries=3):
+        """Make an asynchronous signed API request
+        
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            endpoint: API endpoint
+            params: Request parameters
+            max_retries: Maximum number of retry attempts
+            
+        Returns:
+            dict: JSON response if successful, empty dict if failed after retries
+        """
         await self._init_async_session()
         url = f"{self.base_url}{endpoint}"
         
-        # Prepare parameters
-        request_params = params.copy() if params else {}
+        # Increment request counter
+        self.request_count += 1
         
-        # Add timestamp
-        request_params['timestamp'] = self.get_server_time()
-        
-        # Generate signature
-        signature = self.generate_signature(request_params)
-        request_params['signature'] = signature
-        
-        try:
-            if method == 'GET':
-                async with self.async_session.get(url, params=request_params) as response:
-                    return await response.json(), response.status
-            elif method == 'POST':
-                async with self.async_session.post(url, params=request_params) as response:
-                    return await response.json(), response.status
-            elif method == 'DELETE':
-                async with self.async_session.delete(url, params=request_params) as response:
-                    return await response.json(), response.status
-            else:
-                async with self.async_session.request(method, url, params=request_params) as response:
-                    return await response.json(), response.status
-        except Exception as e:
-            logger.error(f"Error in async signed request: {str(e)}")
-            raise
+        # Retry logic
+        retries = 0
+        while retries <= max_retries:
+            try:
+                # Prepare parameters (refreshed on each retry)
+                request_params = params.copy() if params else {}
+                
+                # Add timestamp
+                request_params['timestamp'] = self.get_server_time()
+                
+                # Generate signature
+                signature = self.generate_signature(request_params)
+                request_params['signature'] = signature
+                
+                if method == 'GET':
+                    async with self.async_session.get(url, params=request_params) as response:
+                        if response.status == 200:
+                            return await response.json()
+                        else:
+                            text = await response.text()
+                            logger.warning(f"Async API signed request failed with status {response.status}: {text}")
+                            
+                            # Retry on server errors (5xx)
+                            if 500 <= response.status < 600 and retries < max_retries:
+                                retries += 1
+                                retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
+                                logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
+                                await asyncio.sleep(retry_delay)
+                                continue
+                            
+                            # Return empty dict for client errors to avoid NoneType errors
+                            return {}
+                elif method == 'POST':
+                    async with self.async_session.post(url, params=request_params) as response:
+                        if response.status == 200:
+                            return await response.json()
+                        else:
+                            text = await response.text()
+                            logger.warning(f"Async API signed request failed with status {response.status}: {text}")
+                            
+                            # Retry on server errors (5xx)
+                            if 500 <= response.status < 600 and retries < max_retries:
+                                retries += 1
+                                retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
+                                logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
+                                await asyncio.sleep(retry_delay)
+                                continue
+                            
+                            # Return empty dict for client errors to avoid NoneType errors
+                            return {}
+                elif method == 'DELETE':
+                    async with self.async_session.delete(url, params=request_params) as response:
+                        if response.status == 200:
+                            return await response.json()
+                        else:
+                            text = await response.text()
+                            logger.warning(f"Async API signed request failed with status {response.status}: {text}")
+                            
+                            # Retry on server errors (5xx)
+                            if 500 <= response.status < 600 and retries < max_retries:
+                                retries += 1
+                                retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
+                                logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
+                                await asyncio.sleep(retry_delay)
+                                continue
+                            
+                            # Return empty dict for client errors to avoid NoneType errors
+                            return {}
+                else:
+                    async with self.async_session.request(method, url, params=request_params) as response:
+                        if response.status == 200:
+                            return await response.json()
+                        else:
+                            text = await response.text()
+                            logger.warning(f"Async API signed request failed with status {response.status}: {text}")
+                            
+                            # Retry on server errors (5xx)
+                            if 500 <= response.status < 600 and retries < max_retries:
+                                retries += 1
+                                retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
+                                logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
+                                await asyncio.sleep(retry_delay)
+                                continue
+                            
+                            # Return empty dict for client errors to avoid NoneType errors
+                            return {}
+            except Exception as e:
+                logger.error(f"Error in async signed request: {str(e)}")
+                
+                # Retry on connection errors
+                if retries < max_retries:
+                    retries += 1
+                    retry_delay = 0.5 * (2 ** retries)  # Exponential backoff
+                    logger.info(f"Retrying in {retry_delay:.2f} seconds (attempt {retries}/{max_retries})")
+                    await asyncio.sleep(retry_delay)
+                else:
+                    # Return empty dict after all retries failed
+                    return {}
     
     def get_order_book(self, symbol, limit=5, use_cache=True, max_age_ms=500):
         """Get order book with optional caching for reduced latency
