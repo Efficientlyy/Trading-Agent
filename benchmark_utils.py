@@ -54,12 +54,12 @@ class PerformanceBenchmark:
             
             try:
                 if endpoint.startswith("/api/v3/ping") or endpoint.startswith("/api/v3/time"):
-                    response = self.api_client.public_request(method, endpoint, params)
+                    response_data = self.api_client.public_request(method, endpoint, params)
                 else:
-                    response = self.api_client.signed_request(method, endpoint, params)
+                    response_data = self.api_client.signed_request(method, endpoint, params)
                 
-                if response.status_code != 200:
-                    logger.warning(f"Request failed: {response.status_code} - {response.text}")
+                if not response_data:
+                    logger.warning(f"Request failed: Empty response")
                     errors += 1
                     continue
                 
@@ -126,15 +126,15 @@ class PerformanceBenchmark:
         logger.info(f"Simulating order workflow for {symbol} ({iterations} iterations)")
         
         # Get current market price
-        ticker_response = self.api_client.public_request("GET", "/api/v3/ticker/price", {"symbol": symbol})
-        if ticker_response.status_code != 200:
-            logger.error(f"Failed to get ticker price: {ticker_response.text}")
+        ticker_data = self.api_client.public_request("GET", "/api/v3/ticker/price", {"symbol": symbol})
+        if not ticker_data or "price" not in ticker_data:
+            logger.error(f"Failed to get ticker price: {ticker_data}")
             return {
                 "success": False,
-                "message": f"Failed to get ticker price: {ticker_response.status_code}"
+                "message": "Failed to get ticker price: Empty or invalid response"
             }
         
-        current_price = float(ticker_response.json()["price"])
+        current_price = float(ticker_data["price"])
         
         # Set a price far from current market price to ensure order won't execute
         # For buy orders: 20% below current price
@@ -159,8 +159,8 @@ class PerformanceBenchmark:
                 }
                 
                 place_response = self.api_client.signed_request("POST", "/api/v3/order/test", order_params)
-                if place_response.status_code != 200:
-                    logger.warning(f"Test order failed: {place_response.status_code} - {place_response.text}")
+                if not place_response:
+                    logger.warning(f"Test order failed: Empty response")
                     errors += 1
                     continue
                 
