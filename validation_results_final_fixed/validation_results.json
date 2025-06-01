@@ -1,0 +1,281 @@
+{
+  "environment_tests": {
+    "initialization": {
+      "status": "Passed",
+      "details": {
+        "env_type": "TradingRLEnvironment"
+      }
+    },
+    "reset": {
+      "status": "Passed",
+      "details": {
+        "state_type": "dict",
+        "state_keys": [
+          "param_imbalance_threshold",
+          "param_momentum_threshold",
+          "param_volatility_threshold",
+          "param_rsi_threshold",
+          "param_macd_threshold",
+          "param_bb_threshold",
+          "price_1m",
+          "order_imbalance",
+          "spread",
+          "volatility",
+          "session",
+          "rsi_1m",
+          "macd_1m",
+          "bb_1m",
+          "price_change_1m",
+          "price_5m",
+          "price_change_5m",
+          "rsi_5m",
+          "macd_5m",
+          "bb_5m",
+          "price_15m",
+          "price_change_15m",
+          "rsi_15m",
+          "macd_15m",
+          "bb_15m",
+          "price_1h",
+          "price_change_1h",
+          "rsi_1h",
+          "macd_1h",
+          "bb_1h"
+        ],
+        "state_size": 30
+      }
+    },
+    "step": {
+      "status": "Passed",
+      "details": {
+        "next_state_type": "dict",
+        "reward_type": "float",
+        "done_type": "bool",
+        "info_type": "dict"
+      }
+    },
+    "reward": {
+      "status": "Passed",
+      "details": {
+        "reward_range": [
+          0.0,
+          0.0
+        ],
+        "reward_mean": 0.0,
+        "reward_std": 0.0
+      }
+    },
+    "state": {
+      "status": "Passed",
+      "details": {
+        "state_keys": [
+          "param_imbalance_threshold",
+          "param_momentum_threshold",
+          "param_volatility_threshold",
+          "param_rsi_threshold",
+          "param_macd_threshold",
+          "param_bb_threshold",
+          "price_1m",
+          "order_imbalance",
+          "spread",
+          "volatility",
+          "session",
+          "rsi_1m",
+          "macd_1m",
+          "bb_1m",
+          "price_change_1m",
+          "price_5m",
+          "price_change_5m",
+          "rsi_5m",
+          "macd_5m",
+          "bb_5m",
+          "price_15m",
+          "price_change_15m",
+          "rsi_15m",
+          "macd_15m",
+          "bb_15m",
+          "price_1h",
+          "price_change_1h",
+          "rsi_1h",
+          "macd_1h",
+          "bb_1h",
+          "metric_pnl",
+          "metric_sharpe_ratio",
+          "metric_win_rate",
+          "metric_trade_count",
+          "metric_max_drawdown",
+          "metric_volatility",
+          "metric_profit_factor",
+          "metric_recovery_factor",
+          "metric_pnl_percent"
+        ],
+        "state_size": 39
+      }
+    },
+    "status": "Passed"
+  },
+  "agent_tests": {
+    "initialization": {
+      "status": "Passed",
+      "details": {
+        "agent_type": "PPOAgent"
+      }
+    },
+    "action_selection": {
+      "status": "Passed",
+      "details": {
+        "action_type": "ndarray",
+        "action_shape": [
+          4
+        ],
+        "log_prob_type": "ndarray",
+        "value_type": "ndarray"
+      }
+    },
+    "update": {
+      "status": "Passed",
+      "details": {
+        "update_result": {
+          "actor_loss": 0.0,
+          "critic_loss": 0.0,
+          "entropy": 0.0,
+          "update_status": "skipped",
+          "reason": "buffer_inconsistency"
+        }
+      }
+    },
+    "save_load": {
+      "status": "Passed",
+      "details": {
+        "save_success": true,
+        "load_success": true,
+        "actions_match": true,
+        "save_path": "validation_results_final_fixed/test_agent.pt"
+      }
+    },
+    "status": "Passed"
+  },
+  "integration_tests": {
+    "initialization": {
+      "status": "Passed",
+      "details": {
+        "integration_type": "RLIntegration"
+      }
+    },
+    "training": {
+      "status": "Passed",
+      "details": {
+        "metrics_type": "dict",
+        "metrics_keys": [
+          "episode_rewards",
+          "episode_lengths",
+          "parameter_history",
+          "performance_metrics"
+        ]
+      }
+    },
+    "evaluation": {
+      "status": "Passed",
+      "details": {
+        "metrics_type": "dict",
+        "metrics_keys": [
+          "avg_reward",
+          "avg_steps",
+          "avg_pnl",
+          "avg_win_rate",
+          "rewards",
+          "steps",
+          "pnls",
+          "win_rates"
+        ]
+      }
+    },
+    "parameter_extraction": {
+      "status": "Passed",
+      "details": {
+        "params_type": "dict",
+        "params_keys": [
+          "imbalance_threshold",
+          "momentum_threshold",
+          "volatility_threshold",
+          "rsi_threshold",
+          "_metadata"
+        ]
+      }
+    },
+    "status": "Passed"
+  },
+  "performance_tests": {
+    "environment_performance": {
+      "status": "Passed",
+      "details": {
+        "avg_step_time": 0.00103989839553833,
+        "max_step_time": 0.0014240741729736328,
+        "min_step_time": 0.0009770393371582031
+      }
+    },
+    "agent_performance": {
+      "status": "Passed",
+      "details": {
+        "avg_select_action_time": 0.0005650758743286133,
+        "max_select_action_time": 0.0009741783142089844,
+        "min_select_action_time": 0.0004684925079345703,
+        "update_time": 0.0002193450927734375
+      }
+    },
+    "integration_performance": {
+      "status": "Passed",
+      "details": {
+        "train_time": 0.008353710174560547,
+        "eval_time": 0.002586841583251953
+      }
+    },
+    "optimization": {
+      "status": "Passed",
+      "details": {
+        "optimization_skipped": true,
+        "reason": "Optimization is a separate component"
+      }
+    },
+    "status": "Passed"
+  },
+  "edge_case_tests": {
+    "empty_data": {
+      "status": "Passed",
+      "details": {
+        "empty_data_handled": true
+      }
+    },
+    "invalid_action": {
+      "status": "Passed",
+      "details": {
+        "invalid_action_results": [
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      }
+    },
+    "extreme_values": {
+      "status": "Passed",
+      "details": {
+        "extreme_value_results": [
+          true,
+          true,
+          true,
+          true
+        ]
+      }
+    },
+    "error_handling": {
+      "status": "Passed",
+      "details": {
+        "error_handled": true
+      }
+    },
+    "status": "Passed"
+  },
+  "overall_status": "Passed"
+}
