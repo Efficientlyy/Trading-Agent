@@ -1,0 +1,11 @@
+{
+  "start_time": "2025-06-01T00:56:59.073652",
+  "end_time": "2025-06-01T03:59:03.127409",
+  "duration_seconds": 10924.053757,
+  "signal_count": 0,
+  "decision_count": 0,
+  "symbols": [
+    "BTCUSDC",
+    "ETHUSDC"
+  ]
+}
