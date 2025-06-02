@@ -295,13 +295,14 @@ class MockExchangeClient:
             "count": 0
         }
     
-    def create_market_order(self, symbol: str, side: str, amount: float) -> Dict:
+    def create_market_order(self, symbol: str, side: str, quantity: float, client_order_id: str = None) -> Dict:
         """Create a market order
         
         Args:
             symbol: Trading pair symbol (e.g., "BTC/USDC")
             side: Order side ("buy" or "sell")
-            amount: Order amount
+            quantity: Order quantity
+            client_order_id: Client order ID (optional)
             
         Returns:
             dict: Order response
@@ -310,12 +311,14 @@ class MockExchangeClient:
             raise Exception("Simulated exchange error")
         
         # Normalize symbol format
+        original_symbol = symbol
         symbol = symbol.replace("USDC", "USDT")  # Treat USDC as USDT for simplicity
         
         # Check if symbol exists
         if symbol not in self.symbols:
             logger.warning(f"Symbol {symbol} not found in mock data, using BTC/USDC")
             symbol = "BTC/USDC"
+            original_symbol = "BTC/USDC"
         
         # Get latest price from mock data
         df = self.mock_data[symbol]["1m"].copy()
@@ -325,39 +328,44 @@ class MockExchangeClient:
         order_id = str(uuid.uuid4())
         
         # Calculate cost
-        cost = amount * latest_price
+        cost = quantity * latest_price
+        
+        # Calculate fee - zero fee for BTC/USDC
+        fee_cost = 0.0 if "BTC/USDC" in original_symbol else cost * 0.001
         
         # Log order
-        logger.info(f"Created market order: {side} {amount} {symbol} at {latest_price} (cost: {cost})")
+        logger.info(f"Created market order: {side} {quantity} {symbol} at {latest_price} (cost: {cost}, fee: {fee_cost})")
         
         return {
             "id": order_id,
-            "clientOrderId": f"mock_{order_id}",
+            "clientOrderId": client_order_id or f"mock_{order_id}",
             "timestamp": int(time.time() * 1000),
             "datetime": datetime.now().isoformat(),
             "symbol": symbol,
             "type": "market",
             "side": side,
             "price": latest_price,
-            "amount": amount,
+            "amount": quantity,
             "cost": cost,
-            "filled": amount,
+            "filled": quantity,
             "remaining": 0.0,
-            "status": "closed",
+            "status": "filled",
             "fee": {
-                "cost": cost * 0.001,
+                "cost": fee_cost,
                 "currency": symbol.split("/")[1]
             }
         }
     
-    def create_limit_order(self, symbol: str, side: str, amount: float, price: float) -> Dict:
+    def create_limit_order(self, symbol: str, side: str, quantity: float, price: float, time_in_force: str = "GTC", client_order_id: str = None) -> Dict:
         """Create a limit order
         
         Args:
             symbol: Trading pair symbol (e.g., "BTC/USDC")
             side: Order side ("buy" or "sell")
-            amount: Order amount
+            quantity: Order quantity
             price: Order price
+            time_in_force: Time in force (default: GTC)
+            client_order_id: Client order ID (optional)
             
         Returns:
             dict: Order response
@@ -366,38 +374,43 @@ class MockExchangeClient:
             raise Exception("Simulated exchange error")
         
         # Normalize symbol format
+        original_symbol = symbol
         symbol = symbol.replace("USDC", "USDT")  # Treat USDC as USDT for simplicity
         
         # Check if symbol exists
         if symbol not in self.symbols:
             logger.warning(f"Symbol {symbol} not found in mock data, using BTC/USDC")
             symbol = "BTC/USDC"
+            original_symbol = "BTC/USDC"
         
         # Generate mock order ID
         order_id = str(uuid.uuid4())
         
         # Calculate cost
-        cost = amount * price
+        cost = quantity * price
+        
+        # Calculate fee - zero fee for BTC/USDC
+        fee_cost = 0.0 if "BTC/USDC" in original_symbol else cost * 0.001
         
         # Log order
-        logger.info(f"Created limit order: {side} {amount} {symbol} at {price} (cost: {cost})")
+        logger.info(f"Created limit order: {side} {quantity} {symbol} at {price} (cost: {cost}, fee: {fee_cost})")
         
         return {
             "id": order_id,
-            "clientOrderId": f"mock_{order_id}",
+            "clientOrderId": client_order_id or f"mock_{order_id}",
             "timestamp": int(time.time() * 1000),
             "datetime": datetime.now().isoformat(),
             "symbol": symbol,
             "type": "limit",
             "side": side,
             "price": price,
-            "amount": amount,
+            "amount": quantity,
             "cost": cost,
-            "filled": amount,  # Assume immediate fill for simplicity
+            "filled": quantity,  # Assume immediate fill for simplicity
             "remaining": 0.0,
-            "status": "closed",
+            "status": "filled",
             "fee": {
-                "cost": cost * 0.001,
+                "cost": fee_cost,
                 "currency": symbol.split("/")[1]
             }
         }

@@ -1,0 +1,11 @@
+{
+  "description": "Low risk settings with smaller position sizes and fewer trades",
+  "risk_level": "low",
+  "max_portfolio_risk_percent": 1.0,
+  "max_position_size_usd": 500,
+  "max_position_size_percent": 2.5,
+  "stop_loss_percent": 1.5,
+  "take_profit_percent": 3.0,
+  "max_trades_per_day": 3,
+  "decision_confidence_threshold": 0.9
+}

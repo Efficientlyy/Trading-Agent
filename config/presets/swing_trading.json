@@ -1,0 +1,16 @@
+{
+  "description": "Optimized for longer-term positions with wider stops",
+  "risk_level": "medium",
+  "max_portfolio_risk_percent": 2.5,
+  "max_position_size_usd": 1500,
+  "max_position_size_percent": 7.5,
+  "stop_loss_percent": 4.0,
+  "take_profit_percent": 8.0,
+  "max_trades_per_day": 2,
+  "primary_timeframes": [
+    "1h",
+    "4h",
+    "1d"
+  ],
+  "decision_confidence_threshold": 0.9
+}

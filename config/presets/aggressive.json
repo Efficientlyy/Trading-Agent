@@ -1,0 +1,11 @@
+{
+  "description": "Higher risk tolerance with larger position sizes and more trades",
+  "risk_level": "high",
+  "max_portfolio_risk_percent": 3.0,
+  "max_position_size_usd": 2000,
+  "max_position_size_percent": 10.0,
+  "stop_loss_percent": 3.0,
+  "take_profit_percent": 6.0,
+  "max_trades_per_day": 10,
+  "decision_confidence_threshold": 0.75
+}

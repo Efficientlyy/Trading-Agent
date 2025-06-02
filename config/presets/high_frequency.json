@@ -1,0 +1,16 @@
+{
+  "description": "Optimized for frequent trading with shorter timeframes",
+  "risk_level": "medium",
+  "max_portfolio_risk_percent": 1.5,
+  "max_position_size_usd": 500,
+  "max_position_size_percent": 3.0,
+  "stop_loss_percent": 1.0,
+  "take_profit_percent": 2.0,
+  "max_trades_per_day": 20,
+  "primary_timeframes": [
+    "1m",
+    "5m",
+    "15m"
+  ],
+  "decision_confidence_threshold": 0.8
+}

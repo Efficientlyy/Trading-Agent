@@ -1,0 +1,11 @@
+{
+  "description": "Moderate risk and reward with balanced settings",
+  "risk_level": "medium",
+  "max_portfolio_risk_percent": 2.0,
+  "max_position_size_usd": 1000,
+  "max_position_size_percent": 5.0,
+  "stop_loss_percent": 2.0,
+  "take_profit_percent": 4.0,
+  "max_trades_per_day": 5,
+  "decision_confidence_threshold": 0.85
+}
