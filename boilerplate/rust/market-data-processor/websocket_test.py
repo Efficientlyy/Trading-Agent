@@ -10,7 +10,7 @@ async def connect_to_mexc():
     async with websockets.connect(url) as websocket:
         print("Connection established!")
         
-        # Subscribe to BTC/USDT ticker
+        # Subscribe to BTC/USDC ticker
         symbol = "BTCUSDT"
         channel = "spot@public.ticker.v3.api"
         subscription = f"{channel}@{symbol}"

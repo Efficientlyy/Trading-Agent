@@ -39,7 +39,7 @@ class MockExchangeClient:
         self.error_count = 0
         
         # Mock data storage
-        self.symbols = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "XRP/USDT", "ADA/USDT"]
+        self.symbols = ["BTC/USDC", "ETH/USDT", "SOL/USDT", "XRP/USDT", "ADA/USDT"]
         self.timeframes = ["1m", "5m", "15m", "1h", "4h", "1d"]
         self.mock_data = {}
         
@@ -151,7 +151,7 @@ class MockExchangeClient:
         """Get klines (candlestick data)
         
         Args:
-            symbol: Trading pair symbol (e.g., "BTC/USDT")
+            symbol: Trading pair symbol (e.g., "BTC/USDC")
             interval: Timeframe (e.g., "1m", "5m", "15m", "1h")
             limit: Number of candles to return
             
@@ -166,8 +166,8 @@ class MockExchangeClient:
         
         # Check if symbol exists
         if symbol not in self.symbols:
-            logger.warning(f"Symbol {symbol} not found in mock data, using BTC/USDT")
-            symbol = "BTC/USDT"
+            logger.warning(f"Symbol {symbol} not found in mock data, using BTC/USDC")
+            symbol = "BTC/USDC"
         
         # Check if interval exists
         if interval not in self.timeframes:
@@ -205,7 +205,7 @@ class MockExchangeClient:
         """Get order book
         
         Args:
-            symbol: Trading pair symbol (e.g., "BTC/USDT")
+            symbol: Trading pair symbol (e.g., "BTC/USDC")
             limit: Depth limit
             
         Returns:
@@ -219,8 +219,8 @@ class MockExchangeClient:
         
         # Check if symbol exists
         if symbol not in self.symbols:
-            logger.warning(f"Symbol {symbol} not found in mock data, using BTC/USDT")
-            symbol = "BTC/USDT"
+            logger.warning(f"Symbol {symbol} not found in mock data, using BTC/USDC")
+            symbol = "BTC/USDC"
         
         # Get latest price from mock data
         df = self.mock_data[symbol]["1m"].copy()
@@ -252,7 +252,7 @@ class MockExchangeClient:
         """Get ticker
         
         Args:
-            symbol: Trading pair symbol (e.g., "BTC/USDT")
+            symbol: Trading pair symbol (e.g., "BTC/USDC")
             
         Returns:
             dict: Ticker data
@@ -265,8 +265,8 @@ class MockExchangeClient:
         
         # Check if symbol exists
         if symbol not in self.symbols:
-            logger.warning(f"Symbol {symbol} not found in mock data, using BTC/USDT")
-            symbol = "BTC/USDT"
+            logger.warning(f"Symbol {symbol} not found in mock data, using BTC/USDC")
+            symbol = "BTC/USDC"
         
         # Get latest price from mock data
         df = self.mock_data[symbol]["1m"].copy()
@@ -328,7 +328,7 @@ class MockExchangeClient:
         
         Args:
             order_id: Order ID
-            symbol: Trading pair symbol (e.g., "BTC/USDT")
+            symbol: Trading pair symbol (e.g., "BTC/USDC")
             
         Returns:
             dict: Cancel response
@@ -396,7 +396,7 @@ class MockExchangeClient:
         """Get open orders
         
         Args:
-            symbol: Trading pair symbol (e.g., "BTC/USDT")
+            symbol: Trading pair symbol (e.g., "BTC/USDC")
             
         Returns:
             list: Open orders

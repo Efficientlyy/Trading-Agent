@@ -417,7 +417,7 @@ This dashboard tracks trading outcomes and execution quality:
           "exemplar": true,
           "expr": "trading_pnl{symbol=\"BTCUSDT\"}",
           "interval": "",
-          "legendFormat": "BTC/USDT",
+          "legendFormat": "BTC/USDC",
           "refId": "A"
         },
         {

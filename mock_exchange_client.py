@@ -39,7 +39,7 @@ class MockExchangeClient:
         self.error_count = 0
         
         # Mock data storage
-        self.symbols = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "XRP/USDT", "ADA/USDT"]
+        self.symbols = ["BTC/USDC", "ETH/USDT", "SOL/USDT", "XRP/USDT", "ADA/USDT"]
         self.timeframes = ["1m", "5m", "15m", "1h", "4h", "1d"]
         self.mock_data = {}
         
@@ -151,7 +151,7 @@ class MockExchangeClient:
         """Get klines (candlestick data)
         
         Args:
-            symbol: Trading pair symbol (e.g., "BTC/USDT")
+            symbol: Trading pair symbol (e.g., "BTC/USDC")
             interval: Timeframe (e.g., "1m", "5m", "15m", "1h")
             limit: Number of candles to return
             
@@ -166,8 +166,8 @@ class MockExchangeClient:
         
         # Check if symbol exists
         if symbol not in self.symbols:
-            logger.warning(f"Symbol {symbol} not found in mock data, using BTC/USDT")
-            symbol = "BTC/USDT"
+            logger.warning(f"Symbol {symbol} not found in mock data, using BTC/USDC")
+            symbol = "BTC/USDC"
         
         # Check if interval exists
         if interval not in self.timeframes:
@@ -205,7 +205,7 @@ class MockExchangeClient:
         """Get order book
         
         Args:
-            symbol: Trading pair symbol (e.g., "BTC/USDT")
+            symbol: Trading pair symbol (e.g., "BTC/USDC")
             limit: Depth limit
             
         Returns:
@@ -219,8 +219,8 @@ class MockExchangeClient:
         
         # Check if symbol exists
         if symbol not in self.symbols:
-            logger.warning(f"Symbol {symbol} not found in mock data, using BTC/USDT")
-            symbol = "BTC/USDT"
+            logger.warning(f"Symbol {symbol} not found in mock data, using BTC/USDC")
+            symbol = "BTC/USDC"
         
         # Get latest price from mock data
         df = self.mock_data[symbol]["1m"].copy()
@@ -252,7 +252,7 @@ class MockExchangeClient:
         """Get ticker
         
         Args:
-            symbol: Trading pair symbol (e.g., "BTC/USDT")
+            symbol: Trading pair symbol (e.g., "BTC/USDC")
             
         Returns:
             dict: Ticker data
@@ -265,8 +265,8 @@ class MockExchangeClient:
         
         # Check if symbol exists
         if symbol not in self.symbols:
-            logger.warning(f"Symbol {symbol} not found in mock data, using BTC/USDT")
-            symbol = "BTC/USDT"
+            logger.warning(f"Symbol {symbol} not found in mock data, using BTC/USDC")
+            symbol = "BTC/USDC"
         
         # Get latest price from mock data
         df = self.mock_data[symbol]["1m"].copy()
@@ -293,6 +293,113 @@ class MockExchangeClient:
             "firstId": 0,
             "lastId": 0,
             "count": 0
+        }
+    
+    def create_market_order(self, symbol: str, side: str, amount: float) -> Dict:
+        """Create a market order
+        
+        Args:
+            symbol: Trading pair symbol (e.g., "BTC/USDC")
+            side: Order side ("buy" or "sell")
+            amount: Order amount
+            
+        Returns:
+            dict: Order response
+        """
+        if self._maybe_simulate_error():
+            raise Exception("Simulated exchange error")
+        
+        # Normalize symbol format
+        symbol = symbol.replace("USDC", "USDT")  # Treat USDC as USDT for simplicity
+        
+        # Check if symbol exists
+        if symbol not in self.symbols:
+            logger.warning(f"Symbol {symbol} not found in mock data, using BTC/USDC")
+            symbol = "BTC/USDC"
+        
+        # Get latest price from mock data
+        df = self.mock_data[symbol]["1m"].copy()
+        latest_price = float(df.iloc[-1]["close"])
+        
+        # Generate mock order ID
+        order_id = str(uuid.uuid4())
+        
+        # Calculate cost
+        cost = amount * latest_price
+        
+        # Log order
+        logger.info(f"Created market order: {side} {amount} {symbol} at {latest_price} (cost: {cost})")
+        
+        return {
+            "id": order_id,
+            "clientOrderId": f"mock_{order_id}",
+            "timestamp": int(time.time() * 1000),
+            "datetime": datetime.now().isoformat(),
+            "symbol": symbol,
+            "type": "market",
+            "side": side,
+            "price": latest_price,
+            "amount": amount,
+            "cost": cost,
+            "filled": amount,
+            "remaining": 0.0,
+            "status": "closed",
+            "fee": {
+                "cost": cost * 0.001,
+                "currency": symbol.split("/")[1]
+            }
+        }
+    
+    def create_limit_order(self, symbol: str, side: str, amount: float, price: float) -> Dict:
+        """Create a limit order
+        
+        Args:
+            symbol: Trading pair symbol (e.g., "BTC/USDC")
+            side: Order side ("buy" or "sell")
+            amount: Order amount
+            price: Order price
+            
+        Returns:
+            dict: Order response
+        """
+        if self._maybe_simulate_error():
+            raise Exception("Simulated exchange error")
+        
+        # Normalize symbol format
+        symbol = symbol.replace("USDC", "USDT")  # Treat USDC as USDT for simplicity
+        
+        # Check if symbol exists
+        if symbol not in self.symbols:
+            logger.warning(f"Symbol {symbol} not found in mock data, using BTC/USDC")
+            symbol = "BTC/USDC"
+        
+        # Generate mock order ID
+        order_id = str(uuid.uuid4())
+        
+        # Calculate cost
+        cost = amount * price
+        
+        # Log order
+        logger.info(f"Created limit order: {side} {amount} {symbol} at {price} (cost: {cost})")
+        
+        return {
+            "id": order_id,
+            "clientOrderId": f"mock_{order_id}",
+            "timestamp": int(time.time() * 1000),
+            "datetime": datetime.now().isoformat(),
+            "symbol": symbol,
+            "type": "limit",
+            "side": side,
+            "price": price,
+            "amount": amount,
+            "cost": cost,
+            "filled": amount,  # Assume immediate fill for simplicity
+            "remaining": 0.0,
+            "status": "closed",
+            "fee": {
+                "cost": cost * 0.001,
+                "currency": symbol.split("/")[1]
+            }
         }
     
     def submit_order(self, order) -> Dict:
@@ -328,7 +435,7 @@ class MockExchangeClient:
         
         Args:
             order_id: Order ID
-            symbol: Trading pair symbol (e.g., "BTC/USDT")
+            symbol: Trading pair symbol (e.g., "BTC/USDC")
             
         Returns:
             dict: Cancel response
@@ -396,7 +503,7 @@ class MockExchangeClient:
         """Get open orders
         
         Args:
-            symbol: Trading pair symbol (e.g., "BTC/USDT")
+            symbol: Trading pair symbol (e.g., "BTC/USDC")
             
         Returns:
             list: Open orders
@@ -406,3 +513,38 @@ class MockExchangeClient:
         
         # Return empty list for simplicity
         return []
+    
+    def get_candles(self, symbol: str, timeframe: str, limit: int = 100) -> pd.DataFrame:
+        """Get candles (OHLCV data)
+        
+        Args:
+            symbol: Trading pair symbol (e.g., "BTC/USDC")
+            timeframe: Timeframe (e.g., "1m", "5m", "15m", "1h")
+            limit: Number of candles to return
+            
+        Returns:
+            pd.DataFrame: Candles data
+        """
+        if self._maybe_simulate_error():
+            raise Exception("Simulated exchange error")
+        
+        # Normalize symbol format
+        symbol = symbol.replace("USDC", "USDT")  # Treat USDC as USDT for simplicity
+        
+        # Check if symbol exists
+        if symbol not in self.symbols:
+            logger.warning(f"Symbol {symbol} not found in mock data, using BTC/USDC")
+            symbol = "BTC/USDC"
+        
+        # Check if timeframe exists
+        if timeframe not in self.timeframes:
+            logger.warning(f"Timeframe {timeframe} not found in mock data, using 5m")
+            timeframe = "5m"
+        
+        # Get mock data
+        df = self.mock_data[symbol][timeframe].copy()
+        
+        # Limit to requested number of candles
+        df = df.tail(limit)
+        
+        return df

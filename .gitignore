@@ -69,3 +69,4 @@ htmlcov/
 
 # Production
 .env.production
+.env

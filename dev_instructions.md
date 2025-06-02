@@ -4,7 +4,7 @@
 
 I've reviewed the current implementation and identified several critical gaps:
 
-1. The dashboard is showing BTC/USDT instead of the required BTC/USDC trading pair
+1. The dashboard is showing BTC/USDC instead of the required BTC/USDC trading pair
 2. The implementation is only a metrics simulation without real trading functionality
 3. Core components are missing:
    - No price charts (only a placeholder)

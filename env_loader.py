@@ -1,26 +1,13 @@
 #!/usr/bin/env python
 """
-Environment Variable Loader for MEXC Trading System
+Environment variable loader for Trading-Agent System
 
-This script loads environment variables from a .env file and makes them available
-to all components of the MEXC Trading System. It provides a consistent interface
-for accessing credentials and configuration settings.
-
-Usage:
-    from env_loader import load_env, get_env
-
-    # Load environment variables
-    load_env()
-
-    # Access environment variables
-    api_key = get_env('MEXC_API_KEY')
-    api_secret = get_env('MEXC_API_SECRET')
+This module loads environment variables from a .env file and provides
+them to the rest of the system.
 """
 
 import os
-import sys
 import logging
-from pathlib import Path
 from dotenv import load_dotenv
 
 # Configure logging
@@ -28,102 +15,47 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("env_loader")
 
-def find_env_file():
-    """
-    Find the .env file in the following locations:
-    1. .env-secure/.env (preferred secure location)
-    2. .env (fallback)
-    """
-    # Get the project root directory (where this script is located)
-    script_path = Path(__file__).resolve()
-    project_root = script_path.parent
+def load_environment_variables(env_path=None):
+    """Load environment variables from .env file
     
-    # Check for .env file in secure directory
-    secure_env_path = project_root / '.env-secure' / '.env'
-    if secure_env_path.exists():
-        return secure_env_path
-    
-    # Check for .env file in project root
-    default_env_path = project_root / '.env'
-    if default_env_path.exists():
-        return default_env_path
-    
-    return None
-
-def load_env():
+    Args:
+        env_path: Path to .env file (optional)
+        
+    Returns:
+        dict: Dictionary of environment variables
     """
-    Load environment variables from .env file
-    """
-    env_path = find_env_file()
+    # Default to .env in current directory if not specified
+    if env_path is None:
+        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
     
-    if env_path:
-        logger.info(f"Loading environment variables from {env_path}")
-        load_dotenv(dotenv_path=env_path)
-        return True
+    # Load environment variables from .env file
+    load_dotenv(env_path)
+    
+    # Get environment variables
+    env_vars = {
+        'MEXC_API_KEY': os.getenv('MEXC_API_KEY'),
+        'MEXC_SECRET_KEY': os.getenv('MEXC_SECRET_KEY')
+    }
+    
+    # Check if API keys are available
+    if env_vars['MEXC_API_KEY'] and env_vars['MEXC_SECRET_KEY']:
+        logger.info("MEXC API credentials loaded successfully")
     else:
-        logger.warning("No .env file found. Using system environment variables.")
-        return False
+        logger.warning("MEXC API credentials not found in environment variables")
+    
+    return env_vars
 
-def get_env(key, default=None):
-    """
-    Get environment variable value
+if __name__ == "__main__":
+    # Test loading environment variables
+    env_vars = load_environment_variables()
     
-    Args:
-        key (str): Environment variable name
-        default: Default value if environment variable is not set
-        
-    Returns:
-        str: Environment variable value or default
-    """
-    value = os.environ.get(key, default)
+    # Print masked credentials for verification
+    if env_vars['MEXC_API_KEY']:
+        masked_key = env_vars['MEXC_API_KEY'][:4] + "..." + env_vars['MEXC_API_KEY'][-4:]
+        logger.info(f"MEXC API Key: {masked_key}")
     
-    if value is None:
-        logger.warning(f"Environment variable {key} not set")
-    
-    return value
-
-def get_required_env(key):
-    """
-    Get required environment variable value
-    
-    Args:
-        key (str): Environment variable name
-        
-    Returns:
-        str: Environment variable value
-        
-    Raises:
-        ValueError: If environment variable is not set
-    """
-    value = os.environ.get(key)
-    
-    if value is None:
-        logger.error(f"Required environment variable {key} not set")
-        raise ValueError(f"Required environment variable {key} not set")
-    
-    return value
-
-def is_paper_trading():
-    """
-    Check if paper trading mode is enabled
-    
-    Returns:
-        bool: True if paper trading mode is enabled, False otherwise
-    """
-    mode = get_env('TRADING_MODE', 'paper').lower()
-    return mode == 'paper'
-
-def get_trading_pair():
-    """
-    Get default trading pair
-    
-    Returns:
-        str: Default trading pair
-    """
-    return get_env('DEFAULT_TRADING_PAIR', 'BTCUSDC')
-
-# Auto-load environment variables when module is imported
-if __name__ != "__main__":
-    load_env()
+    if env_vars['MEXC_SECRET_KEY']:
+        masked_secret = "..." + env_vars['MEXC_SECRET_KEY'][-4:]
+        logger.info(f"MEXC Secret Key: {masked_secret}")

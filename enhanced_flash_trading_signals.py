@@ -388,11 +388,12 @@ class EnhancedMarketState:
 class EnhancedFlashTradingSignals:
     """Enhanced signal generation with technical indicators and multi-timeframe analysis"""
     
-    def __init__(self, client_instance=None, api_key=None, api_secret=None, env_path=None):
+    def __init__(self, client_instance=None, pattern_recognition=None, api_key=None, api_secret=None, env_path=None):
         """Initialize enhanced flash trading signals
         
         Args:
             client_instance: Existing client instance to use (preferred)
+            pattern_recognition: Pattern recognition service instance (optional)
             api_key: API key for exchange (used only if client_instance is None)
             api_secret: API secret for exchange (used only if client_instance is None)
             env_path: Path to .env file (used only if client_instance is None)
@@ -417,786 +418,600 @@ class EnhancedFlashTradingSignals:
                 logger.info("Using MockExchangeClient for EnhancedSignalGenerator")
                 self.api_client = MockExchangeClient()
         
+        # Store pattern recognition service if provided
+        self.pattern_recognition = pattern_recognition
+        
         # Initialize session manager
         self.session_manager = TradingSessionManager()
         
-        # Signal history
-        self.signals = []
-        self.max_signals = 1000
-        
-        # Market state cache
+        # Initialize market state cache
         self.market_states = {}
-        
-        # Thread safety for client access
-        self.client_lock = RLock()
-        
-        # Thread safety for market state updates
         self.market_state_lock = RLock()
         
-        # Dynamic thresholds
-        self.dynamic_thresholds = {}
+        # Initialize signal cache
+        self.signal_cache = {}
+        self.signal_cache_ttl = {}
+        self.signal_cache_lock = RLock()
         
-        # Configuration dictionary for compatibility with flash_trading.py
-        self.config = {
-            "imbalance_threshold": 0.2,
-            "momentum_threshold": 0.005,
-            "volatility_threshold": 0.002,
-            "min_signal_strength": 0.1,
-            "position_size": 0.1
+        # Initialize signal thresholds
+        self.signal_thresholds = {
+            'momentum': 0.005,  # 0.5% price change
+            'volatility': 0.01,  # 1% standard deviation
+            'spread': 0.0015,   # 15 basis points
+            'imbalance': 0.2,   # 20% order book imbalance
+            'rsi_overbought': 70,
+            'rsi_oversold': 30,
+            'volume_surge': 2.0  # 2x average volume
         }
         
-        # Thread management for compatibility with flash_trading.py
-        self.running = False
-        self.symbols = []
+        # Initialize background thread for market data updates
         self.update_thread = None
         self.stop_event = Event()
+        self.update_interval = 5  # seconds
         
-        # Initialize dynamic thresholds
-        self._initialize_dynamic_thresholds()
+        # Start background thread if using real client
+        if not isinstance(self.api_client, MockExchangeClient):
+            self._start_background_updates()
     
-    def _initialize_dynamic_thresholds(self):
-        """Initialize dynamic thresholds for all signal types"""
-        # Base thresholds for each signal type
-        base_thresholds = {
-            "order_imbalance": 0.08,
-            "momentum": 0.02,
-            "volatility": 0.03,
-            "rsi": 70.0,  # RSI overbought threshold
-            "bollinger": 0.8,  # % distance from middle band
-            "macd": 0.0002  # MACD histogram threshold
-        }
+    def _start_background_updates(self):
+        """Start background thread for market data updates"""
+        if self.update_thread is not None and self.update_thread.is_alive():
+            return
         
-        # Initialize dynamic thresholds for each session
-        for session in ["ASIA", "EUROPE", "US"]:
-            self.dynamic_thresholds[session] = {
-                signal_type: {
-                    "base": value,
-                    "current": value,
-                    "min": value * 0.5,
-                    "max": value * 2.0,
-                    "adjustment_factor": 1.0
-                }
-                for signal_type, value in base_thresholds.items()
-            }
-    
-    @handle_api_error
-    def start(self, symbols):
-        """Start signal generation for specified symbols
-        
-        Args:
-            symbols: List of trading pair symbols (e.g., ['BTCUSDC', 'ETHUSDC'])
-            
-        Returns:
-            bool: True if started successfully, False otherwise
-        """
-        if self.running:
-            logger.warning("Signal generator already running")
-            return False
-            
-        if not symbols or not isinstance(symbols, list):
-            logger.error(f"Invalid symbols list: {symbols}")
-            return False
-        
-        self.symbols = symbols
-        self.running = True
         self.stop_event.clear()
-        
-        # Initialize market states
-        for symbol in symbols:
-            if symbol not in self.market_states:
-                self.market_states[symbol] = EnhancedMarketState(symbol)
-        
-        # Start update thread
-        self.update_thread = Thread(target=self._update_loop, daemon=True)
+        self.update_thread = Thread(target=self._background_update_loop)
+        self.update_thread.daemon = True
         self.update_thread.start()
-        
-        logger.info(f"Started signal generation for symbols: {symbols}")
-        return True
+        logger.info("Started background market data update thread")
     
-    def stop(self):
-        """Stop signal generation
+    def _stop_background_updates(self):
+        """Stop background thread for market data updates"""
+        if self.update_thread is None or not self.update_thread.is_alive():
+            return
         
-        Returns:
-            bool: True if stopped successfully, False otherwise
-        """
-        if not self.running:
-            logger.warning("Signal generator not running")
-            return False
-        
-        self.running = False
         self.stop_event.set()
-        
-        if self.update_thread and self.update_thread.is_alive():
-            self.update_thread.join(timeout=5.0)
-        
-        logger.info("Stopped signal generation")
-        return True
+        self.update_thread.join(timeout=10)
+        logger.info("Stopped background market data update thread")
     
-    def _update_loop(self):
-        """Update loop for market data and signal generation"""
-        while self.running and not self.stop_event.is_set():
+    def _background_update_loop(self):
+        """Background loop for updating market data"""
+        symbols = ["BTC/USDC", "ETH/USDT"]  # Default symbols to monitor
+        
+        while not self.stop_event.is_set():
             try:
-                # Update market data for all symbols
-                for symbol in self.symbols:
-                    self._update_market_data(symbol)
+                # Update market data for each symbol
+                for symbol in symbols:
+                    self._update_market_state(symbol)
                     
-                    # Generate signals
-                    self._generate_signals(symbol)
+                    # Don't overwhelm the API
+                    time.sleep(1)
+                    
+                    # Check if we should stop
+                    if self.stop_event.is_set():
+                        break
                 
-                # Sleep to avoid excessive API calls
-                time.sleep(1.0)
+                # Wait for next update cycle
+                self.stop_event.wait(self.update_interval)
                 
             except Exception as e:
-                logger.error(f"Error in update loop: {str(e)}")
-                time.sleep(5.0)  # Sleep longer on error
+                logger.error(f"Error in background update loop: {str(e)}")
+                time.sleep(self.update_interval)
     
-    def _update_market_data(self, symbol):
-        """Update market data for a symbol
-        
-        Args:
-            symbol: Trading pair symbol (e.g., 'BTCUSDC')
-        """
+    def _update_market_state(self, symbol):
+        """Update market state for a symbol"""
         try:
-            with self.client_lock:
-                # Get order book
-                order_book = self.api_client.get_order_book(symbol)
-                
-                if not order_book:
-                    logger.warning(f"Empty order book for {symbol}")
-                    return
-                
-                # Extract bids and asks
-                bids = safe_get(order_book, 'bids', [])
-                asks = safe_get(order_book, 'asks', [])
-                
-                # Update market state
-                with self.market_state_lock:
-                    if symbol not in self.market_states:
-                        self.market_states[symbol] = EnhancedMarketState(symbol)
-                    
-                    self.market_states[symbol].update_order_book(bids, asks)
-                
-        except Exception as e:
-            logger.error(f"Error updating market data for {symbol}: {str(e)}")
-    
-    def _generate_signals(self, symbol):
-        """Generate signals for a symbol
-        
-        Args:
-            symbol: Trading pair symbol (e.g., 'BTCUSDC')
-        """
-        try:
+            # Get order book
+            symbol_formatted = symbol.replace("/", "")
+            order_book = self.api_client.get_order_book(symbol_formatted)
+            
+            if not order_book or not validate_api_response(order_book):
+                logger.warning(f"Invalid order book response for {symbol}")
+                return False
+            
+            # Get bids and asks
+            bids = safe_get(order_book, 'bids', [])
+            asks = safe_get(order_book, 'asks', [])
+            
+            if not bids or not asks:
+                logger.warning(f"Empty order book for {symbol}")
+                return False
+            
+            # Get or create market state
             with self.market_state_lock:
                 if symbol not in self.market_states:
-                    return
+                    self.market_states[symbol] = EnhancedMarketState(symbol)
                 
-                market_state = self.market_states[symbol]
-                
-                # Skip if not enough data
-                if len(market_state.price_history['1m']) < 20:
-                    return
-                
-                # Get current trading session
-                current_session = self.session_manager.get_current_session()
-                
-                # Get thresholds for current session
-                thresholds = self.dynamic_thresholds.get(current_session, {})
-                
-                # Check for order imbalance signal
-                self._check_order_imbalance_signal(symbol, market_state, thresholds)
-                
-                # Check for momentum signal
-                self._check_momentum_signal(symbol, market_state, thresholds)
-                
-                # Check for volatility signal
-                self._check_volatility_signal(symbol, market_state, thresholds)
-                
-                # Check for technical indicator signals
-                self._check_technical_signals(symbol, market_state, thresholds)
+                # Update market state
+                return self.market_states[symbol].update_order_book(bids, asks)
                 
         except Exception as e:
-            logger.error(f"Error generating signals for {symbol}: {str(e)}")
+            logger.error(f"Error updating market state for {symbol}: {str(e)}")
+            return False
     
-    def _check_order_imbalance_signal(self, symbol, market_state, thresholds):
-        """Check for order imbalance signal
+    def get_signals(self, symbol, timeframe='5m', limit=200, max_signals=None):
+        """Get trading signals for a symbol and timeframe
         
         Args:
-            symbol: Trading pair symbol
-            market_state: Market state object
-            thresholds: Dynamic thresholds for current session
-        """
-        try:
-            # Get threshold
-            threshold = thresholds.get("order_imbalance", {}).get("current", 0.08)
-            
-            # Check for significant imbalance
-            if abs(market_state.order_imbalance) > threshold:
-                signal_type = "buy" if market_state.order_imbalance > 0 else "sell"
-                signal_strength = abs(market_state.order_imbalance)
-                
-                # Create signal
-                signal = {
-                    "timestamp": market_state.timestamp,
-                    "symbol": symbol,
-                    "type": signal_type,
-                    "source": "order_imbalance",
-                    "strength": signal_strength,
-                    "price": market_state.mid_price,
-                    "threshold": threshold,
-                    "value": market_state.order_imbalance
-                }
-                
-                # Add signal
-                self._add_signal(signal)
-                
-        except Exception as e:
-            logger.error(f"Error checking order imbalance signal: {str(e)}")
-    
-    def _check_momentum_signal(self, symbol, market_state, thresholds):
-        """Check for momentum signal
-        
-        Args:
-            symbol: Trading pair symbol
-            market_state: Market state object
-            thresholds: Dynamic thresholds for current session
-        """
-        try:
-            # Get threshold
-            threshold = thresholds.get("momentum", {}).get("current", 0.02)
-            
-            # Check for significant momentum
-            if abs(market_state.momentum) > threshold:
-                signal_type = "buy" if market_state.momentum > 0 else "sell"
-                signal_strength = abs(market_state.momentum) / threshold
-                
-                # Create signal
-                signal = {
-                    "timestamp": market_state.timestamp,
-                    "symbol": symbol,
-                    "type": signal_type,
-                    "source": "momentum",
-                    "strength": signal_strength,
-                    "price": market_state.mid_price,
-                    "threshold": threshold,
-                    "value": market_state.momentum
-                }
-                
-                # Add signal
-                self._add_signal(signal)
-                
-        except Exception as e:
-            logger.error(f"Error checking momentum signal: {str(e)}")
-    
-    def _check_volatility_signal(self, symbol, market_state, thresholds):
-        """Check for volatility signal
-        
-        Args:
-            symbol: Trading pair symbol
-            market_state: Market state object
-            thresholds: Dynamic thresholds for current session
-        """
-        try:
-            # Get threshold
-            threshold = thresholds.get("volatility", {}).get("current", 0.03)
-            
-            # Check for significant volatility
-            if market_state.volatility > threshold:
-                # Volatility signals are neutral (can be used to adjust position size)
-                signal_type = "neutral"
-                signal_strength = market_state.volatility / threshold
-                
-                # Create signal
-                signal = {
-                    "timestamp": market_state.timestamp,
-                    "symbol": symbol,
-                    "type": signal_type,
-                    "source": "volatility",
-                    "strength": signal_strength,
-                    "price": market_state.mid_price,
-                    "threshold": threshold,
-                    "value": market_state.volatility
-                }
-                
-                # Add signal
-                self._add_signal(signal)
-                
-        except Exception as e:
-            logger.error(f"Error checking volatility signal: {str(e)}")
-    
-    def _check_technical_signals(self, symbol, market_state, thresholds):
-        """Check for technical indicator signals
-        
-        Args:
-            symbol: Trading pair symbol
-            market_state: Market state object
-            thresholds: Dynamic thresholds for current session
-        """
-        try:
-            # Check RSI signals
-            self._check_rsi_signals(symbol, market_state, thresholds)
-            
-            # Check Bollinger Band signals
-            self._check_bollinger_signals(symbol, market_state, thresholds)
-            
-            # Check MACD signals
-            self._check_macd_signals(symbol, market_state, thresholds)
-            
-        except Exception as e:
-            logger.error(f"Error checking technical signals: {str(e)}")
-    
-    def _check_rsi_signals(self, symbol, market_state, thresholds):
-        """Check for RSI signals
-        
-        Args:
-            symbol: Trading pair symbol
-            market_state: Market state object
-            thresholds: Dynamic thresholds for current session
-        """
-        try:
-            # Get threshold
-            threshold = thresholds.get("rsi", {}).get("current", 70.0)
-            
-            # Check 5m timeframe
-            if '5m' in market_state.indicators:
-                rsi = market_state.indicators['5m'].get('rsi')
-                
-                if rsi is not None:
-                    # Overbought
-                    if rsi > threshold:
-                        signal_type = "sell"
-                        signal_strength = (rsi - threshold) / (100 - threshold)
-                        
-                        # Create signal
-                        signal = {
-                            "timestamp": market_state.timestamp,
-                            "symbol": symbol,
-                            "type": signal_type,
-                            "source": "rsi_overbought",
-                            "strength": signal_strength,
-                            "price": market_state.mid_price,
-                            "threshold": threshold,
-                            "value": rsi,
-                            "timeframe": "5m"
-                        }
-                        
-                        # Add signal
-                        self._add_signal(signal)
-                    
-                    # Oversold
-                    elif rsi < (100 - threshold):
-                        signal_type = "buy"
-                        signal_strength = ((100 - threshold) - rsi) / (100 - threshold)
-                        
-                        # Create signal
-                        signal = {
-                            "timestamp": market_state.timestamp,
-                            "symbol": symbol,
-                            "type": signal_type,
-                            "source": "rsi_oversold",
-                            "strength": signal_strength,
-                            "price": market_state.mid_price,
-                            "threshold": 100 - threshold,
-                            "value": rsi,
-                            "timeframe": "5m"
-                        }
-                        
-                        # Add signal
-                        self._add_signal(signal)
-                
-        except Exception as e:
-            logger.error(f"Error checking RSI signals: {str(e)}")
-    
-    def _check_bollinger_signals(self, symbol, market_state, thresholds):
-        """Check for Bollinger Band signals
-        
-        Args:
-            symbol: Trading pair symbol
-            market_state: Market state object
-            thresholds: Dynamic thresholds for current session
-        """
-        try:
-            # Get threshold
-            threshold = thresholds.get("bollinger", {}).get("current", 0.8)
-            
-            # Check 5m timeframe
-            if '5m' in market_state.indicators:
-                upper = market_state.indicators['5m'].get('bollinger_upper')
-                middle = market_state.indicators['5m'].get('bollinger_middle')
-                lower = market_state.indicators['5m'].get('bollinger_lower')
-                
-                if upper is not None and middle is not None and lower is not None:
-                    price = market_state.mid_price
-                    
-                    # Calculate distance from middle band as percentage of band width
-                    band_width = upper - lower
-                    
-                    if band_width > 0:
-                        # Upper band touch/break
-                        if price >= (middle + threshold * band_width / 2):
-                            signal_type = "sell"
-                            signal_strength = min(1.0, (price - middle) / (upper - middle))
-                            
-                            # Create signal
-                            signal = {
-                                "timestamp": market_state.timestamp,
-                                "symbol": symbol,
-                                "type": signal_type,
-                                "source": "bollinger_upper",
-                                "strength": signal_strength,
-                                "price": price,
-                                "threshold": threshold,
-                                "value": (price - middle) / (band_width / 2),
-                                "timeframe": "5m"
-                            }
-                            
-                            # Add signal
-                            self._add_signal(signal)
-                        
-                        # Lower band touch/break
-                        elif price <= (middle - threshold * band_width / 2):
-                            signal_type = "buy"
-                            signal_strength = min(1.0, (middle - price) / (middle - lower))
-                            
-                            # Create signal
-                            signal = {
-                                "timestamp": market_state.timestamp,
-                                "symbol": symbol,
-                                "type": signal_type,
-                                "source": "bollinger_lower",
-                                "strength": signal_strength,
-                                "price": price,
-                                "threshold": threshold,
-                                "value": (middle - price) / (band_width / 2),
-                                "timeframe": "5m"
-                            }
-                            
-                            # Add signal
-                            self._add_signal(signal)
-                
-        except Exception as e:
-            logger.error(f"Error checking Bollinger Band signals: {str(e)}")
-    
-    def _check_macd_signals(self, symbol, market_state, thresholds):
-        """Check for MACD signals
-        
-        Args:
-            symbol: Trading pair symbol
-            market_state: Market state object
-            thresholds: Dynamic thresholds for current session
-        """
-        try:
-            # Get threshold
-            threshold = thresholds.get("macd", {}).get("current", 0.0002)
-            
-            # Check 5m timeframe
-            if '5m' in market_state.indicators:
-                macd = market_state.indicators['5m'].get('macd')
-                signal = market_state.indicators['5m'].get('macd_signal')
-                hist = market_state.indicators['5m'].get('macd_hist')
-                
-                if macd is not None and signal is not None and hist is not None:
-                    # MACD crosses above signal line
-                    if hist > threshold and hist > 0:
-                        signal_type = "buy"
-                        signal_strength = min(1.0, hist / threshold)
-                        
-                        # Create signal
-                        macd_signal = {
-                            "timestamp": market_state.timestamp,
-                            "symbol": symbol,
-                            "type": signal_type,
-                            "source": "macd_cross_above",
-                            "strength": signal_strength,
-                            "price": market_state.mid_price,
-                            "threshold": threshold,
-                            "value": hist,
-                            "timeframe": "5m"
-                        }
-                        
-                        # Add signal
-                        self._add_signal(macd_signal)
-                    
-                    # MACD crosses below signal line
-                    elif hist < -threshold and hist < 0:
-                        signal_type = "sell"
-                        signal_strength = min(1.0, -hist / threshold)
-                        
-                        # Create signal
-                        macd_signal = {
-                            "timestamp": market_state.timestamp,
-                            "symbol": symbol,
-                            "type": signal_type,
-                            "source": "macd_cross_below",
-                            "strength": signal_strength,
-                            "price": market_state.mid_price,
-                            "threshold": threshold,
-                            "value": hist,
-                            "timeframe": "5m"
-                        }
-                        
-                        # Add signal
-                        self._add_signal(macd_signal)
-                
-        except Exception as e:
-            logger.error(f"Error checking MACD signals: {str(e)}")
-    
-    def _add_signal(self, signal):
-        """Add a signal to the signal history
-        
-        Args:
-            signal: Signal dictionary
-        """
-        # Add signal to history
-        self.signals.append(signal)
-        
-        # Trim signal history if needed
-        if len(self.signals) > self.max_signals:
-            self.signals = self.signals[-self.max_signals:]
-        
-        # Log signal
-        logger.info(f"Generated signal: {signal['source']} {signal['type']} for {signal['symbol']} (strength: {signal['strength']:.2f})")
-    
-    def generate_signals(self, symbol, timeframe="5m", limit=100, use_mock_data=False):
-        """Generate signals for a symbol using historical data
-        
-        Args:
-            symbol: Trading pair symbol (e.g., 'BTC/USDT')
-            timeframe: Timeframe (e.g., '1m', '5m', '15m', '1h')
+            symbol: Trading symbol (e.g., "BTC/USDC")
+            timeframe: Timeframe (e.g., "1m", "5m", "15m", "1h")
             limit: Number of candles to fetch
-            use_mock_data: Whether to use mock data instead of real API
+            max_signals: Maximum number of signals to return
             
         Returns:
-            list: Generated signals
+            list: Trading signals
         """
         try:
-            # Clear previous signals
-            self.signals = []
+            # Check cache first
+            cache_key = f"{symbol}_{timeframe}"
+            signals = self._get_cached_signals(cache_key)
             
-            # Get historical data
-            with self.client_lock:
-                # Use mock data if requested or if real client is not available
-                if use_mock_data or not REAL_CLIENT_AVAILABLE:
-                    logger.info(f"Using mock data for {symbol} {timeframe}")
-                    klines = self.api_client.get_klines(symbol, timeframe, limit)
-                else:
-                    logger.info(f"Fetching real data for {symbol} {timeframe}")
-                    klines = self.api_client.get_klines(symbol, timeframe, limit)
+            if signals is not None:
+                logger.info(f"Using cached signals for {symbol} {timeframe}")
+                return signals[:max_signals] if max_signals else signals
             
-            if not klines:
-                logger.warning(f"No klines data for {symbol} {timeframe}")
+            # Get candles
+            symbol_formatted = symbol.replace("/", "")
+            candles = self.api_client.get_klines(
+                symbol=symbol_formatted,
+                interval=timeframe,
+                limit=limit
+            )
+            
+            if not candles:
+                logger.warning(f"No candles returned for {symbol} {timeframe}")
                 return []
             
-            # Process klines data
-            timestamps = []
-            opens = []
-            highs = []
-            lows = []
-            closes = []
-            volumes = []
+            # Convert to DataFrame
+            df = pd.DataFrame(candles, columns=[
+                "timestamp", "open", "high", "low", "close", "volume",
+                "close_time", "quote_volume", "trades", "taker_buy_base",
+                "taker_buy_quote", "ignore"
+            ])
             
-            for kline in klines:
-                timestamps.append(int(kline[0]))
-                opens.append(float(kline[1]))
-                highs.append(float(kline[2]))
-                lows.append(float(kline[3]))
-                closes.append(float(kline[4]))
-                volumes.append(float(kline[5]))
-            
-            # Create market data dictionary
-            market_data = {
-                'timestamp': np.array(timestamps),
-                'open': np.array(opens),
-                'high': np.array(highs),
-                'low': np.array(lows),
-                'close': np.array(closes),
-                'volume': np.array(volumes)
-            }
-            
-            # Calculate technical indicators
-            indicators = TechnicalIndicators.calculate_all_indicators(market_data)
+            # Convert types
+            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+            for col in ["open", "high", "low", "close", "volume"]:
+                df[col] = df[col].astype(float)
             
             # Generate signals
-            self._generate_signals_from_indicators(symbol, market_data, indicators, timeframe)
+            signals = []
             
-            return self.signals
+            # Add technical indicator signals
+            signals.extend(self._generate_technical_signals(df, symbol, timeframe))
+            
+            # Add pattern recognition signals if available
+            if self.pattern_recognition:
+                try:
+                    pattern_signals = self.pattern_recognition.detect_patterns(
+                        df, symbol, timeframe, max_patterns=max_signals
+                    )
+                    if pattern_signals:
+                        signals.extend(pattern_signals)
+                        logger.info(f"Added {len(pattern_signals)} pattern signals for {symbol} {timeframe}")
+                except Exception as e:
+                    logger.error(f"Error generating pattern signals: {str(e)}")
+            
+            # Add order book signals
+            order_book_signals = self._generate_order_book_signals(symbol)
+            if order_book_signals:
+                signals.extend(order_book_signals)
+            
+            # Cache signals
+            self._cache_signals(cache_key, signals)
+            
+            # Limit number of signals if requested
+            if max_signals and len(signals) > max_signals:
+                return signals[:max_signals]
+            
+            return signals
             
         except Exception as e:
-            logger.error(f"Error generating signals: {str(e)}")
+            logger.error(f"Error generating signals for {symbol} {timeframe}: {str(e)}")
             return []
     
-    def _generate_signals_from_indicators(self, symbol, market_data, indicators, timeframe):
-        """Generate signals from technical indicators
+    def _generate_technical_signals(self, df, symbol, timeframe):
+        """Generate signals based on technical indicators
         
         Args:
-            symbol: Trading pair symbol
-            market_data: Market data dictionary
-            indicators: Technical indicators dictionary
+            df: DataFrame with OHLCV data
+            symbol: Trading symbol
             timeframe: Timeframe
+            
+        Returns:
+            list: Technical indicator signals
         """
+        signals = []
+        
         try:
-            # Get current trading session
-            current_session = self.session_manager.get_current_session()
+            # Calculate technical indicators
+            df = self._calculate_indicators(df)
             
-            # Get thresholds for current session
-            thresholds = self.dynamic_thresholds.get(current_session, {})
+            # RSI signals
+            self._add_rsi_signals(df, signals, symbol, timeframe)
             
-            # Get data
-            timestamps = market_data['timestamp']
-            closes = market_data['close']
+            # MACD signals
+            self._add_macd_signals(df, signals, symbol, timeframe)
             
-            # Check RSI signals
-            if 'rsi' in indicators:
-                rsi_values = indicators['rsi']
-                rsi_threshold = thresholds.get("rsi", {}).get("current", 70.0)
-                
-                for i in range(1, len(rsi_values)):
-                    # Overbought
-                    if rsi_values[i] > rsi_threshold:
-                        signal_type = "sell"
-                        signal_strength = (rsi_values[i] - rsi_threshold) / (100 - rsi_threshold)
-                        
-                        # Create signal
-                        signal = {
-                            "timestamp": int(timestamps[i]),
-                            "symbol": symbol,
-                            "type": signal_type,
-                            "source": "rsi_overbought",
-                            "strength": float(signal_strength),
-                            "price": float(closes[i]),
-                            "threshold": float(rsi_threshold),
-                            "value": float(rsi_values[i]),
-                            "timeframe": timeframe
-                        }
-                        
-                        # Add signal
-                        self._add_signal(signal)
-                    
-                    # Oversold
-                    elif rsi_values[i] < (100 - rsi_threshold):
-                        signal_type = "buy"
-                        signal_strength = ((100 - rsi_threshold) - rsi_values[i]) / (100 - rsi_threshold)
-                        
-                        # Create signal
-                        signal = {
-                            "timestamp": int(timestamps[i]),
-                            "symbol": symbol,
-                            "type": signal_type,
-                            "source": "rsi_oversold",
-                            "strength": float(signal_strength),
-                            "price": float(closes[i]),
-                            "threshold": float(100 - rsi_threshold),
-                            "value": float(rsi_values[i]),
-                            "timeframe": timeframe
-                        }
-                        
-                        # Add signal
-                        self._add_signal(signal)
+            # Bollinger Band signals
+            self._add_bollinger_signals(df, signals, symbol, timeframe)
             
-            # Check Bollinger Band signals
-            if all(k in indicators for k in ['bollinger_upper', 'bollinger_middle', 'bollinger_lower']):
-                upper = indicators['bollinger_upper']
-                middle = indicators['bollinger_middle']
-                lower = indicators['bollinger_lower']
-                
-                bollinger_threshold = thresholds.get("bollinger", {}).get("current", 0.8)
-                
-                for i in range(1, len(upper)):
-                    # Calculate band width
-                    band_width = upper[i] - lower[i]
-                    
-                    if band_width > 0:
-                        # Upper band touch/break
-                        if closes[i] >= (middle[i] + bollinger_threshold * band_width / 2):
-                            signal_type = "sell"
-                            signal_strength = min(1.0, (closes[i] - middle[i]) / (upper[i] - middle[i]))
-                            
-                            # Create signal
-                            signal = {
-                                "timestamp": int(timestamps[i]),
-                                "symbol": symbol,
-                                "type": signal_type,
-                                "source": "bollinger_upper",
-                                "strength": float(signal_strength),
-                                "price": float(closes[i]),
-                                "threshold": float(bollinger_threshold),
-                                "value": float((closes[i] - middle[i]) / (band_width / 2)),
-                                "timeframe": timeframe
-                            }
-                            
-                            # Add signal
-                            self._add_signal(signal)
-                        
-                        # Lower band touch/break
-                        elif closes[i] <= (middle[i] - bollinger_threshold * band_width / 2):
-                            signal_type = "buy"
-                            signal_strength = min(1.0, (middle[i] - closes[i]) / (middle[i] - lower[i]))
-                            
-                            # Create signal
-                            signal = {
-                                "timestamp": int(timestamps[i]),
-                                "symbol": symbol,
-                                "type": signal_type,
-                                "source": "bollinger_lower",
-                                "strength": float(signal_strength),
-                                "price": float(closes[i]),
-                                "threshold": float(bollinger_threshold),
-                                "value": float((middle[i] - closes[i]) / (band_width / 2)),
-                                "timeframe": timeframe
-                            }
-                            
-                            # Add signal
-                            self._add_signal(signal)
+            # Volume signals
+            self._add_volume_signals(df, signals, symbol, timeframe)
             
-            # Check MACD signals
-            if all(k in indicators for k in ['macd', 'macd_signal', 'macd_hist']):
-                macd = indicators['macd']
-                signal_line = indicators['macd_signal']
-                hist = indicators['macd_hist']
-                
-                macd_threshold = thresholds.get("macd", {}).get("current", 0.0002)
-                
-                for i in range(1, len(macd)):
-                    # MACD crosses above signal line
-                    if hist[i] > macd_threshold and hist[i] > 0 and hist[i-1] <= 0:
-                        signal_type = "buy"
-                        signal_strength = min(1.0, hist[i] / macd_threshold)
-                        
-                        # Create signal
-                        signal = {
-                            "timestamp": int(timestamps[i]),
-                            "symbol": symbol,
-                            "type": signal_type,
-                            "source": "macd_cross_above",
-                            "strength": float(signal_strength),
-                            "price": float(closes[i]),
-                            "threshold": float(macd_threshold),
-                            "value": float(hist[i]),
-                            "timeframe": timeframe
-                        }
-                        
-                        # Add signal
-                        self._add_signal(signal)
-                    
-                    # MACD crosses below signal line
-                    elif hist[i] < -macd_threshold and hist[i] < 0 and hist[i-1] >= 0:
-                        signal_type = "sell"
-                        signal_strength = min(1.0, -hist[i] / macd_threshold)
-                        
-                        # Create signal
-                        signal = {
-                            "timestamp": int(timestamps[i]),
-                            "symbol": symbol,
-                            "type": signal_type,
-                            "source": "macd_cross_below",
-                            "strength": float(signal_strength),
-                            "price": float(closes[i]),
-                            "threshold": float(macd_threshold),
-                            "value": float(hist[i]),
-                            "timeframe": timeframe
-                        }
-                        
-                        # Add signal
-                        self._add_signal(signal)
+            return signals
             
         except Exception as e:
-            logger.error(f"Error generating signals from indicators: {str(e)}")
+            logger.error(f"Error generating technical signals: {str(e)}")
+            return []
+    
+    def _calculate_indicators(self, df):
+        """Calculate technical indicators for DataFrame
+        
+        Args:
+            df: DataFrame with OHLCV data
+            
+        Returns:
+            DataFrame: DataFrame with indicators
+        """
+        try:
+            # Create market data dictionary
+            market_data = {
+                'close': df['close'].values,
+                'high': df['high'].values,
+                'low': df['low'].values,
+                'timestamp': df['timestamp'].values
+            }
+            
+            # Calculate indicators
+            indicators = TechnicalIndicators.calculate_all_indicators(market_data)
+            
+            # Add indicators to DataFrame
+            for indicator, values in indicators.items():
+                if isinstance(values, np.ndarray) and len(values) == len(df):
+                    df[indicator] = values
+                elif isinstance(values, (int, float)):
+                    df[indicator] = values
+            
+            return df
+            
+        except Exception as e:
+            logger.error(f"Error calculating indicators: {str(e)}")
+            return df
+    
+    def _add_rsi_signals(self, df, signals, symbol, timeframe):
+        """Add RSI signals to signal list
+        
+        Args:
+            df: DataFrame with indicators
+            signals: Signal list to append to
+            symbol: Trading symbol
+            timeframe: Timeframe
+        """
+        if 'rsi' not in df.columns:
+            return
+        
+        try:
+            # Get latest RSI value
+            latest_rsi = df['rsi'].iloc[-1]
+            
+            # Check for oversold condition
+            if latest_rsi < self.signal_thresholds['rsi_oversold']:
+                signals.append({
+                    'id': str(uuid.uuid4()),
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'symbol': symbol,
+                    'timeframe': timeframe,
+                    'type': 'technical',
+                    'subtype': 'rsi_oversold',
+                    'value': float(latest_rsi),
+                    'threshold': self.signal_thresholds['rsi_oversold'],
+                    'direction': 'buy',
+                    'confidence': 0.7,
+                    'metadata': {
+                        'indicator': 'rsi',
+                        'current_price': float(df['close'].iloc[-1])
+                    }
+                })
+            
+            # Check for overbought condition
+            elif latest_rsi > self.signal_thresholds['rsi_overbought']:
+                signals.append({
+                    'id': str(uuid.uuid4()),
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'symbol': symbol,
+                    'timeframe': timeframe,
+                    'type': 'technical',
+                    'subtype': 'rsi_overbought',
+                    'value': float(latest_rsi),
+                    'threshold': self.signal_thresholds['rsi_overbought'],
+                    'direction': 'sell',
+                    'confidence': 0.7,
+                    'metadata': {
+                        'indicator': 'rsi',
+                        'current_price': float(df['close'].iloc[-1])
+                    }
+                })
+                
+        except Exception as e:
+            logger.error(f"Error adding RSI signals: {str(e)}")
+    
+    def _add_macd_signals(self, df, signals, symbol, timeframe):
+        """Add MACD signals to signal list
+        
+        Args:
+            df: DataFrame with indicators
+            signals: Signal list to append to
+            symbol: Trading symbol
+            timeframe: Timeframe
+        """
+        if 'macd' not in df.columns or 'macd_signal' not in df.columns:
+            return
+        
+        try:
+            # Get latest values
+            latest_macd = df['macd'].iloc[-1]
+            latest_signal = df['macd_signal'].iloc[-1]
+            prev_macd = df['macd'].iloc[-2] if len(df) > 1 else 0
+            prev_signal = df['macd_signal'].iloc[-2] if len(df) > 1 else 0
+            
+            # Check for bullish crossover
+            if prev_macd < prev_signal and latest_macd > latest_signal:
+                signals.append({
+                    'id': str(uuid.uuid4()),
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'symbol': symbol,
+                    'timeframe': timeframe,
+                    'type': 'technical',
+                    'subtype': 'macd_bullish_crossover',
+                    'value': float(latest_macd - latest_signal),
+                    'threshold': 0,
+                    'direction': 'buy',
+                    'confidence': 0.65,
+                    'metadata': {
+                        'indicator': 'macd',
+                        'macd': float(latest_macd),
+                        'signal': float(latest_signal),
+                        'current_price': float(df['close'].iloc[-1])
+                    }
+                })
+            
+            # Check for bearish crossover
+            elif prev_macd > prev_signal and latest_macd < latest_signal:
+                signals.append({
+                    'id': str(uuid.uuid4()),
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'symbol': symbol,
+                    'timeframe': timeframe,
+                    'type': 'technical',
+                    'subtype': 'macd_bearish_crossover',
+                    'value': float(latest_macd - latest_signal),
+                    'threshold': 0,
+                    'direction': 'sell',
+                    'confidence': 0.65,
+                    'metadata': {
+                        'indicator': 'macd',
+                        'macd': float(latest_macd),
+                        'signal': float(latest_signal),
+                        'current_price': float(df['close'].iloc[-1])
+                    }
+                })
+                
+        except Exception as e:
+            logger.error(f"Error adding MACD signals: {str(e)}")
+    
+    def _add_bollinger_signals(self, df, signals, symbol, timeframe):
+        """Add Bollinger Band signals to signal list
+        
+        Args:
+            df: DataFrame with indicators
+            signals: Signal list to append to
+            symbol: Trading symbol
+            timeframe: Timeframe
+        """
+        if 'bollinger_upper' not in df.columns or 'bollinger_lower' not in df.columns:
+            return
+        
+        try:
+            # Get latest values
+            latest_close = df['close'].iloc[-1]
+            latest_upper = df['bollinger_upper'].iloc[-1]
+            latest_lower = df['bollinger_lower'].iloc[-1]
+            
+            # Check for price above upper band
+            if latest_close > latest_upper:
+                signals.append({
+                    'id': str(uuid.uuid4()),
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'symbol': symbol,
+                    'timeframe': timeframe,
+                    'type': 'technical',
+                    'subtype': 'bollinger_upper_break',
+                    'value': float(latest_close),
+                    'threshold': float(latest_upper),
+                    'direction': 'sell',
+                    'confidence': 0.6,
+                    'metadata': {
+                        'indicator': 'bollinger',
+                        'upper_band': float(latest_upper),
+                        'lower_band': float(latest_lower),
+                        'current_price': float(latest_close)
+                    }
+                })
+            
+            # Check for price below lower band
+            elif latest_close < latest_lower:
+                signals.append({
+                    'id': str(uuid.uuid4()),
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'symbol': symbol,
+                    'timeframe': timeframe,
+                    'type': 'technical',
+                    'subtype': 'bollinger_lower_break',
+                    'value': float(latest_close),
+                    'threshold': float(latest_lower),
+                    'direction': 'buy',
+                    'confidence': 0.6,
+                    'metadata': {
+                        'indicator': 'bollinger',
+                        'upper_band': float(latest_upper),
+                        'lower_band': float(latest_lower),
+                        'current_price': float(latest_close)
+                    }
+                })
+                
+        except Exception as e:
+            logger.error(f"Error adding Bollinger signals: {str(e)}")
+    
+    def _add_volume_signals(self, df, signals, symbol, timeframe):
+        """Add volume signals to signal list
+        
+        Args:
+            df: DataFrame with indicators
+            signals: Signal list to append to
+            symbol: Trading symbol
+            timeframe: Timeframe
+        """
+        if 'volume' not in df.columns or len(df) < 20:
+            return
+        
+        try:
+            # Calculate average volume
+            avg_volume = df['volume'].iloc[-20:-1].mean()
+            latest_volume = df['volume'].iloc[-1]
+            latest_close = df['close'].iloc[-1]
+            prev_close = df['close'].iloc[-2]
+            
+            # Check for volume surge
+            if latest_volume > avg_volume * self.signal_thresholds['volume_surge']:
+                # Determine direction based on price movement
+                direction = 'buy' if latest_close > prev_close else 'sell'
+                
+                signals.append({
+                    'id': str(uuid.uuid4()),
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'symbol': symbol,
+                    'timeframe': timeframe,
+                    'type': 'technical',
+                    'subtype': 'volume_surge',
+                    'value': float(latest_volume / avg_volume),
+                    'threshold': self.signal_thresholds['volume_surge'],
+                    'direction': direction,
+                    'confidence': 0.55,
+                    'metadata': {
+                        'indicator': 'volume',
+                        'current_volume': float(latest_volume),
+                        'avg_volume': float(avg_volume),
+                        'current_price': float(latest_close),
+                        'price_change': float((latest_close - prev_close) / prev_close)
+                    }
+                })
+                
+        except Exception as e:
+            logger.error(f"Error adding volume signals: {str(e)}")
+    
+    def _generate_order_book_signals(self, symbol):
+        """Generate signals based on order book
+        
+        Args:
+            symbol: Trading symbol
+            
+        Returns:
+            list: Order book signals
+        """
+        signals = []
+        
+        try:
+            # Get market state
+            with self.market_state_lock:
+                if symbol not in self.market_states:
+                    return []
+                
+                market_state = self.market_states[symbol]
+            
+            # Check for significant order imbalance
+            if abs(market_state.order_imbalance) > self.signal_thresholds['imbalance']:
+                direction = 'buy' if market_state.order_imbalance > 0 else 'sell'
+                
+                signals.append({
+                    'id': str(uuid.uuid4()),
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'symbol': symbol,
+                    'timeframe': '1m',  # Order book signals are short-term
+                    'type': 'order_book',
+                    'subtype': 'order_imbalance',
+                    'value': float(market_state.order_imbalance),
+                    'threshold': self.signal_thresholds['imbalance'],
+                    'direction': direction,
+                    'confidence': 0.5 + min(0.3, abs(market_state.order_imbalance) * 0.5),
+                    'metadata': {
+                        'bid_price': float(market_state.bid_price),
+                        'ask_price': float(market_state.ask_price),
+                        'spread_bps': float(market_state.spread_bps),
+                        'bid_liquidity': float(market_state.bid_liquidity),
+                        'ask_liquidity': float(market_state.ask_liquidity)
+                    }
+                })
+            
+            # Check for tight spread
+            if market_state.spread_bps < self.signal_thresholds['spread']:
+                signals.append({
+                    'id': str(uuid.uuid4()),
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'symbol': symbol,
+                    'timeframe': '1m',
+                    'type': 'order_book',
+                    'subtype': 'tight_spread',
+                    'value': float(market_state.spread_bps),
+                    'threshold': self.signal_thresholds['spread'],
+                    'direction': 'neutral',
+                    'confidence': 0.4,
+                    'metadata': {
+                        'bid_price': float(market_state.bid_price),
+                        'ask_price': float(market_state.ask_price),
+                        'spread': float(market_state.spread),
+                        'mid_price': float(market_state.mid_price)
+                    }
+                })
+            
+            return signals
+            
+        except Exception as e:
+            logger.error(f"Error generating order book signals: {str(e)}")
+            return []
+    
+    def _get_cached_signals(self, cache_key, ttl=60):
+        """Get cached signals
+        
+        Args:
+            cache_key: Cache key
+            ttl: Time to live in seconds
+            
+        Returns:
+            list: Cached signals or None if not found or expired
+        """
+        with self.signal_cache_lock:
+            if cache_key in self.signal_cache:
+                # Check if cache is expired
+                if time.time() - self.signal_cache_ttl.get(cache_key, 0) < ttl:
+                    return self.signal_cache[cache_key]
+                
+                # Remove expired cache
+                del self.signal_cache[cache_key]
+                del self.signal_cache_ttl[cache_key]
+        
+        return None
+    
+    def _cache_signals(self, cache_key, signals):
+        """Cache signals
+        
+        Args:
+            cache_key: Cache key
+            signals: Signals to cache
+        """
+        with self.signal_cache_lock:
+            self.signal_cache[cache_key] = signals
+            self.signal_cache_ttl[cache_key] = time.time()
+    
+    def __del__(self):
+        """Clean up resources"""
+        self._stop_background_updates()

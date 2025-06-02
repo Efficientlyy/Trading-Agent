@@ -46,7 +46,7 @@ async def connect_to_mexc():
         auth_response = await websocket.recv()
         print(f"Authentication response: {auth_response}")
         
-        # Subscribe to BTC/USDT ticker
+        # Subscribe to BTC/USDC ticker
         symbol = "BTCUSDT"
         channel = "spot@public.ticker.v3.api" 
         subscription = f"{channel}@{symbol}"

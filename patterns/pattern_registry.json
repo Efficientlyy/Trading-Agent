@@ -5,25 +5,24 @@
       "name": "Trend Reversal",
       "description": "Identifies potential trend reversal points",
       "output_index": 0,
-      "confidence_threshold": 0.6,
-      "timeframes": ["1m", "5m", "15m", "1h"]
+      "confidence_threshold": 0.45,
+      "timeframes": ["1m", "5m", "15m", "1h", "4h"]
     },
     {
       "id": "breakout",
       "name": "Breakout",
       "description": "Identifies potential breakout patterns",
       "output_index": 1,
-      "confidence_threshold": 0.6,
-      "timeframes": ["1m", "5m", "15m", "1h"]
+      "confidence_threshold": 0.45,
+      "timeframes": ["1m", "5m", "15m", "1h", "4h"]
     },
     {
       "id": "consolidation",
       "name": "Consolidation",
       "description": "Identifies market consolidation patterns",
       "output_index": 2,
-      "confidence_threshold": 0.6,
+      "confidence_threshold": 0.45,
       "timeframes": ["1m", "5m", "15m", "1h", "4h"]
     }
-  ],
-  "last_updated": "2025-06-02T00:09:30"
+  ]
 }

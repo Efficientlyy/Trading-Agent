@@ -1,21 +1,23 @@
 #!/usr/bin/env python
 """
-Execution Optimization Component for Trading-Agent System
+Execution Optimization Module for Trading-Agent System
 
-This module provides execution optimization components for the Trading-Agent system,
-including order routing, smart order routing, and execution optimization.
+This module provides execution optimization capabilities for the Trading-Agent system,
+including order routing, latency profiling, and smart order execution.
 """
 
 import os
 import sys
-import json
 import time
+import uuid
+import json
 import logging
-import asyncio
 import numpy as np
-from enum import Enum
+import pandas as pd
 from typing import Dict, List, Tuple, Any, Optional, Union
-from collections import deque
+from enum import Enum
+from datetime import datetime, timedelta
+from collections import deque, OrderedDict
 
 # Configure logging
 logging.basicConfig(
@@ -29,22 +31,24 @@ logging.basicConfig(
 logger = logging.getLogger("execution_optimization")
 
 class OrderType(Enum):
-    """Order type enumeration."""
+    """Order types supported by the system"""
     MARKET = "market"
     LIMIT = "limit"
-    STOP = "stop"
-    STOP_LIMIT = "stop_limit"
+    STOP_LOSS = "stop_loss"
+    TAKE_PROFIT = "take_profit"
     ICEBERG = "iceberg"
     TWAP = "twap"
     VWAP = "vwap"
+    SMART = "smart"
 
 class OrderSide(Enum):
-    """Order side enumeration."""
+    """Order sides supported by the system"""
     BUY = "buy"
     SELL = "sell"
 
 class OrderStatus(Enum):
-    """Order status enumeration."""
+    """Order statuses supported by the system"""
+    PENDING = "pending"
     OPEN = "open"
     FILLED = "filled"
     PARTIALLY_FILLED = "partially_filled"
@@ -53,1344 +57,1458 @@ class OrderStatus(Enum):
     EXPIRED = "expired"
 
 class Order:
-    """Class representing an order."""
+    """Order class for the Trading-Agent system"""
     
     def __init__(self, 
-                symbol: str, 
-                side: OrderSide, 
-                type: OrderType = OrderType.MARKET,
-                quantity: float = 0.0,
-                price: float = None,
-                stop_price: float = None,
-                time_in_force: str = "GTC",
-                status: OrderStatus = OrderStatus.OPEN,
-                exchange_id: str = None,
-                id: str = None):
-        """Initialize an order.
+                 symbol: str, 
+                 side: OrderSide, 
+                 order_type: OrderType, 
+                 quantity: float, 
+                 price: Optional[float] = None,
+                 stop_price: Optional[float] = None,
+                 client_order_id: Optional[str] = None,
+                 time_in_force: str = "GTC",
+                 iceberg_qty: Optional[float] = None,
+                 execution_window: Optional[int] = None,
+                 execution_style: Optional[str] = None):
+        """Initialize order
         
         Args:
             symbol: Trading symbol
             side: Order side (buy/sell)
-            type: Order type
+            order_type: Order type
             quantity: Order quantity
-            price: Order price (for limit orders)
+            price: Order price (optional for market orders)
             stop_price: Stop price (for stop orders)
+            client_order_id: Client order ID
             time_in_force: Time in force
-            status: Order status
-            exchange_id: Exchange ID
-            id: Order ID (optional, will be generated if not provided)
+            iceberg_qty: Iceberg quantity
+            execution_window: Execution window in seconds
+            execution_style: Execution style
         """
-        self.id = id if id else f"order_{int(time.time() * 1000)}_{hash(symbol) % 10000}"
         self.symbol = symbol
         self.side = side
-        self.type = type
+        self.order_type = order_type
         self.quantity = quantity
         self.price = price
         self.stop_price = stop_price
+        self.client_order_id = client_order_id or str(uuid.uuid4())
         self.time_in_force = time_in_force
-        self.status = status
-        self.exchange_id = exchange_id
+        self.iceberg_qty = iceberg_qty
+        self.execution_window = execution_window
+        self.execution_style = execution_style
+        
+        # Order status
+        self.status = OrderStatus.PENDING
         self.filled_quantity = 0.0
         self.average_price = 0.0
-        self.created_at = time.time()
-        self.updated_at = time.time()
-        self.metadata = {}
+        self.created_at = datetime.now()
+        self.updated_at = datetime.now()
+        self.exchange_order_id = None
+        
+        # Execution metrics
+        self.submission_latency = None
+        self.execution_latency = None
+        self.slippage = None
+        self.market_impact = None
+        
+        # Child orders (for smart orders)
+        self.child_orders = []
+    
+    def update_status(self, status: OrderStatus, filled_quantity: float = None, average_price: float = None):
+        """Update order status
+        
+        Args:
+            status: New order status
+            filled_quantity: Filled quantity
+            average_price: Average fill price
+        """
+        self.status = status
+        if filled_quantity is not None:
+            self.filled_quantity = filled_quantity
+        if average_price is not None:
+            self.average_price = average_price
+        self.updated_at = datetime.now()
     
     def to_dict(self) -> Dict:
-        """Convert order to dictionary.
+        """Convert order to dictionary
         
         Returns:
-            Dictionary representation of order
+            dict: Order as dictionary
         """
         return {
-            'id': self.id,
-            'symbol': self.symbol,
-            'side': self.side.value,
-            'type': self.type.value,
-            'quantity': self.quantity,
-            'price': self.price,
-            'stop_price': self.stop_price,
-            'time_in_force': self.time_in_force,
-            'status': self.status.value,
-            'exchange_id': self.exchange_id,
-            'filled_quantity': self.filled_quantity,
-            'average_price': self.average_price,
-            'created_at': self.created_at,
-            'updated_at': self.updated_at,
-            'metadata': self.metadata
+            "symbol": self.symbol,
+            "side": self.side.value if isinstance(self.side, OrderSide) else self.side,
+            "order_type": self.order_type.value if isinstance(self.order_type, OrderType) else self.order_type,
+            "quantity": self.quantity,
+            "price": self.price,
+            "stop_price": self.stop_price,
+            "client_order_id": self.client_order_id,
+            "time_in_force": self.time_in_force,
+            "iceberg_qty": self.iceberg_qty,
+            "execution_window": self.execution_window,
+            "execution_style": self.execution_style,
+            "status": self.status.value if isinstance(self.status, OrderStatus) else self.status,
+            "filled_quantity": self.filled_quantity,
+            "average_price": self.average_price,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+            "exchange_order_id": self.exchange_order_id,
+            "submission_latency": self.submission_latency,
+            "execution_latency": self.execution_latency,
+            "slippage": self.slippage,
+            "market_impact": self.market_impact
         }
     
     @classmethod
     def from_dict(cls, data: Dict) -> 'Order':
-        """Create order from dictionary.
+        """Create order from dictionary
         
         Args:
-            data: Dictionary representation of order
+            data: Order data
             
         Returns:
-            Order object
+            Order: Order object
         """
         order = cls(
-            id=data['id'],
-            symbol=data['symbol'],
-            side=OrderSide(data['side']),
-            type=OrderType(data['type']),
-            quantity=data['quantity'],
-            price=data.get('price'),
-            stop_price=data.get('stop_price'),
-            time_in_force=data.get('time_in_force', 'GTC'),
-            status=OrderStatus(data['status']),
-            exchange_id=data.get('exchange_id')
+            symbol=data["symbol"],
+            side=OrderSide(data["side"]) if isinstance(data["side"], str) else data["side"],
+            order_type=OrderType(data["order_type"]) if isinstance(data["order_type"], str) else data["order_type"],
+            quantity=data["quantity"],
+            price=data.get("price"),
+            stop_price=data.get("stop_price"),
+            client_order_id=data.get("client_order_id"),
+            time_in_force=data.get("time_in_force", "GTC"),
+            iceberg_qty=data.get("iceberg_qty"),
+            execution_window=data.get("execution_window"),
+            execution_style=data.get("execution_style")
         )
         
-        order.filled_quantity = data.get('filled_quantity', 0.0)
-        order.average_price = data.get('average_price', 0.0)
-        order.created_at = data.get('created_at', time.time())
-        order.updated_at = data.get('updated_at', time.time())
-        order.metadata = data.get('metadata', {})
+        if "status" in data:
+            order.status = OrderStatus(data["status"]) if isinstance(data["status"], str) else data["status"]
+        if "filled_quantity" in data:
+            order.filled_quantity = data["filled_quantity"]
+        if "average_price" in data:
+            order.average_price = data["average_price"]
+        if "created_at" in data:
+            order.created_at = datetime.fromisoformat(data["created_at"]) if isinstance(data["created_at"], str) else data["created_at"]
+        if "updated_at" in data:
+            order.updated_at = datetime.fromisoformat(data["updated_at"]) if isinstance(data["updated_at"], str) else data["updated_at"]
+        if "exchange_order_id" in data:
+            order.exchange_order_id = data["exchange_order_id"]
+        if "submission_latency" in data:
+            order.submission_latency = data["submission_latency"]
+        if "execution_latency" in data:
+            order.execution_latency = data["execution_latency"]
+        if "slippage" in data:
+            order.slippage = data["slippage"]
+        if "market_impact" in data:
+            order.market_impact = data["market_impact"]
         
         return order
 
-
 class LatencyProfiler:
-    """Class for profiling latency of operations."""
+    """Latency profiler for execution optimization"""
     
-    def __init__(self, 
-                metrics_file: str = "latency_metrics.json",
-                rolling_window: int = 100):
-        """Initialize the latency profiler.
+    def __init__(self, rolling_window: int = 100):
+        """Initialize latency profiler
         
         Args:
-            metrics_file: File to save metrics to
-            rolling_window: Number of measurements to keep for rolling statistics
+            rolling_window: Rolling window size for latency metrics
         """
-        self.metrics_file = metrics_file
         self.rolling_window = rolling_window
-        self.timestamps = {}
-        self.metrics = {}
-        # Add simulated latency dictionary for testing
-        self.simulated_latencies = {}
-        # Add thresholds dictionary for latency thresholds
+        self.latency_metrics = {}
+        self.timers = {}
         self.thresholds = {}
+        self.simulated_latencies = {}
         
         logger.info(f"Initialized LatencyProfiler with rolling_window={rolling_window}")
     
-    def start_timer(self, key: str) -> None:
-        """Start a timer.
+    def start_timer(self, operation: str, id: str = None):
+        """Start timer for operation
         
         Args:
-            key: Timer key
+            operation: Operation name
+            id: Operation ID
         """
-        self.timestamps[key] = time.time_ns()
+        timer_id = f"{operation}_{id}" if id else operation
+        self.timers[timer_id] = time.time()
     
-    def stop_timer(self, key: str, category: str = "default") -> float:
-        """Stop a timer and record latency.
+    def stop_timer(self, operation: str, id: str = None) -> float:
+        """Stop timer for operation and record latency
         
         Args:
-            key: Timer key
-            category: Latency category
+            operation: Operation name
+            id: Operation ID
             
         Returns:
-            Latency in microseconds
+            float: Latency in milliseconds
         """
-        if key not in self.timestamps:
-            logger.warning(f"Timer {key} not started")
-            return 0
+        timer_id = f"{operation}_{id}" if id else operation
         
-        # Calculate latency in microseconds
-        latency_us = (time.time_ns() - self.timestamps[key]) / 1000
+        if timer_id not in self.timers:
+            logger.warning(f"Timer {timer_id} not started")
+            return 0.0
         
-        # Initialize category if not exists
-        if category not in self.metrics:
-            self.metrics[category] = []
+        # Calculate latency
+        latency = (time.time() - self.timers[timer_id]) * 1000  # Convert to milliseconds
+        
+        # Add simulated latency if configured
+        if operation in self.simulated_latencies:
+            latency += self.simulated_latencies[operation]
+        
+        # Remove timer
+        del self.timers[timer_id]
         
         # Record latency
-        self.metrics[category].append(latency_us)
+        if operation not in self.latency_metrics:
+            self.latency_metrics[operation] = deque(maxlen=self.rolling_window)
         
-        # Limit to rolling window
-        if len(self.metrics[category]) > self.rolling_window:
-            self.metrics[category] = self.metrics[category][-self.rolling_window:]
+        self.latency_metrics[operation].append(latency)
         
-        # Clean up
-        del self.timestamps[key]
+        # Log latency
+        logger.info(f"{operation.capitalize()} {id} completed in {latency:.2f}ms")
         
-        return latency_us
+        return latency
     
-    def get_metrics(self) -> Dict:
-        """Get latency metrics.
-        
-        Returns:
-            Dictionary with latency metrics
-        """
-        metrics = {}
-        
-        for category, latencies in self.metrics.items():
-            if latencies:
-                metrics[category] = {
-                    'min': np.min(latencies),
-                    'max': np.max(latencies),
-                    'mean': np.mean(latencies),
-                    'median': np.median(latencies),
-                    'p95': np.percentile(latencies, 95),
-                    'p99': np.percentile(latencies, 99),
-                    'count': len(latencies)
-                }
-            else:
-                metrics[category] = {
-                    'min': 0,
-                    'max': 0,
-                    'mean': 0,
-                    'median': 0,
-                    'p95': 0,
-                    'p99': 0,
-                    'count': 0
-                }
-        
-        return metrics
-    
-    def save_metrics(self) -> None:
-        """Save latency metrics to file."""
-        metrics = self.get_metrics()
-        
-        with open(self.metrics_file, 'w') as f:
-            json.dump(metrics, f, indent=2)
-        
-        logger.info(f"Saved latency metrics to {self.metrics_file}")
-    
-    def log_metrics(self) -> None:
-        """Log latency metrics."""
-        metrics = self.get_metrics()
-        
-        for category, stats in metrics.items():
-            logger.info(f"{category} latency (μs): "
-                       f"min={stats['min']:.2f}, "
-                       f"max={stats['max']:.2f}, "
-                       f"mean={stats['mean']:.2f}, "
-                       f"median={stats['median']:.2f}, "
-                       f"p95={stats['p95']:.2f}, "
-                       f"p99={stats['p99']:.2f}, "
-                       f"count={stats['count']}")
-    
-    def add_latency_measurement(self, category: str, latency_us: float) -> None:
-        """Add a latency measurement for testing.
+    def get_latency_metrics(self, operation: str) -> Dict:
+        """Get latency metrics for operation
         
         Args:
-            category: Latency category
-            latency_us: Latency in microseconds
-        """
-        # Initialize category if not exists
-        if category not in self.metrics:
-            self.metrics[category] = []
-        
-        # Record latency
-        self.metrics[category].append(latency_us)
-        
-        # Limit to rolling window
-        if len(self.metrics[category]) > self.rolling_window:
-            self.metrics[category] = self.metrics[category][-self.rolling_window:]
-        
-        logger.info(f"Added latency measurement to {category}: {latency_us} μs")
-    
-    def set_simulated_latency(self, category: str, latency_us: float) -> None:
-        """Set simulated latency for a category.
-        
-        Args:
-            category: Latency category
-            latency_us: Latency in microseconds
-        """
-        self.simulated_latencies[category] = latency_us
-        logger.info(f"Set simulated latency for {category}: {latency_us} μs")
-    
-    def get_simulated_latency(self, category: str) -> float:
-        """Get simulated latency for a category.
-        
-        Args:
-            category: Latency category
+            operation: Operation name
             
         Returns:
-            Simulated latency in microseconds
+            dict: Latency metrics
         """
-        return self.simulated_latencies.get(category, 0.0)
-    
-    def clear_simulated_latencies(self) -> None:
-        """Clear all simulated latencies."""
-        self.simulated_latencies.clear()
-        logger.info("Cleared all simulated latencies")
+        if operation not in self.latency_metrics or not self.latency_metrics[operation]:
+            return {
+                "min": 0.0,
+                "max": 0.0,
+                "mean": 0.0,
+                "median": 0.0,
+                "p95": 0.0,
+                "p99": 0.0,
+                "count": 0
+            }
         
-    def set_threshold(self, category: str, threshold_us: float) -> None:
-        """Set latency threshold for a category.
+        latencies = list(self.latency_metrics[operation])
+        
+        return {
+            "min": min(latencies),
+            "max": max(latencies),
+            "mean": sum(latencies) / len(latencies),
+            "median": sorted(latencies)[len(latencies) // 2],
+            "p95": sorted(latencies)[int(len(latencies) * 0.95)],
+            "p99": sorted(latencies)[int(len(latencies) * 0.99)],
+            "count": len(latencies)
+        }
+    
+    def get_all_metrics(self) -> Dict:
+        """Get all latency metrics
+        
+        Returns:
+            dict: All latency metrics
+        """
+        return {operation: self.get_latency_metrics(operation) for operation in self.latency_metrics}
+    
+    def set_threshold(self, operation: str, threshold: float):
+        """Set latency threshold for operation
         
         Args:
-            category: Latency category
-            threshold_us: Threshold in microseconds
+            operation: Operation name
+            threshold: Latency threshold in microseconds
         """
-        self.thresholds[category] = threshold_us
-        logger.info(f"Set latency threshold for {category}: {threshold_us} μs")
+        self.thresholds[operation] = threshold
+        logger.info(f"Set latency threshold for {operation}: {threshold} μs")
     
-    def get_threshold(self, category: str) -> float:
-        """Get latency threshold for a category.
+    def check_threshold(self, operation: str, latency: float) -> bool:
+        """Check if latency exceeds threshold
         
         Args:
-            category: Latency category
+            operation: Operation name
+            latency: Latency in milliseconds
             
         Returns:
-            Threshold in microseconds
+            bool: True if latency is below threshold, False otherwise
         """
-        return self.thresholds.get(category, float('inf'))
+        if operation not in self.thresholds:
+            return True
+        
+        # Convert latency to microseconds for comparison
+        latency_us = latency * 1000
+        
+        return latency_us <= self.thresholds[operation]
     
-    def is_above_threshold(self, category: str, latency_us: float) -> bool:
-        """Check if latency is above threshold.
+    def set_simulated_latency(self, operation: str, latency: float):
+        """Set simulated latency for operation
         
         Args:
-            category: Latency category
-            latency_us: Latency in microseconds
-            
-        Returns:
-            True if latency is above threshold, False otherwise
+            operation: Operation name
+            latency: Simulated latency in microseconds
         """
-        threshold = self.get_threshold(category)
-        return latency_us > threshold
-
+        # Convert microseconds to milliseconds for internal storage
+        self.simulated_latencies[operation] = latency / 1000
+        logger.info(f"Set simulated latency for {operation}: {latency} μs")
 
 class OrderRouter:
-    """Class for routing orders to exchanges."""
+    """Order router for execution optimization"""
     
     def __init__(self, 
-                client_instance=None,  # Added client_instance parameter
-                latency_profiler: LatencyProfiler = None,
-                max_retries: int = 3,
-                retry_delay: float = 0.5,
-                timeout: float = 5.0):
-        """Initialize the order router.
+                 max_retries: int = 3, 
+                 retry_delay: float = 0.5,
+                 client_instance=None,
+                 latency_profiler: LatencyProfiler = None):
+        """Initialize order router
         
         Args:
-            client_instance: Exchange client instance (optional)
-            latency_profiler: Latency profiler
             max_retries: Maximum number of retries
-            retry_delay: Delay between retries in seconds
-            timeout: Timeout for order submission in seconds
+            retry_delay: Retry delay in seconds
+            client_instance: Exchange client instance
+            latency_profiler: Latency profiler
         """
-        self.latency_profiler = latency_profiler
         self.max_retries = max_retries
         self.retry_delay = retry_delay
-        self.timeout = timeout
         self.exchanges = {}
+        self.latency_profiler = latency_profiler or LatencyProfiler()
         
-        # Register client instance if provided
+        # Register client if provided
         if client_instance:
-            self.register_exchange("mock", client_instance)
+            self.register_exchange("default", client_instance)
         
         logger.info(f"Initialized OrderRouter with max_retries={max_retries}, retry_delay={retry_delay}s")
     
-    def register_exchange(self, exchange_id: str, exchange_client: object) -> None:
-        """Register an exchange client.
+    def register_exchange(self, name: str, client):
+        """Register exchange client
         
         Args:
-            exchange_id: Exchange identifier
-            exchange_client: Exchange client object
+            name: Exchange name
+            client: Exchange client
         """
-        self.exchanges[exchange_id] = exchange_client
-        logger.info(f"Registered exchange: {exchange_id}")
+        self.exchanges[name] = client
+        logger.info(f"Registered exchange: {name}")
     
-    def submit_order(self, order: Order, latency_profiler: LatencyProfiler = None, exchange_id: str = None) -> Order:
-        """Submit an order to an exchange.
+    def submit_order(self, order: Order, exchange: str = "default") -> Order:
+        """Submit order to exchange
         
         Args:
             order: Order to submit
-            latency_profiler: Latency profiler (overrides instance profiler if provided)
-            exchange_id: Exchange identifier (if None, use the best exchange)
+            exchange: Exchange name
             
         Returns:
-            Updated order
+            Order: Updated order
         """
-        # Use provided latency profiler or instance profiler
-        profiler = latency_profiler or self.latency_profiler
-        
-        # Select exchange
-        if exchange_id is None:
-            exchange_id = self._select_best_exchange(order)
-        
-        if exchange_id not in self.exchanges:
-            logger.error(f"Unknown exchange: {exchange_id}")
-            order.status = OrderStatus.REJECTED
+        # Check if exchange is registered
+        if exchange not in self.exchanges:
+            logger.error(f"Exchange {exchange} not registered")
+            order.update_status(OrderStatus.REJECTED)
             return order
         
-        # Get exchange client
-        exchange = self.exchanges[exchange_id]
+        # Start latency timer
+        self.latency_profiler.start_timer("submit", order.client_order_id)
         
-        # Start latency profiling
-        if profiler:
-            profiler.start_timer(f"submit_{order.id}")
-        
-        # Check for simulated high latency conditions
-        if profiler and profiler.get_simulated_latency("order_submission") > 100000:  # 100ms threshold
-            logger.warning(f"High simulated latency detected ({profiler.get_simulated_latency('order_submission')/1000}ms), rejecting order")
-            order.status = OrderStatus.REJECTED
-            
-            # Stop latency profiling
-            if profiler:
-                profiler.stop_timer(f"submit_{order.id}", 'order_submission')
-            
-            return order
+        # Check latency threshold if set
+        if "order_submission" in self.latency_profiler.simulated_latencies:
+            simulated_latency_ms = self.latency_profiler.simulated_latencies["order_submission"]
+            if "order_submission" in self.latency_profiler.thresholds:
+                threshold_us = self.latency_profiler.thresholds["order_submission"]
+                if simulated_latency_ms * 1000 > threshold_us:
+                    logger.warning(f"High simulated latency detected ({simulated_latency_ms}ms), rejecting order")
+                    order.update_status(OrderStatus.REJECTED)
+                    return order
         
         # Submit order with retries
-        for attempt in range(self.max_retries):
+        for attempt in range(self.max_retries + 1):
             try:
-                # Check for high latency conditions
-                if hasattr(exchange, 'latency') and exchange.latency > 1.0:  # 1 second threshold
-                    logger.warning(f"High latency detected ({exchange.latency}s), rejecting order")
-                    order.status = OrderStatus.REJECTED
-                    
-                    # Stop latency profiling
-                    if profiler:
-                        profiler.stop_timer(f"submit_{order.id}", 'order_submission')
-                    
+                # Get exchange client
+                client = self.exchanges[exchange]
+                
+                # Submit order based on type
+                if order.order_type == OrderType.MARKET:
+                    result = client.create_market_order(
+                        symbol=order.symbol,
+                        side=order.side.value,
+                        quantity=order.quantity,
+                        client_order_id=order.client_order_id
+                    )
+                elif order.order_type == OrderType.LIMIT:
+                    result = client.create_limit_order(
+                        symbol=order.symbol,
+                        side=order.side.value,
+                        quantity=order.quantity,
+                        price=order.price,
+                        time_in_force=order.time_in_force,
+                        client_order_id=order.client_order_id
+                    )
+                elif order.order_type == OrderType.STOP_LOSS:
+                    result = client.create_stop_loss_order(
+                        symbol=order.symbol,
+                        side=order.side.value,
+                        quantity=order.quantity,
+                        stop_price=order.stop_price,
+                        client_order_id=order.client_order_id
+                    )
+                elif order.order_type == OrderType.TAKE_PROFIT:
+                    result = client.create_take_profit_order(
+                        symbol=order.symbol,
+                        side=order.side.value,
+                        quantity=order.quantity,
+                        stop_price=order.stop_price,
+                        client_order_id=order.client_order_id
+                    )
+                elif order.order_type == OrderType.ICEBERG:
+                    result = self._execute_iceberg_order(order, client)
+                elif order.order_type == OrderType.TWAP:
+                    result = self._execute_twap_order(order, client)
+                elif order.order_type == OrderType.VWAP:
+                    result = self._execute_vwap_order(order, client)
+                elif order.order_type == OrderType.SMART:
+                    result = self._execute_smart_order(order, client)
+                else:
+                    logger.error(f"Unsupported order type: {order.order_type}")
+                    order.update_status(OrderStatus.REJECTED)
                     return order
                 
-                # Submit order to exchange
-                result = exchange.submit_order(order)
+                # Update order with result
+                if result:
+                    if isinstance(result, dict):
+                        if "status" in result:
+                            order.update_status(OrderStatus(result["status"]))
+                        if "filled_quantity" in result:
+                            order.filled_quantity = result["filled_quantity"]
+                        if "average_price" in result:
+                            order.average_price = result["average_price"]
+                        if "exchange_order_id" in result:
+                            order.exchange_order_id = result["exchange_order_id"]
+                    elif hasattr(result, "status"):
+                        order.update_status(result.status)
+                        if hasattr(result, "filled_quantity"):
+                            order.filled_quantity = result.filled_quantity
+                        if hasattr(result, "average_price"):
+                            order.average_price = result.average_price
+                        if hasattr(result, "exchange_order_id"):
+                            order.exchange_order_id = result.exchange_order_id
                 
-                # Update order with exchange response
-                order.exchange_id = exchange_id
-                
-                # Handle different result types (dict or string)
-                if isinstance(result, dict):
-                    order.status = result.get('status', OrderStatus.OPEN)
-                    order.id = result.get('id', order.id)
-                elif isinstance(result, str):
-                    # If result is just an order ID string
-                    order.id = result
-                    order.status = OrderStatus.OPEN
-                else:
-                    # Handle other return types
-                    order.status = OrderStatus.OPEN
-                
-                order.updated_at = time.time()
-                
-                # Stop latency profiling
-                if profiler:
-                    latency = profiler.stop_timer(f"submit_{order.id}", 'order_submission')
-                    logger.debug(f"Order submission latency: {latency:.2f} μs")
+                # Stop latency timer
+                latency = self.latency_profiler.stop_timer("submit", order.client_order_id)
+                order.submission_latency = latency
                 
                 return order
             
             except Exception as e:
-                logger.warning(f"Order submission failed (attempt {attempt+1}/{self.max_retries}): {e}")
+                logger.error(f"Error submitting order: {str(e)}")
                 
-                # Record retry if exchange has retry counter
-                if hasattr(exchange, 'record_retry'):
-                    exchange.record_retry()
-                
-                if attempt < self.max_retries - 1:
+                # Retry if not last attempt
+                if attempt < self.max_retries:
+                    logger.info(f"Retrying in {self.retry_delay}s (attempt {attempt + 1}/{self.max_retries})")
                     time.sleep(self.retry_delay)
                 else:
-                    logger.error(f"Order submission failed after {self.max_retries} attempts")
-                    order.status = OrderStatus.REJECTED
-                    
-                    # Stop latency profiling
-                    if profiler:
-                        profiler.stop_timer(f"submit_{order.id}", 'order_submission')
-                    
+                    logger.error(f"Max retries reached, rejecting order")
+                    order.update_status(OrderStatus.REJECTED)
                     return order
+        
+        # Should never reach here
+        order.update_status(OrderStatus.REJECTED)
+        return order
     
-    def cancel_order(self, order: Order) -> Order:
-        """Cancel an order.
+    def cancel_order(self, order: Order, exchange: str = "default") -> Order:
+        """Cancel order
         
         Args:
             order: Order to cancel
+            exchange: Exchange name
             
         Returns:
-            Updated order
+            Order: Updated order
         """
-        if order.exchange_id not in self.exchanges:
-            logger.error(f"Unknown exchange: {order.exchange_id}")
+        # Check if exchange is registered
+        if exchange not in self.exchanges:
+            logger.error(f"Exchange {exchange} not registered")
             return order
         
-        # Get exchange client
-        exchange = self.exchanges[order.exchange_id]
-        
-        # Start latency profiling
-        if self.latency_profiler:
-            self.latency_profiler.start_timer(f"cancel_{order.id}")
+        # Start latency timer
+        self.latency_profiler.start_timer("cancel", order.client_order_id)
         
         # Cancel order with retries
-        for attempt in range(self.max_retries):
+        for attempt in range(self.max_retries + 1):
             try:
-                # Cancel order on exchange
-                result = exchange.cancel_order(order.id, order.symbol)
+                # Get exchange client
+                client = self.exchanges[exchange]
                 
-                # Update order with exchange response
-                if isinstance(result, dict):
-                    order.status = result.get('status', OrderStatus.CANCELED)
+                # Cancel order
+                result = client.cancel_order(
+                    symbol=order.symbol,
+                    order_id=order.exchange_order_id,
+                    client_order_id=order.client_order_id
+                )
+                
+                # Update order with result
+                if result:
+                    if isinstance(result, dict):
+                        if "status" in result:
+                            order.update_status(OrderStatus(result["status"]))
+                    elif hasattr(result, "status"):
+                        order.update_status(result.status)
                 else:
-                    order.status = OrderStatus.CANCELED
+                    order.update_status(OrderStatus.CANCELED)
                 
-                order.updated_at = time.time()
-                
-                # Stop latency profiling
-                if self.latency_profiler:
-                    latency = self.latency_profiler.stop_timer(f"cancel_{order.id}", 'order_cancellation')
-                    logger.debug(f"Order cancellation latency: {latency:.2f} μs")
+                # Stop latency timer
+                latency = self.latency_profiler.stop_timer("cancel", order.client_order_id)
                 
                 return order
             
             except Exception as e:
-                logger.warning(f"Order cancellation failed (attempt {attempt+1}/{self.max_retries}): {e}")
+                logger.error(f"Error canceling order: {str(e)}")
                 
-                if attempt < self.max_retries - 1:
+                # Retry if not last attempt
+                if attempt < self.max_retries:
+                    logger.info(f"Retrying in {self.retry_delay}s (attempt {attempt + 1}/{self.max_retries})")
                     time.sleep(self.retry_delay)
                 else:
-                    logger.error(f"Order cancellation failed after {self.max_retries} attempts")
-                    
-                    # Stop latency profiling
-                    if self.latency_profiler:
-                        self.latency_profiler.stop_timer(f"cancel_{order.id}", 'order_cancellation')
-                    
+                    logger.error(f"Max retries reached, order may not be canceled")
                     return order
+        
+        # Should never reach here
+        return order
     
-    def get_order_status(self, order: Order) -> Order:
-        """Get order status.
+    def get_order_status(self, order: Order, exchange: str = "default") -> Order:
+        """Get order status
         
         Args:
-            order: Order to get status for
+            order: Order to check
+            exchange: Exchange name
             
         Returns:
-            Updated order
+            Order: Updated order
         """
-        if order.exchange_id not in self.exchanges:
-            logger.error(f"Unknown exchange: {order.exchange_id}")
+        # Check if exchange is registered
+        if exchange not in self.exchanges:
+            logger.error(f"Exchange {exchange} not registered")
             return order
         
-        # Get exchange client
-        exchange = self.exchanges[order.exchange_id]
-        
-        # Start latency profiling
-        if self.latency_profiler:
-            self.latency_profiler.start_timer(f"status_{order.id}")
+        # Start latency timer
+        self.latency_profiler.start_timer("status", order.client_order_id)
         
         # Get order status with retries
-        for attempt in range(self.max_retries):
+        for attempt in range(self.max_retries + 1):
             try:
-                # Get order status from exchange
-                result = exchange.get_order_status(order.id, order.symbol)
+                # Get exchange client
+                client = self.exchanges[exchange]
                 
-                # Update order with exchange response
-                if isinstance(result, dict):
-                    order.status = result.get('status', order.status)
-                    order.filled_quantity = result.get('filled_quantity', order.filled_quantity)
-                    order.average_price = result.get('average_price', order.average_price)
+                # Get order status
+                result = client.get_order(
+                    symbol=order.symbol,
+                    order_id=order.exchange_order_id,
+                    client_order_id=order.client_order_id
+                )
                 
-                order.updated_at = time.time()
+                # Update order with result
+                if result:
+                    if isinstance(result, dict):
+                        if "status" in result:
+                            order.update_status(OrderStatus(result["status"]))
+                        if "filled_quantity" in result:
+                            order.filled_quantity = result["filled_quantity"]
+                        if "average_price" in result:
+                            order.average_price = result["average_price"]
+                    elif hasattr(result, "status"):
+                        order.update_status(result.status)
+                        if hasattr(result, "filled_quantity"):
+                            order.filled_quantity = result.filled_quantity
+                        if hasattr(result, "average_price"):
+                            order.average_price = result.average_price
                 
-                # Stop latency profiling
-                if self.latency_profiler:
-                    latency = self.latency_profiler.stop_timer(f"status_{order.id}", 'order_status')
-                    logger.debug(f"Order status latency: {latency:.2f} μs")
+                # Stop latency timer
+                latency = self.latency_profiler.stop_timer("status", order.client_order_id)
                 
                 return order
             
             except Exception as e:
-                logger.warning(f"Order status failed (attempt {attempt+1}/{self.max_retries}): {e}")
+                logger.error(f"Error getting order status: {str(e)}")
                 
-                if attempt < self.max_retries - 1:
+                # Retry if not last attempt
+                if attempt < self.max_retries:
+                    logger.info(f"Retrying in {self.retry_delay}s (attempt {attempt + 1}/{self.max_retries})")
                     time.sleep(self.retry_delay)
                 else:
-                    logger.error(f"Order status failed after {self.max_retries} attempts")
-                    
-                    # Stop latency profiling
-                    if self.latency_profiler:
-                        self.latency_profiler.stop_timer(f"status_{order.id}", 'order_status')
-                    
+                    logger.error(f"Max retries reached, order status unknown")
                     return order
+        
+        # Should never reach here
+        return order
     
-    def _select_best_exchange(self, order: Order) -> str:
-        """Select the best exchange for an order.
+    def _execute_iceberg_order(self, order: Order, client) -> Dict:
+        """Execute iceberg order
         
         Args:
-            order: Order to route
+            order: Iceberg order
+            client: Exchange client
             
         Returns:
-            Exchange identifier
+            dict: Order result
         """
-        # If only one exchange, use it
-        if len(self.exchanges) == 1:
-            return next(iter(self.exchanges.keys()))
+        # Calculate chunk size
+        chunk_size = order.iceberg_qty or (order.quantity * 0.1)  # Default to 10% of total quantity
         
-        # TODO: Implement exchange selection logic
-        # For now, just return the first exchange
-        return next(iter(self.exchanges.keys()))
-
+        # Calculate number of chunks
+        num_chunks = int(order.quantity / chunk_size)
+        last_chunk = order.quantity % chunk_size
+        
+        # Execute chunks
+        filled_quantity = 0.0
+        total_cost = 0.0
+        
+        for i in range(num_chunks):
+            # Create chunk order
+            chunk_order = Order(
+                symbol=order.symbol,
+                side=order.side,
+                order_type=OrderType.LIMIT,
+                quantity=chunk_size,
+                price=order.price,
+                client_order_id=f"{order.client_order_id}_chunk_{i}",
+                time_in_force=order.time_in_force
+            )
+            
+            # Submit chunk order
+            result = self.submit_order(chunk_order)
+            
+            # Update filled quantity and cost
+            filled_quantity += result.filled_quantity
+            total_cost += result.filled_quantity * result.average_price
+            
+            # Add chunk order to child orders
+            order.child_orders.append(result)
+            
+            # Wait for chunk to be filled or timeout
+            timeout = time.time() + 60  # 60 seconds timeout
+            while result.status not in [OrderStatus.FILLED, OrderStatus.REJECTED, OrderStatus.CANCELED] and time.time() < timeout:
+                time.sleep(1)
+                result = self.get_order_status(result)
+            
+            # Cancel if not filled
+            if result.status not in [OrderStatus.FILLED, OrderStatus.REJECTED, OrderStatus.CANCELED]:
+                self.cancel_order(result)
+        
+        # Execute last chunk if any
+        if last_chunk > 0:
+            # Create last chunk order
+            last_chunk_order = Order(
+                symbol=order.symbol,
+                side=order.side,
+                order_type=OrderType.LIMIT,
+                quantity=last_chunk,
+                price=order.price,
+                client_order_id=f"{order.client_order_id}_chunk_{num_chunks}",
+                time_in_force=order.time_in_force
+            )
+            
+            # Submit last chunk order
+            result = self.submit_order(last_chunk_order)
+            
+            # Update filled quantity and cost
+            filled_quantity += result.filled_quantity
+            total_cost += result.filled_quantity * result.average_price
+            
+            # Add last chunk order to child orders
+            order.child_orders.append(result)
+        
+        # Calculate average price
+        average_price = total_cost / filled_quantity if filled_quantity > 0 else 0.0
+        
+        # Return result
+        return {
+            "status": OrderStatus.FILLED.value if filled_quantity >= order.quantity * 0.99 else OrderStatus.PARTIALLY_FILLED.value,
+            "filled_quantity": filled_quantity,
+            "average_price": average_price,
+            "exchange_order_id": order.client_order_id
+        }
+    
+    def _execute_twap_order(self, order: Order, client) -> Dict:
+        """Execute TWAP order
+        
+        Args:
+            order: TWAP order
+            client: Exchange client
+            
+        Returns:
+            dict: Order result
+        """
+        # Calculate execution window
+        execution_window = order.execution_window or 3600  # Default to 1 hour
+        
+        # Calculate number of chunks and interval
+        num_chunks = 10  # Default to 10 chunks
+        interval = execution_window / num_chunks
+        chunk_size = order.quantity / num_chunks
+        
+        # Execute chunks
+        filled_quantity = 0.0
+        total_cost = 0.0
+        start_time = time.time()
+        
+        for i in range(num_chunks):
+            # Wait until next interval
+            next_execution = start_time + (i * interval)
+            wait_time = next_execution - time.time()
+            if wait_time > 0:
+                time.sleep(wait_time)
+            
+            # Create chunk order
+            chunk_order = Order(
+                symbol=order.symbol,
+                side=order.side,
+                order_type=OrderType.MARKET,
+                quantity=chunk_size,
+                client_order_id=f"{order.client_order_id}_chunk_{i}"
+            )
+            
+            # Submit chunk order
+            result = self.submit_order(chunk_order)
+            
+            # Update filled quantity and cost
+            filled_quantity += result.filled_quantity
+            total_cost += result.filled_quantity * result.average_price
+            
+            # Add chunk order to child orders
+            order.child_orders.append(result)
+        
+        # Calculate average price
+        average_price = total_cost / filled_quantity if filled_quantity > 0 else 0.0
+        
+        # Return result
+        return {
+            "status": OrderStatus.FILLED.value if filled_quantity >= order.quantity * 0.99 else OrderStatus.PARTIALLY_FILLED.value,
+            "filled_quantity": filled_quantity,
+            "average_price": average_price,
+            "exchange_order_id": order.client_order_id
+        }
+    
+    def _execute_vwap_order(self, order: Order, client) -> Dict:
+        """Execute VWAP order
+        
+        Args:
+            order: VWAP order
+            client: Exchange client
+            
+        Returns:
+            dict: Order result
+        """
+        # Calculate execution window
+        execution_window = order.execution_window or 3600  # Default to 1 hour
+        
+        # Get historical volume profile
+        try:
+            # Get historical volume data
+            volume_profile = client.get_historical_volume(
+                symbol=order.symbol,
+                interval="5m",
+                limit=12
+            )
+            
+            # Calculate volume distribution
+            total_volume = sum(v for _, v in volume_profile)
+            volume_distribution = [v / total_volume for _, v in volume_profile]
+            
+            # Calculate number of chunks and sizes
+            num_chunks = len(volume_distribution)
+            chunk_sizes = [order.quantity * dist for dist in volume_distribution]
+            interval = execution_window / num_chunks
+        except Exception as e:
+            logger.error(f"Error getting volume profile: {str(e)}")
+            
+            # Fall back to TWAP
+            logger.info("Falling back to TWAP execution")
+            return self._execute_twap_order(order, client)
+        
+        # Execute chunks
+        filled_quantity = 0.0
+        total_cost = 0.0
+        start_time = time.time()
+        
+        for i in range(num_chunks):
+            # Wait until next interval
+            next_execution = start_time + (i * interval)
+            wait_time = next_execution - time.time()
+            if wait_time > 0:
+                time.sleep(wait_time)
+            
+            # Create chunk order
+            chunk_order = Order(
+                symbol=order.symbol,
+                side=order.side,
+                order_type=OrderType.MARKET,
+                quantity=chunk_sizes[i],
+                client_order_id=f"{order.client_order_id}_chunk_{i}"
+            )
+            
+            # Submit chunk order
+            result = self.submit_order(chunk_order)
+            
+            # Update filled quantity and cost
+            filled_quantity += result.filled_quantity
+            total_cost += result.filled_quantity * result.average_price
+            
+            # Add chunk order to child orders
+            order.child_orders.append(result)
+        
+        # Calculate average price
+        average_price = total_cost / filled_quantity if filled_quantity > 0 else 0.0
+        
+        # Return result
+        return {
+            "status": OrderStatus.FILLED.value if filled_quantity >= order.quantity * 0.99 else OrderStatus.PARTIALLY_FILLED.value,
+            "filled_quantity": filled_quantity,
+            "average_price": average_price,
+            "exchange_order_id": order.client_order_id
+        }
+    
+    def _execute_smart_order(self, order: Order, client) -> Dict:
+        """Execute smart order
+        
+        Args:
+            order: Smart order
+            client: Exchange client
+            
+        Returns:
+            dict: Order result
+        """
+        # Get market conditions
+        try:
+            # Get order book
+            order_book = client.get_order_book(
+                symbol=order.symbol,
+                limit=20
+            )
+            
+            # Get recent trades
+            recent_trades = client.get_recent_trades(
+                symbol=order.symbol,
+                limit=100
+            )
+            
+            # Analyze market conditions
+            bid_ask_spread = order_book["asks"][0][0] - order_book["bids"][0][0]
+            market_depth = sum(q for _, q in order_book["bids"][:5]) + sum(q for _, q in order_book["asks"][:5])
+            recent_volume = sum(t["quantity"] for t in recent_trades)
+            
+            # Determine execution strategy
+            if bid_ask_spread > 0.001 * order_book["bids"][0][0]:  # Spread > 0.1%
+                logger.info("Wide spread detected, using iceberg execution")
+                execution_style = "iceberg"
+            elif market_depth < order.quantity * 10:  # Low liquidity
+                logger.info("Low liquidity detected, using TWAP execution")
+                execution_style = "twap"
+            elif recent_volume > order.quantity * 100:  # High volume
+                logger.info("High volume detected, using VWAP execution")
+                execution_style = "vwap"
+            else:
+                logger.info("Normal market conditions, using iceberg execution")
+                execution_style = "iceberg"
+        except Exception as e:
+            logger.error(f"Error analyzing market conditions: {str(e)}")
+            
+            # Fall back to iceberg
+            logger.info("Falling back to iceberg execution")
+            execution_style = "iceberg"
+        
+        # Execute based on determined strategy
+        if execution_style == "iceberg":
+            # Create iceberg order
+            iceberg_order = Order(
+                symbol=order.symbol,
+                side=order.side,
+                order_type=OrderType.ICEBERG,
+                quantity=order.quantity,
+                price=order.price,
+                client_order_id=order.client_order_id,
+                time_in_force=order.time_in_force,
+                iceberg_qty=order.quantity * 0.1  # 10% of total quantity
+            )
+            
+            return self._execute_iceberg_order(iceberg_order, client)
+        elif execution_style == "twap":
+            # Create TWAP order
+            twap_order = Order(
+                symbol=order.symbol,
+                side=order.side,
+                order_type=OrderType.TWAP,
+                quantity=order.quantity,
+                client_order_id=order.client_order_id,
+                execution_window=1800  # 30 minutes
+            )
+            
+            return self._execute_twap_order(twap_order, client)
+        elif execution_style == "vwap":
+            # Create VWAP order
+            vwap_order = Order(
+                symbol=order.symbol,
+                side=order.side,
+                order_type=OrderType.VWAP,
+                quantity=order.quantity,
+                client_order_id=order.client_order_id,
+                execution_window=1800  # 30 minutes
+            )
+            
+            return self._execute_vwap_order(vwap_order, client)
+        else:
+            # Should never reach here
+            logger.error(f"Unknown execution style: {execution_style}")
+            
+            # Fall back to market order
+            market_order = Order(
+                symbol=order.symbol,
+                side=order.side,
+                order_type=OrderType.MARKET,
+                quantity=order.quantity,
+                client_order_id=order.client_order_id
+            )
+            
+            result = self.submit_order(market_order)
+            
+            return {
+                "status": result.status.value,
+                "filled_quantity": result.filled_quantity,
+                "average_price": result.average_price,
+                "exchange_order_id": result.exchange_order_id
+            }
 
 class SmartOrderRouter(OrderRouter):
-    """Class for smart order routing."""
+    """Smart order router for execution optimization"""
     
     def __init__(self, 
-                client_instance=None,  # Added client_instance parameter
-                latency_profiler: LatencyProfiler = None,
-                max_retries: int = 3,
-                retry_delay: float = 0.5,
-                timeout: float = 5.0,
-                routing_strategy: str = "best_price"):
-        """Initialize the smart order router.
+                 max_retries: int = 3, 
+                 retry_delay: float = 0.5,
+                 client_instance=None,
+                 latency_profiler: LatencyProfiler = None):
+        """Initialize smart order router
         
         Args:
-            client_instance: Exchange client instance (optional)
-            latency_profiler: Latency profiler
             max_retries: Maximum number of retries
-            retry_delay: Delay between retries in seconds
-            timeout: Timeout for order submission in seconds
-            routing_strategy: Routing strategy
-        """
-        super().__init__(client_instance, latency_profiler, max_retries, retry_delay, timeout)
-        self.routing_strategy = routing_strategy
-        self.exchange_metrics = {}
-        
-        logger.info(f"Initialized SmartOrderRouter with routing_strategy={routing_strategy}")
-    
-    def update_exchange_metrics(self, exchange_id: str, metrics: Dict) -> None:
-        """Update exchange metrics.
-        
-        Args:
-            exchange_id: Exchange identifier
-            metrics: Exchange metrics
-        """
-        self.exchange_metrics[exchange_id] = metrics
-        logger.debug(f"Updated metrics for exchange {exchange_id}")
-    
-    def _select_best_exchange(self, order: Order) -> str:
-        """Select the best exchange for an order based on routing strategy.
-        
-        Args:
-            order: Order to route
-            
-        Returns:
-            Exchange identifier
-        """
-        # If only one exchange, use it
-        if len(self.exchanges) == 1:
-            return next(iter(self.exchanges.keys()))
-        
-        # Select based on routing strategy
-        if self.routing_strategy == "best_price":
-            return self._select_best_price_exchange(order)
-        elif self.routing_strategy == "lowest_latency":
-            return self._select_lowest_latency_exchange(order)
-        elif self.routing_strategy == "highest_liquidity":
-            return self._select_highest_liquidity_exchange(order)
-        elif self.routing_strategy == "lowest_fees":
-            return self._select_lowest_fees_exchange(order)
-        else:
-            # Default to first exchange
-            return next(iter(self.exchanges.keys()))
-    
-    def _select_best_price_exchange(self, order: Order) -> str:
-        """Select exchange with best price.
-        
-        Args:
-            order: Order to route
-            
-        Returns:
-            Exchange identifier
-        """
-        best_exchange = None
-        best_price = None
-        
-        for exchange_id, exchange in self.exchanges.items():
-            # Get order book
-            try:
-                order_book = exchange.get_order_book(order.symbol)
-                
-                if order.side == OrderSide.BUY:
-                    # For buy orders, look at ask prices
-                    price = float(order_book['asks'][0][0])
-                else:
-                    # For sell orders, look at bid prices
-                    price = float(order_book['bids'][0][0])
-                
-                # Update best price
-                if best_price is None or (order.side == OrderSide.BUY and price < best_price) or (order.side == OrderSide.SELL and price > best_price):
-                    best_price = price
-                    best_exchange = exchange_id
-            
-            except Exception as e:
-                logger.warning(f"Error getting order book from {exchange_id}: {e}")
-        
-        # Return best exchange or default
-        return best_exchange if best_exchange else next(iter(self.exchanges.keys()))
-    
-    def _select_lowest_latency_exchange(self, order: Order) -> str:
-        """Select exchange with lowest latency.
-        
-        Args:
-            order: Order to route
-            
-        Returns:
-            Exchange identifier
-        """
-        best_exchange = None
-        lowest_latency = None
-        
-        for exchange_id, metrics in self.exchange_metrics.items():
-            if exchange_id not in self.exchanges:
-                continue
-            
-            latency = metrics.get('latency', {}).get('mean', float('inf'))
-            
-            # Update lowest latency
-            if lowest_latency is None or latency < lowest_latency:
-                lowest_latency = latency
-                best_exchange = exchange_id
-        
-        # Return best exchange or default
-        return best_exchange if best_exchange else next(iter(self.exchanges.keys()))
-    
-    def _select_highest_liquidity_exchange(self, order: Order) -> str:
-        """Select exchange with highest liquidity.
-        
-        Args:
-            order: Order to route
-            
-        Returns:
-            Exchange identifier
-        """
-        best_exchange = None
-        highest_liquidity = None
-        
-        for exchange_id, exchange in self.exchanges.items():
-            # Get order book
-            try:
-                order_book = exchange.get_order_book(order.symbol)
-                
-                if order.side == OrderSide.BUY:
-                    # For buy orders, look at ask liquidity
-                    liquidity = sum(float(ask[1]) for ask in order_book['asks'][:5])
-                else:
-                    # For sell orders, look at bid liquidity
-                    liquidity = sum(float(bid[1]) for bid in order_book['bids'][:5])
-                
-                # Update highest liquidity
-                if highest_liquidity is None or liquidity > highest_liquidity:
-                    highest_liquidity = liquidity
-                    best_exchange = exchange_id
-            
-            except Exception as e:
-                logger.warning(f"Error getting order book from {exchange_id}: {e}")
-        
-        # Return best exchange or default
-        return best_exchange if best_exchange else next(iter(self.exchanges.keys()))
-    
-    def _select_lowest_fees_exchange(self, order: Order) -> str:
-        """Select exchange with lowest fees.
-        
-        Args:
-            order: Order to route
-            
-        Returns:
-            Exchange identifier
-        """
-        best_exchange = None
-        lowest_fee = None
-        
-        for exchange_id, metrics in self.exchange_metrics.items():
-            if exchange_id not in self.exchanges:
-                continue
-            
-            # Get fee based on order type
-            if order.side == OrderSide.BUY:
-                fee = metrics.get('fees', {}).get('taker', 0.0)
-            else:
-                fee = metrics.get('fees', {}).get('maker', 0.0)
-            
-            # Update lowest fee
-            if lowest_fee is None or fee < lowest_fee:
-                lowest_fee = fee
-                best_exchange = exchange_id
-        
-        # Return best exchange or default
-        return best_exchange if best_exchange else next(iter(self.exchanges.keys()))
-
-
-class ExecutionOptimizer:
-    """Class for optimizing order execution."""
-    
-    def __init__(self, 
-                client_instance=None,  # Added client_instance parameter
-                router: OrderRouter = None,
-                latency_profiler: LatencyProfiler = None):
-        """Initialize the execution optimizer.
-        
-        Args:
-            client_instance: Exchange client instance (optional)
-            router: Order router
+            retry_delay: Retry delay in seconds
+            client_instance: Exchange client instance
             latency_profiler: Latency profiler
         """
-        self.router = router or SmartOrderRouter(client_instance=client_instance)
-        self.latency_profiler = latency_profiler or LatencyProfiler()
+        super().__init__(max_retries, retry_delay, client_instance, latency_profiler)
+        self.exchange_metrics = {}
+        self.routing_history = []
         
-        # Initialize order history
-        self.order_history = []
-        self.max_history = 1000
-        
-        logger.info("Initialized ExecutionOptimizer")
+        logger.info("Initialized SmartOrderRouter")
     
-    def execute_order(self, order: Order, strategy: str = "default") -> Dict:
-        """Execute an order using the specified strategy.
+    def submit_order(self, order: Order, exchange: str = None) -> Order:
+        """Submit order to best exchange
         
         Args:
-            order: Order to execute
-            strategy: Execution strategy
+            order: Order to submit
+            exchange: Exchange name (optional)
             
         Returns:
-            Execution result
+            Order: Updated order
         """
-        # Start latency profiling
-        self.latency_profiler.start_timer(f"execute_{order.id}")
+        # If exchange is specified, use it
+        if exchange:
+            return super().submit_order(order, exchange)
         
-        # Execute based on strategy
-        if strategy == "iceberg":
-            result = self._execute_iceberg_order(order)
-        elif strategy == "twap":
-            result = self._execute_twap_order(order)
-        elif strategy == "vwap":
-            result = self._execute_vwap_order(order)
-        elif strategy == "adaptive":
-            result = self._execute_adaptive_order(order)
-        else:
-            # Default strategy
-            result = self._execute_default_order(order)
+        # Otherwise, find best exchange
+        best_exchange = self._find_best_exchange(order)
         
-        # Stop latency profiling
-        latency = self.latency_profiler.stop_timer(f"execute_{order.id}", 'order_execution')
-        logger.debug(f"Order execution latency: {latency:.2f} μs")
+        # Submit order to best exchange
+        result = super().submit_order(order, best_exchange)
         
-        # Add to order history
-        self._add_to_history(order, result)
+        # Update routing history
+        self.routing_history.append({
+            "timestamp": time.time(),
+            "order_id": order.client_order_id,
+            "symbol": order.symbol,
+            "exchange": best_exchange,
+            "latency": result.submission_latency
+        })
         
         return result
     
-    def _execute_default_order(self, order: Order) -> Dict:
-        """Execute order using default strategy.
+    def _find_best_exchange(self, order: Order) -> str:
+        """Find best exchange for order
+        
+        Args:
+            order: Order to route
+            
+        Returns:
+            str: Best exchange name
+        """
+        # If only one exchange is registered, use it
+        if len(self.exchanges) == 1:
+            return list(self.exchanges.keys())[0]
+        
+        # Calculate scores for each exchange
+        scores = {}
+        
+        for name in self.exchanges:
+            # Initialize score
+            scores[name] = 0.0
+            
+            # Check if exchange supports symbol
+            try:
+                if not self._check_symbol_supported(name, order.symbol):
+                    scores[name] = -1000  # Large negative score to avoid this exchange
+                    continue
+            except Exception as e:
+                logger.error(f"Error checking symbol support: {str(e)}")
+                scores[name] = -500  # Negative score but not as bad as confirmed unsupported
+            
+            # Check latency
+            try:
+                latency = self._get_exchange_latency(name)
+                # Lower latency is better
+                scores[name] += 100 - min(latency, 100)
+            except Exception as e:
+                logger.error(f"Error checking latency: {str(e)}")
+            
+            # Check fees
+            try:
+                fee = self._get_exchange_fee(name, order)
+                # Lower fee is better
+                scores[name] += 50 - min(fee * 10000, 50)
+            except Exception as e:
+                logger.error(f"Error checking fees: {str(e)}")
+            
+            # Check liquidity
+            try:
+                liquidity = self._get_exchange_liquidity(name, order)
+                # Higher liquidity is better
+                scores[name] += min(liquidity / order.quantity, 50)
+            except Exception as e:
+                logger.error(f"Error checking liquidity: {str(e)}")
+            
+            # Check historical performance
+            try:
+                performance = self._get_historical_performance(name)
+                # Higher performance is better
+                scores[name] += performance * 20
+            except Exception as e:
+                logger.error(f"Error checking historical performance: {str(e)}")
+        
+        # Find exchange with highest score
+        best_exchange = max(scores, key=scores.get)
+        
+        # If best score is negative, use default exchange
+        if scores[best_exchange] < 0:
+            logger.warning("All exchanges have negative scores, using default")
+            return list(self.exchanges.keys())[0]
+        
+        logger.info(f"Selected exchange {best_exchange} with score {scores[best_exchange]}")
+        
+        return best_exchange
+    
+    def _check_symbol_supported(self, exchange: str, symbol: str) -> bool:
+        """Check if symbol is supported by exchange
+        
+        Args:
+            exchange: Exchange name
+            symbol: Symbol to check
+            
+        Returns:
+            bool: True if symbol is supported, False otherwise
+        """
+        # Get exchange client
+        client = self.exchanges[exchange]
+        
+        # Check if client has get_symbol_info method
+        if hasattr(client, "get_symbol_info"):
+            symbol_info = client.get_symbol_info(symbol)
+            return symbol_info is not None
+        
+        # Check if client has get_exchange_info method
+        if hasattr(client, "get_exchange_info"):
+            exchange_info = client.get_exchange_info()
+            symbols = [s["symbol"] for s in exchange_info["symbols"]]
+            return symbol in symbols
+        
+        # If no method is available, assume symbol is supported
+        return True
+    
+    def _get_exchange_latency(self, exchange: str) -> float:
+        """Get exchange latency
+        
+        Args:
+            exchange: Exchange name
+            
+        Returns:
+            float: Exchange latency in milliseconds
+        """
+        # Check if we have latency metrics for this exchange
+        if exchange in self.exchange_metrics and "latency" in self.exchange_metrics[exchange]:
+            return self.exchange_metrics[exchange]["latency"]
+        
+        # Otherwise, use ping to estimate latency
+        client = self.exchanges[exchange]
+        
+        # Check if client has ping method
+        if hasattr(client, "ping"):
+            start_time = time.time()
+            client.ping()
+            latency = (time.time() - start_time) * 1000  # Convert to milliseconds
+        else:
+            # If no ping method, use server time
+            start_time = time.time()
+            if hasattr(client, "get_server_time"):
+                client.get_server_time()
+            latency = (time.time() - start_time) * 1000  # Convert to milliseconds
+        
+        # Store latency in metrics
+        if exchange not in self.exchange_metrics:
+            self.exchange_metrics[exchange] = {}
+        self.exchange_metrics[exchange]["latency"] = latency
+        
+        return latency
+    
+    def _get_exchange_fee(self, exchange: str, order: Order) -> float:
+        """Get exchange fee for order
+        
+        Args:
+            exchange: Exchange name
+            order: Order to check
+            
+        Returns:
+            float: Exchange fee as a decimal (e.g., 0.001 for 0.1%)
+        """
+        # Check if we have fee metrics for this exchange
+        if exchange in self.exchange_metrics and "fee" in self.exchange_metrics[exchange]:
+            return self.exchange_metrics[exchange]["fee"]
+        
+        # Otherwise, get fee from exchange
+        client = self.exchanges[exchange]
+        
+        # Check if client has get_trade_fee method
+        if hasattr(client, "get_trade_fee"):
+            fee_info = client.get_trade_fee(symbol=order.symbol)
+            if order.side == OrderSide.BUY:
+                fee = fee_info.get("makerFee", 0.001)  # Default to 0.1%
+            else:
+                fee = fee_info.get("takerFee", 0.001)  # Default to 0.1%
+        else:
+            # If no method, use default fee
+            fee = 0.001  # Default to 0.1%
+        
+        # Store fee in metrics
+        if exchange not in self.exchange_metrics:
+            self.exchange_metrics[exchange] = {}
+        self.exchange_metrics[exchange]["fee"] = fee
+        
+        return fee
+    
+    def _get_exchange_liquidity(self, exchange: str, order: Order) -> float:
+        """Get exchange liquidity for order
+        
+        Args:
+            exchange: Exchange name
+            order: Order to check
+            
+        Returns:
+            float: Exchange liquidity as a ratio to order quantity
+        """
+        # Get exchange client
+        client = self.exchanges[exchange]
+        
+        # Get order book
+        if hasattr(client, "get_order_book"):
+            order_book = client.get_order_book(symbol=order.symbol, limit=20)
+            
+            # Calculate liquidity based on order side
+            if order.side == OrderSide.BUY:
+                liquidity = sum(float(q) for _, q in order_book["asks"][:10])
+            else:
+                liquidity = sum(float(q) for _, q in order_book["bids"][:10])
+            
+            return liquidity
+        
+        # If no method, return default liquidity
+        return order.quantity * 10  # Assume 10x order quantity
+    
+    def _get_historical_performance(self, exchange: str) -> float:
+        """Get historical performance for exchange
+        
+        Args:
+            exchange: Exchange name
+            
+        Returns:
+            float: Historical performance score (0-1)
+        """
+        # Check if we have performance metrics for this exchange
+        if exchange in self.exchange_metrics and "performance" in self.exchange_metrics[exchange]:
+            return self.exchange_metrics[exchange]["performance"]
+        
+        # Otherwise, calculate from routing history
+        if not self.routing_history:
+            return 0.5  # Default score
+        
+        # Filter history for this exchange
+        exchange_history = [h for h in self.routing_history if h["exchange"] == exchange]
+        
+        if not exchange_history:
+            return 0.5  # Default score
+        
+        # Calculate performance based on latency
+        latencies = [h["latency"] for h in exchange_history if "latency" in h]
+        if latencies:
+            avg_latency = sum(latencies) / len(latencies)
+            latency_score = max(0, min(1, 1 - (avg_latency / 1000)))  # 0-1 score, lower latency is better
+        else:
+            latency_score = 0.5
+        
+        # Store performance in metrics
+        if exchange not in self.exchange_metrics:
+            self.exchange_metrics[exchange] = {}
+        self.exchange_metrics[exchange]["performance"] = latency_score
+        
+        return latency_score
+
+class ExecutionOptimizer:
+    """Execution optimizer for trading strategies"""
+    
+    def __init__(self, 
+                 client_instance=None,
+                 latency_profiler: LatencyProfiler = None,
+                 use_smart_routing: bool = True):
+        """Initialize execution optimizer
+        
+        Args:
+            client_instance: Exchange client instance
+            latency_profiler: Latency profiler
+            use_smart_routing: Whether to use smart routing
+        """
+        self.latency_profiler = latency_profiler or LatencyProfiler()
+        
+        # Initialize order router
+        if use_smart_routing:
+            self.router = SmartOrderRouter(client_instance=client_instance, latency_profiler=self.latency_profiler)
+        else:
+            self.router = OrderRouter(client_instance=client_instance, latency_profiler=self.latency_profiler)
+        
+        # Initialize execution metrics
+        self.execution_metrics = {
+            "orders_submitted": 0,
+            "orders_filled": 0,
+            "orders_rejected": 0,
+            "total_volume": 0.0,
+            "total_cost": 0.0,
+            "avg_slippage": 0.0,
+            "avg_market_impact": 0.0
+        }
+        
+        logger.info(f"Initialized ExecutionOptimizer with use_smart_routing={use_smart_routing}")
+    
+    def execute_order(self, order: Order, exchange: str = None) -> Order:
+        """Execute order
         
         Args:
             order: Order to execute
+            exchange: Exchange name (optional)
             
         Returns:
-            Execution result
+            Order: Executed order
         """
         # Submit order
-        executed_order = self.router.submit_order(order, self.latency_profiler)
+        result = self.router.submit_order(order, exchange)
         
-        # Return result
-        return {
-            'order_id': executed_order.id,
-            'status': executed_order.status.value,
-            'filled_quantity': executed_order.filled_quantity,
-            'average_price': executed_order.average_price,
-            'timestamp': time.time()
-        }
+        # Update execution metrics
+        self.execution_metrics["orders_submitted"] += 1
+        
+        if result.status == OrderStatus.FILLED:
+            self.execution_metrics["orders_filled"] += 1
+            self.execution_metrics["total_volume"] += result.filled_quantity
+            self.execution_metrics["total_cost"] += result.filled_quantity * result.average_price
+        elif result.status == OrderStatus.REJECTED:
+            self.execution_metrics["orders_rejected"] += 1
+        
+        # Calculate slippage and market impact
+        if result.status == OrderStatus.FILLED and result.price is not None:
+            # Calculate slippage
+            slippage = (result.average_price - result.price) / result.price
+            if order.side == OrderSide.SELL:
+                slippage = -slippage
+            
+            result.slippage = slippage
+            
+            # Update average slippage
+            self.execution_metrics["avg_slippage"] = (
+                (self.execution_metrics["avg_slippage"] * (self.execution_metrics["orders_filled"] - 1)) + slippage
+            ) / self.execution_metrics["orders_filled"]
+            
+            # Calculate market impact (simplified)
+            # In a real system, this would compare to pre-order market price
+            result.market_impact = abs(slippage)
+            
+            # Update average market impact
+            self.execution_metrics["avg_market_impact"] = (
+                (self.execution_metrics["avg_market_impact"] * (self.execution_metrics["orders_filled"] - 1)) + result.market_impact
+            ) / self.execution_metrics["orders_filled"]
+        
+        return result
     
-    def _execute_iceberg_order(self, order: Order) -> Dict:
-        """Execute order using iceberg strategy.
+    def execute_orders_async(self, orders: List[Order], exchange: str = None) -> List[Order]:
+        """Execute multiple orders asynchronously
         
         Args:
-            order: Order to execute
+            orders: Orders to execute
+            exchange: Exchange name (optional)
             
         Returns:
-            Execution result
+            list: Executed orders
         """
-        # Iceberg parameters
-        total_quantity = order.quantity
-        chunk_size = min(total_quantity * 0.1, 1.0)  # 10% of total, max 1 unit
-        chunks = int(total_quantity / chunk_size)
-        remainder = total_quantity % chunk_size
+        # In a real system, this would use async/await or threading
+        # For simplicity, we'll just execute orders sequentially
+        results = []
         
-        # Track execution
-        executed_quantity = 0.0
-        total_cost = 0.0
-        all_succeeded = True
+        for order in orders:
+            result = self.execute_order(order, exchange)
+            results.append(result)
         
-        # Execute chunks
-        for i in range(chunks):
-            # Create chunk order
-            chunk_order = Order(
-                symbol=order.symbol,
-                side=order.side,
-                type=order.type,
-                quantity=chunk_size,
-                price=order.price,
-                stop_price=order.stop_price,
-                time_in_force=order.time_in_force
-            )
-            
-            # Submit chunk order
-            executed_chunk = self.router.submit_order(chunk_order, self.latency_profiler)
-            
-            # Update tracking
-            if executed_chunk.status == OrderStatus.FILLED:
-                executed_quantity += executed_chunk.filled_quantity
-                total_cost += executed_chunk.filled_quantity * executed_chunk.average_price
-            else:
-                all_succeeded = False
-                break
-            
-            # Add delay between chunks
-            time.sleep(0.5)
-        
-        # Execute remainder if all chunks succeeded
-        if all_succeeded and remainder > 0:
-            # Create remainder order
-            remainder_order = Order(
-                symbol=order.symbol,
-                side=order.side,
-                type=order.type,
-                quantity=remainder,
-                price=order.price,
-                stop_price=order.stop_price,
-                time_in_force=order.time_in_force
-            )
-            
-            # Submit remainder order
-            executed_remainder = self.router.submit_order(remainder_order, self.latency_profiler)
-            
-            # Update tracking
-            if executed_remainder.status == OrderStatus.FILLED:
-                executed_quantity += executed_remainder.filled_quantity
-                total_cost += executed_remainder.filled_quantity * executed_remainder.average_price
-        
-        # Calculate average price
-        average_price = total_cost / executed_quantity if executed_quantity > 0 else 0.0
-        
-        # Update original order
-        order.filled_quantity = executed_quantity
-        order.average_price = average_price
-        order.status = OrderStatus.FILLED if executed_quantity == total_quantity else OrderStatus.PARTIALLY_FILLED
-        
-        # Return result
-        return {
-            'order_id': order.id,
-            'status': order.status.value,
-            'filled_quantity': order.filled_quantity,
-            'average_price': order.average_price,
-            'timestamp': time.time()
-        }
+        return results
     
-    def _execute_twap_order(self, order: Order) -> Dict:
-        """Execute order using TWAP strategy.
-        
-        Args:
-            order: Order to execute
-            
-        Returns:
-            Execution result
-        """
-        # TWAP parameters
-        total_quantity = order.quantity
-        duration_minutes = 10  # Default to 10 minutes
-        interval_minutes = 1  # Default to 1 minute intervals
-        intervals = int(duration_minutes / interval_minutes)
-        chunk_size = total_quantity / intervals
-        
-        # Track execution
-        executed_quantity = 0.0
-        total_cost = 0.0
-        
-        # Execute chunks
-        for i in range(intervals):
-            # Create chunk order
-            chunk_order = Order(
-                symbol=order.symbol,
-                side=order.side,
-                type=order.type,
-                quantity=chunk_size,
-                price=order.price,
-                stop_price=order.stop_price,
-                time_in_force=order.time_in_force
-            )
-            
-            # Submit chunk order
-            executed_chunk = self.router.submit_order(chunk_order, self.latency_profiler)
-            
-            # Update tracking
-            if executed_chunk.status in [OrderStatus.FILLED, OrderStatus.PARTIALLY_FILLED]:
-                executed_quantity += executed_chunk.filled_quantity
-                total_cost += executed_chunk.filled_quantity * executed_chunk.average_price
-            
-            # Wait for next interval
-            if i < intervals - 1:
-                time.sleep(interval_minutes * 60)
-        
-        # Calculate average price
-        average_price = total_cost / executed_quantity if executed_quantity > 0 else 0.0
-        
-        # Update original order
-        order.filled_quantity = executed_quantity
-        order.average_price = average_price
-        order.status = OrderStatus.FILLED if executed_quantity == total_quantity else OrderStatus.PARTIALLY_FILLED
-        
-        # Return result
-        return {
-            'order_id': order.id,
-            'status': order.status.value,
-            'filled_quantity': order.filled_quantity,
-            'average_price': order.average_price,
-            'timestamp': time.time()
-        }
-    
-    def _execute_vwap_order(self, order: Order) -> Dict:
-        """Execute order using VWAP strategy.
-        
-        Args:
-            order: Order to execute
-            
-        Returns:
-            Execution result
-        """
-        # VWAP parameters
-        total_quantity = order.quantity
-        duration_minutes = 10  # Default to 10 minutes
-        
-        # Get historical volume profile
-        volume_profile = self._get_volume_profile(order.symbol, duration_minutes)
-        
-        # Track execution
-        executed_quantity = 0.0
-        total_cost = 0.0
-        
-        # Execute chunks based on volume profile
-        for timestamp, volume_pct in volume_profile:
-            # Calculate chunk size
-            chunk_size = total_quantity * volume_pct
-            
-            # Create chunk order
-            chunk_order = Order(
-                symbol=order.symbol,
-                side=order.side,
-                type=order.type,
-                quantity=chunk_size,
-                price=order.price,
-                stop_price=order.stop_price,
-                time_in_force=order.time_in_force
-            )
-            
-            # Submit chunk order
-            executed_chunk = self.router.submit_order(chunk_order, self.latency_profiler)
-            
-            # Update tracking
-            if executed_chunk.status in [OrderStatus.FILLED, OrderStatus.PARTIALLY_FILLED]:
-                executed_quantity += executed_chunk.filled_quantity
-                total_cost += executed_chunk.filled_quantity * executed_chunk.average_price
-            
-            # Wait until next timestamp
-            wait_time = timestamp - time.time()
-            if wait_time > 0:
-                time.sleep(wait_time)
-        
-        # Calculate average price
-        average_price = total_cost / executed_quantity if executed_quantity > 0 else 0.0
-        
-        # Update original order
-        order.filled_quantity = executed_quantity
-        order.average_price = average_price
-        order.status = OrderStatus.FILLED if executed_quantity == total_quantity else OrderStatus.PARTIALLY_FILLED
-        
-        # Return result
-        return {
-            'order_id': order.id,
-            'status': order.status.value,
-            'filled_quantity': order.filled_quantity,
-            'average_price': order.average_price,
-            'timestamp': time.time()
-        }
-    
-    def _execute_adaptive_order(self, order: Order) -> Dict:
-        """Execute order using adaptive strategy.
-        
-        Args:
-            order: Order to execute
-            
-        Returns:
-            Execution result
-        """
-        # Adaptive parameters
-        total_quantity = order.quantity
-        max_participation_rate = 0.2  # 20% of volume
-        min_chunk_size = total_quantity * 0.05  # 5% of total
-        
-        # Track execution
-        executed_quantity = 0.0
-        total_cost = 0.0
-        
-        # Execute adaptively
-        while executed_quantity < total_quantity:
-            # Get market volume
-            market_volume = self._get_market_volume(order.symbol)
-            
-            # Calculate chunk size
-            chunk_size = min(
-                market_volume * max_participation_rate,
-                total_quantity - executed_quantity,
-                total_quantity * 0.2  # Max 20% of total per chunk
-            )
-            
-            # Ensure minimum chunk size
-            chunk_size = max(chunk_size, min_chunk_size)
-            
-            # Create chunk order
-            chunk_order = Order(
-                symbol=order.symbol,
-                side=order.side,
-                type=order.type,
-                quantity=chunk_size,
-                price=order.price,
-                stop_price=order.stop_price,
-                time_in_force=order.time_in_force
-            )
-            
-            # Submit chunk order
-            executed_chunk = self.router.submit_order(chunk_order, self.latency_profiler)
-            
-            # Update tracking
-            if executed_chunk.status in [OrderStatus.FILLED, OrderStatus.PARTIALLY_FILLED]:
-                executed_quantity += executed_chunk.filled_quantity
-                total_cost += executed_chunk.filled_quantity * executed_chunk.average_price
-            
-            # Check if complete
-            if executed_quantity >= total_quantity:
-                break
-            
-            # Adaptive wait based on market conditions
-            wait_time = self._calculate_adaptive_wait_time(order.symbol)
-            time.sleep(wait_time)
-        
-        # Calculate average price
-        average_price = total_cost / executed_quantity if executed_quantity > 0 else 0.0
-        
-        # Update original order
-        order.filled_quantity = executed_quantity
-        order.average_price = average_price
-        order.status = OrderStatus.FILLED if executed_quantity == total_quantity else OrderStatus.PARTIALLY_FILLED
-        
-        # Return result
-        return {
-            'order_id': order.id,
-            'status': order.status.value,
-            'filled_quantity': order.filled_quantity,
-            'average_price': order.average_price,
-            'timestamp': time.time()
-        }
-    
-    def _get_volume_profile(self, symbol: str, duration_minutes: int) -> List[Tuple[float, float]]:
-        """Get historical volume profile.
+    def create_iceberg_order(self, 
+                            symbol: str, 
+                            side: OrderSide, 
+                            quantity: float, 
+                            price: float,
+                            chunk_size: float = None) -> Order:
+        """Create iceberg order
         
         Args:
             symbol: Trading symbol
-            duration_minutes: Duration in minutes
+            side: Order side
+            quantity: Order quantity
+            price: Order price
+            chunk_size: Chunk size
             
         Returns:
-            List of (timestamp, volume_percentage) tuples
+            Order: Iceberg order
         """
-        # TODO: Implement real volume profile retrieval
-        # For now, return a simple uniform distribution
-        now = time.time()
-        interval = duration_minutes * 60 / 10  # 10 intervals
+        # Calculate chunk size if not provided
+        if chunk_size is None:
+            chunk_size = quantity * 0.1  # Default to 10% of total quantity
         
-        return [
-            (now + i * interval, 0.1)  # 10% per interval
-            for i in range(10)
-        ]
-    
-    def _get_market_volume(self, symbol: str) -> float:
-        """Get current market volume.
-        
-        Args:
-            symbol: Trading symbol
-            
-        Returns:
-            Market volume
-        """
-        # TODO: Implement real market volume retrieval
-        # For now, return a random volume
-        return np.random.uniform(10, 100)
-    
-    def _calculate_adaptive_wait_time(self, symbol: str) -> float:
-        """Calculate adaptive wait time based on market conditions.
-        
-        Args:
-            symbol: Trading symbol
-            
-        Returns:
-            Wait time in seconds
-        """
-        # TODO: Implement adaptive wait time calculation
-        # For now, return a random wait time
-        return np.random.uniform(1, 5)
-    
-    def _add_to_history(self, order: Order, result: Dict) -> None:
-        """Add order to history.
-        
-        Args:
-            order: Order
-            result: Execution result
-        """
-        # Create history entry
-        entry = {
-            'order': order.to_dict(),
-            'result': result,
-            'timestamp': time.time()
-        }
-        
-        # Add to history
-        self.order_history.append(entry)
-        
-        # Trim history
-        if len(self.order_history) > self.max_history:
-            self.order_history = self.order_history[-self.max_history:]
-    
-    def get_execution_statistics(self) -> Dict:
-        """Get execution statistics.
-        
-        Returns:
-            Execution statistics
-        """
-        if not self.order_history:
-            return {
-                'count': 0,
-                'fill_rate': 0.0,
-                'average_slippage': 0.0,
-                'average_latency': 0.0
-            }
-        
-        # Calculate statistics
-        count = len(self.order_history)
-        
-        # Fill rate
-        filled_orders = sum(1 for entry in self.order_history if entry['result']['status'] == 'filled')
-        fill_rate = filled_orders / count if count > 0 else 0.0
-        
-        # Slippage
-        slippages = []
-        for entry in self.order_history:
-            order = entry['order']
-            result = entry['result']
-            
-            if order['price'] and result['average_price']:
-                if order['side'] == 'buy':
-                    slippage = (result['average_price'] - order['price']) / order['price']
-                else:
-                    slippage = (order['price'] - result['average_price']) / order['price']
-                
-                slippages.append(slippage)
-        
-        average_slippage = np.mean(slippages) if slippages else 0.0
-        
-        # Latency
-        latencies = [entry['result'].get('latency', 0.0) for entry in self.order_history]
-        average_latency = np.mean(latencies) if latencies else 0.0
-        
-        return {
-            'count': count,
-            'fill_rate': fill_rate,
-            'average_slippage': average_slippage,
-            'average_latency': average_latency
-        }
-
-
-async def execute_orders_async(optimizer: ExecutionOptimizer, orders: List[Order]) -> List[Dict]:
-    """Execute orders asynchronously.
-    
-    Args:
-        optimizer: Execution optimizer
-        orders: List of orders
-        
-    Returns:
-        List of execution results
-    """
-    async def execute_order(order):
-        return optimizer.execute_order(order)
-    
-    # Create tasks
-    tasks = [execute_order(order) for order in orders]
-    
-    # Execute tasks
-    results = await asyncio.gather(*tasks)
-    
-    return results
-
-
-def benchmark_order_routing(router: OrderRouter, num_orders: int = 1000) -> Dict:
-    """Benchmark order routing performance.
-    
-    Args:
-        router: Order router
-        num_orders: Number of orders to route
-        
-    Returns:
-        Benchmark results
-    """
-    # Create orders
-    orders = [
-        Order(
-            symbol="BTC/USDT",
-            side=OrderSide.BUY if i % 2 == 0 else OrderSide.SELL,
-            type=OrderType.MARKET,
-            quantity=0.01
+        # Create iceberg order
+        order = Order(
+            symbol=symbol,
+            side=side,
+            order_type=OrderType.ICEBERG,
+            quantity=quantity,
+            price=price,
+            iceberg_qty=chunk_size
         )
-        for i in range(num_orders)
-    ]
-    
-    # Benchmark synchronous routing
-    start_time = time.time()
-    
-    for order in orders:
-        router.submit_order(order)
-    
-    sync_time = time.time() - start_time
-    sync_throughput = num_orders / sync_time
-    
-    # Benchmark asynchronous routing
-    async def benchmark_async():
-        start_time = time.time()
         
-        async def submit_order(order):
-            return router.submit_order(order)
+        return order
+    
+    def create_twap_order(self,
+                         symbol: str,
+                         side: OrderSide,
+                         quantity: float,
+                         execution_window: int = 3600) -> Order:
+        """Create TWAP order
         
-        tasks = [submit_order(order) for order in orders]
-        await asyncio.gather(*tasks)
+        Args:
+            symbol: Trading symbol
+            side: Order side
+            quantity: Order quantity
+            execution_window: Execution window in seconds
+            
+        Returns:
+            Order: TWAP order
+        """
+        # Create TWAP order
+        order = Order(
+            symbol=symbol,
+            side=side,
+            order_type=OrderType.TWAP,
+            quantity=quantity,
+            execution_window=execution_window
+        )
         
-        async_time = time.time() - start_time
-        async_throughput = num_orders / async_time
+        return order
+    
+    def create_vwap_order(self,
+                         symbol: str,
+                         side: OrderSide,
+                         quantity: float,
+                         execution_window: int = 3600) -> Order:
+        """Create VWAP order
         
-        return async_time, async_throughput
+        Args:
+            symbol: Trading symbol
+            side: Order side
+            quantity: Order quantity
+            execution_window: Execution window in seconds
+            
+        Returns:
+            Order: VWAP order
+        """
+        # Create VWAP order
+        order = Order(
+            symbol=symbol,
+            side=side,
+            order_type=OrderType.VWAP,
+            quantity=quantity,
+            execution_window=execution_window
+        )
+        
+        return order
     
-    loop = asyncio.get_event_loop()
-    async_time, async_throughput = loop.run_until_complete(benchmark_async())
+    def create_smart_order(self,
+                          symbol: str,
+                          side: OrderSide,
+                          quantity: float,
+                          price: Optional[float] = None) -> Order:
+        """Create smart order
+        
+        Args:
+            symbol: Trading symbol
+            side: Order side
+            quantity: Order quantity
+            price: Order price (optional)
+            
+        Returns:
+            Order: Smart order
+        """
+        # Create smart order
+        order = Order(
+            symbol=symbol,
+            side=side,
+            order_type=OrderType.SMART,
+            quantity=quantity,
+            price=price
+        )
+        
+        return order
     
-    return {
-        'num_orders': num_orders,
-        'sync_time': sync_time,
-        'sync_throughput': sync_throughput,
-        'async_time': async_time,
-        'async_throughput': async_throughput
-    }
-
-
-if __name__ == "__main__":
-    # Example usage
-    latency_profiler = LatencyProfiler()
-    router = OrderRouter(latency_profiler=latency_profiler)
-    optimizer = ExecutionOptimizer(router=router, latency_profiler=latency_profiler)
+    def get_execution_metrics(self) -> Dict:
+        """Get execution metrics
+        
+        Returns:
+            dict: Execution metrics
+        """
+        return self.execution_metrics
     
-    # Create order
-    order = Order(
-        symbol="BTC/USDT",
-        side=OrderSide.BUY,
-        type=OrderType.MARKET,
-        quantity=0.01
-    )
+    def get_latency_metrics(self) -> Dict:
+        """Get latency metrics
+        
+        Returns:
+            dict: Latency metrics
+        """
+        return self.latency_profiler.get_all_metrics()
     
-    # Execute order
-    result = optimizer.execute_order(order)
-    print(f"Execution result: {result}")
+    def set_latency_threshold(self, operation: str, threshold: float):
+        """Set latency threshold
+        
+        Args:
+            operation: Operation name
+            threshold: Latency threshold in microseconds
+        """
+        self.latency_profiler.set_threshold(operation, threshold)
     
-    # Log latency metrics
-    latency_profiler.log_metrics()
+    def set_simulated_latency(self, operation: str, latency: float):
+        """Set simulated latency
+        
+        Args:
+            operation: Operation name
+            latency: Simulated latency in microseconds
+        """
+        self.latency_profiler.set_simulated_latency(operation, latency)

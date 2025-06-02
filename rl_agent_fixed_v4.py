@@ -18,6 +18,8 @@ import torch.optim as optim
 from torch.distributions import Normal
 from collections import deque
 from typing import Dict, List, Tuple, Any, Optional, Union
+import uuid
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(
@@ -397,502 +399,402 @@ class PPOAgent:
                 scaled_action[i] = action[i]
         
         return scaled_action
+
+# Add TradingRLAgent class that was missing
+class TradingRLAgent:
+    """Trading Reinforcement Learning Agent for end-to-end testing"""
     
-    def _unscale_action(self, scaled_action):
-        """Unscale action from actual bounds to [-1, 1]
+    def __init__(self, state_dim, action_dim, hidden_dim=128):
+        """Initialize Trading RL Agent
         
         Args:
-            scaled_action: Scaled action
-            
-        Returns:
-            numpy.ndarray: Unscaled action in [-1, 1] range
+            state_dim: Dimension of state space
+            action_dim: Dimension of action space
+            hidden_dim: Dimension of hidden layers
         """
-        unscaled_action = np.zeros_like(scaled_action)
-        for i in range(len(scaled_action)):
-            if i < len(self.action_bounds):
-                low, high = self.action_bounds[i]
-                unscaled_action[i] = 2.0 * (scaled_action[i] - low) / (high - low) - 1.0
-            else:
-                # Default to clipping if bounds not provided
-                unscaled_action[i] = np.clip(scaled_action[i], -1.0, 1.0)
+        # Ensure state_dim is at least 20 to accommodate all features
+        self.state_dim = max(state_dim, 20)
+        self.action_dim = action_dim
+        self.hidden_dim = hidden_dim
         
-        return unscaled_action
+        # Define action bounds for each action dimension
+        self.action_bounds = [(-1.0, 1.0) for _ in range(action_dim)]
+        
+        # Initialize PPO agent
+        self.agent = PPOAgent(
+            state_dim=state_dim,
+            action_dim=action_dim,
+            action_bounds=self.action_bounds,
+            device="cpu",
+            lr_actor=3e-4,
+            lr_critic=3e-4,
+            gamma=0.99,
+            buffer_size=10000
+        )
+        
+        logger.info(f"Initialized TradingRLAgent with state_dim={state_dim}, action_dim={action_dim}")
     
-    def update(self):
-        """Update policy using PPO algorithm
-        
-        Returns:
-            dict: Update metrics
-        """
-        # Check if enough data is collected
-        if len(self.states) < self.mini_batch_size:
-            logger.warning(f"Not enough data for update: {len(self.states)} < {self.mini_batch_size}")
-            return {
-                "actor_loss": 0.0,
-                "critic_loss": 0.0,
-                "entropy": 0.0,
-                "update_status": "skipped",
-                "reason": "insufficient_data"
-            }
-        
-        # Check buffer consistency
-        if len(self.states) != len(self.actions) or len(self.states) != len(self.log_probs) or len(self.states) != len(self.rewards) or len(self.states) != len(self.values) or len(self.states) != len(self.dones):
-            logger.warning(f"Buffer inconsistency detected: states={len(self.states)}, actions={len(self.actions)}, log_probs={len(self.log_probs)}, rewards={len(self.rewards)}, values={len(self.values)}, dones={len(self.dones)}")
-            return {
-                "actor_loss": 0.0,
-                "critic_loss": 0.0,
-                "entropy": 0.0,
-                "update_status": "skipped",
-                "reason": "buffer_inconsistency"
-            }
-        
-        # Calculate advantages and returns
-        try:
-            returns, advantages = self._compute_gae()
-        except Exception as e:
-            logger.error(f"Error computing GAE: {str(e)}")
-            return {
-                "actor_loss": 0.0,
-                "critic_loss": 0.0,
-                "entropy": 0.0,
-                "update_status": "failed",
-                "reason": f"gae_computation_error: {str(e)}"
-            }
-        
-        # Convert to tensors
-        try:
-            states = torch.FloatTensor(np.array(self.states)).to(self.device)
-            actions = torch.FloatTensor(np.array(self.actions)).to(self.device)
-            old_log_probs = torch.FloatTensor(np.array(self.log_probs)).to(self.device)
-            returns = torch.FloatTensor(returns).to(self.device)
-            advantages = torch.FloatTensor(advantages).to(self.device)
-        except Exception as e:
-            logger.error(f"Error converting data to tensors: {str(e)}")
-            return {
-                "actor_loss": 0.0,
-                "critic_loss": 0.0,
-                "entropy": 0.0,
-                "update_status": "failed",
-                "reason": f"tensor_conversion_error: {str(e)}"
-            }
-        
-        # Normalize advantages
-        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-        
-        # PPO update
-        actor_losses = []
-        critic_losses = []
-        entropies = []
-        
-        # Mini-batch update
-        batch_size = len(self.states)
-        mini_batch_size = min(self.mini_batch_size, batch_size)
-        
-        for _ in range(self.ppo_epochs):
-            # Generate random indices
-            indices = np.random.permutation(batch_size)
-            
-            # Update in mini-batches
-            for start_idx in range(0, batch_size, mini_batch_size):
-                end_idx = min(start_idx + mini_batch_size, batch_size)
-                mb_indices = indices[start_idx:end_idx]
-                
-                # Get mini-batch data
-                mb_states = states[mb_indices]
-                mb_actions = actions[mb_indices]
-                mb_old_log_probs = old_log_probs[mb_indices]
-                mb_returns = returns[mb_indices]
-                mb_advantages = advantages[mb_indices]
-                
-                # Get current policy outputs
-                try:
-                    _, log_std = self.actor(mb_states)
-                    std = torch.exp(log_std)
-                    dist = Normal(self.actor.mean_layer(self.actor.feature_extractor(mb_states)), std)
-                    
-                    # Get log probabilities
-                    mb_new_log_probs = dist.log_prob(mb_actions).sum(dim=-1, keepdim=True)
-                    
-                    # Get entropy
-                    mb_entropy = dist.entropy().sum(dim=-1, keepdim=True).mean()
-                    
-                    # Get state values
-                    mb_values = self.critic(mb_states)
-                    
-                    # Calculate ratios
-                    ratios = torch.exp(mb_new_log_probs - mb_old_log_probs)
-                    
-                    # Calculate surrogate losses
-                    surr1 = ratios * mb_advantages
-                    surr2 = torch.clamp(ratios, 1.0 - self.clip_param, 1.0 + self.clip_param) * mb_advantages
-                    
-                    # Calculate actor loss
-                    actor_loss = -torch.min(surr1, surr2).mean()
-                    
-                    # Calculate critic loss
-                    critic_loss = nn.MSELoss()(mb_values, mb_returns)
-                    
-                    # Calculate total loss
-                    loss = actor_loss + self.value_coef * critic_loss - self.entropy_coef * mb_entropy
-                    
-                    # Update actor
-                    self.actor_optimizer.zero_grad()
-                    self.critic_optimizer.zero_grad()
-                    loss.backward()
-                    
-                    # Clip gradients
-                    nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
-                    nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
-                    
-                    # Update networks
-                    self.actor_optimizer.step()
-                    self.critic_optimizer.step()
-                    
-                    # Store metrics
-                    actor_losses.append(actor_loss.item())
-                    critic_losses.append(critic_loss.item())
-                    entropies.append(mb_entropy.item())
-                
-                except Exception as e:
-                    logger.error(f"Error in PPO update: {str(e)}")
-                    continue
-        
-        # Update metrics
-        if len(actor_losses) > 0:
-            mean_actor_loss = np.mean(actor_losses)
-            mean_critic_loss = np.mean(critic_losses)
-            mean_entropy = np.mean(entropies)
-            
-            self.metrics["actor_losses"].append(mean_actor_loss)
-            self.metrics["critic_losses"].append(mean_critic_loss)
-            self.metrics["entropy"].append(mean_entropy)
-        else:
-            mean_actor_loss = 0.0
-            mean_critic_loss = 0.0
-            mean_entropy = 0.0
-        
-        # Clear memory
-        self.states = []
-        self.actions = []
-        self.log_probs = []
-        self.rewards = []
-        self.values = []
-        self.dones = []
-        
-        # Increment training step
-        self.training_step += 1
-        
-        logger.info(f"Policy updated at step {self.training_step}")
-        logger.info(f"Actor Loss: {mean_actor_loss:.4f}, Critic Loss: {mean_critic_loss:.4f}, Entropy: {mean_entropy:.4f}")
-        
-        # Return update metrics
-        return {
-            "actor_loss": float(mean_actor_loss),
-            "critic_loss": float(mean_critic_loss),
-            "entropy": float(mean_entropy),
-            "update_status": "success",
-            "training_step": self.training_step
-        }
-    
-    def _compute_gae(self):
-        """Compute Generalized Advantage Estimation
-        
-        Returns:
-            tuple: (returns, advantages)
-        """
-        # Check if buffer is empty
-        if len(self.states) == 0:
-            return np.array([]), np.array([])
-        
-        # Ensure all buffers have the same length
-        min_length = min(len(self.states), len(self.rewards), len(self.values), len(self.dones))
-        
-        # Convert to numpy arrays with safe slicing
-        rewards = np.array(self.rewards[:min_length])
-        values = np.array(self.values[:min_length]).reshape(-1)
-        dones = np.array(self.dones[:min_length])
-        
-        # Get next value (bootstrap)
-        if len(self.states) > 0:
-            state = self.states[-1]
-            state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
-            with torch.no_grad():
-                next_value = self.critic(state_tensor).cpu().numpy()[0, 0]
-        else:
-            next_value = 0.0
-        
-        # Initialize arrays
-        returns = np.zeros_like(rewards)
-        advantages = np.zeros_like(rewards)
-        
-        # Initialize for GAE calculation
-        gae = 0
-        
-        # Compute returns and advantages (backwards)
-        for t in reversed(range(len(rewards))):
-            # Calculate next value
-            if t == len(rewards) - 1:
-                next_val = next_value
-            else:
-                next_val = values[t + 1]
-            
-            # Calculate next non-terminal
-            if t == len(rewards) - 1:
-                next_non_terminal = 1.0 - dones[-1]
-            else:
-                next_non_terminal = 1.0 - dones[t]
-            
-            # Calculate delta
-            delta = rewards[t] + self.gamma * next_val * next_non_terminal - values[t]
-            
-            # Calculate GAE
-            gae = delta + self.gamma * self.gae_lambda * next_non_terminal * gae
-            
-            # Store advantage and return
-            advantages[t] = gae
-            returns[t] = gae + values[t]
-        
-        return returns, advantages
-    
-    def store_transition(self, reward, done):
-        """Store transition in memory
+    def act(self, state):
+        """Select action based on current state
         
         Args:
-            reward: Reward received
-            done: Whether episode is done
+            state: Current state
             
         Returns:
-            dict or None: Update metrics if update was performed, None otherwise
+            numpy.ndarray: Selected action
+        """
+        action, _, _ = self.agent.select_action(state, deterministic=False)
+        return action
+    
+    def signal_to_state(self, signal):
+        """Convert trading signal to state representation
+        
+        Args:
+            signal: Trading signal dictionary
+            
+        Returns:
+            numpy.ndarray: State representation
+        """
+        # Extract relevant features from signal
+        state = np.zeros(self.state_dim)
+        
+        try:
+            # Fill state vector with signal features
+            idx = 0
+            
+            # Basic signal properties
+            if 'value' in signal:
+                state[idx] = float(signal['value'])
+                idx += 1
+            
+            if 'confidence' in signal:
+                state[idx] = float(signal['confidence'])
+                idx += 1
+            
+            # Direction encoding (one-hot)
+            if 'direction' in signal:
+                direction = signal['direction'].lower()
+                if direction == 'buy':
+                    state[idx] = 1.0
+                    state[idx+1] = 0.0
+                    state[idx+2] = 0.0
+                elif direction == 'sell':
+                    state[idx] = 0.0
+                    state[idx+1] = 1.0
+                    state[idx+2] = 0.0
+                else:  # neutral
+                    state[idx] = 0.0
+                    state[idx+1] = 0.0
+                    state[idx+2] = 1.0
+                idx += 3
+            
+            # Signal type encoding
+            if 'type' in signal:
+                signal_type = signal['type'].lower()
+                if signal_type == 'pattern':
+                    state[idx] = 1.0
+                    state[idx+1] = 0.0
+                elif signal_type == 'order_book':
+                    state[idx] = 0.0
+                    state[idx+1] = 1.0
+                else:
+                    state[idx] = 0.0
+                    state[idx+1] = 0.0
+                idx += 2
+            
+            # Extract metadata if available
+            if 'metadata' in signal and isinstance(signal['metadata'], dict):
+                metadata = signal['metadata']
+                
+                # Price information
+                if 'bid_price' in metadata and 'ask_price' in metadata:
+                    mid_price = (float(metadata['bid_price']) + float(metadata['ask_price'])) / 2.0
+                    state[idx] = mid_price / 100000.0  # Normalize large price values
+                    idx += 1
+                
+                # Spread information
+                if 'spread_bps' in metadata:
+                    state[idx] = float(metadata['spread_bps'])
+                    idx += 1
+                
+                # Liquidity information
+                if 'bid_liquidity' in metadata and 'ask_liquidity' in metadata:
+                    bid_liq = float(metadata['bid_liquidity'])
+                    ask_liq = float(metadata['ask_liquidity'])
+                    state[idx] = bid_liq
+                    state[idx+1] = ask_liq
+                    state[idx+2] = bid_liq / (bid_liq + ask_liq) if (bid_liq + ask_liq) > 0 else 0.5
+                    idx += 3
+            
+            # Ensure we don't exceed state dimension
+            if idx < self.state_dim:
+                # Fill remaining state with zeros
+                pass
+            elif idx > self.state_dim:
+                # Truncate state if too large
+                state = state[:self.state_dim]
+                
+            logger.debug(f"Converted signal to state with {idx} features")
+            
+        except Exception as e:
+            logger.error(f"Error converting signal to state: {e}")
+            # Return zero state as fallback
+            state = np.zeros(self.state_dim)
+        
+        return state
+    
+    def action_to_decision(self, action, signal):
+        """Convert action to trading decision
+        
+        Args:
+            action: Action from RL agent
+            signal: Original trading signal
+            
+        Returns:
+            dict: Trading decision
         """
         try:
-            # Ensure reward and done are properly formatted
-            reward = float(reward)
-            done = bool(done)
+            # Extract action components
+            if len(action) >= 3:
+                action_type = np.argmax(action[:3])  # 0: buy, 1: sell, 2: hold
+                size_factor = np.clip(action[2], 0.0, 1.0) if len(action) > 2 else 0.5
+            else:
+                # Default values if action doesn't have enough components
+                action_type = 2  # hold
+                size_factor = 0.5
             
-            # Verify buffer consistency
-            if len(self.rewards) >= len(self.states) or len(self.dones) >= len(self.states):
-                logger.warning("Buffer inconsistency detected, resetting buffers")
-                self.states = []
-                self.actions = []
-                self.log_probs = []
-                self.rewards = []
-                self.values = []
-                self.dones = []
-                return {
-                    "actor_loss": 0.0,
-                    "critic_loss": 0.0,
-                    "entropy": 0.0,
-                    "update_status": "failed",
-                    "reason": "buffer_inconsistency"
+            # Determine action direction
+            if action_type == 0:
+                direction = "buy"
+            elif action_type == 1:
+                direction = "sell"
+            else:
+                direction = "hold"
+            
+            # Skip decision if action is hold
+            if direction == "hold":
+                return None
+            
+            # Extract price information from signal
+            price = None
+            if 'metadata' in signal and isinstance(signal['metadata'], dict):
+                metadata = signal['metadata']
+                if 'bid_price' in metadata and 'ask_price' in metadata:
+                    if direction == "buy":
+                        price = float(metadata['ask_price'])  # Buy at ask
+                    else:
+                        price = float(metadata['bid_price'])  # Sell at bid
+            
+            # Use default price if not available
+            if price is None:
+                price = 50000.0  # Default price for testing
+            
+            # Calculate quantity based on size factor (0.001 to 0.01 BTC)
+            base_quantity = 0.001
+            max_quantity = 0.01
+            quantity = base_quantity + size_factor * (max_quantity - base_quantity)
+            
+            # Create decision object
+            decision = {
+                "id": str(uuid.uuid4()),
+                "timestamp": signal.get("timestamp", str(datetime.now().isoformat())),
+                "symbol": signal.get("symbol", "BTC/USDC"),
+                "action": direction,
+                "quantity": quantity,
+                "price": price,
+                "signal_id": signal.get("id", "unknown"),
+                "confidence": float(action[2]) if len(action) > 2 else 0.5,
+                "metadata": {
+                    "source": "rl_agent",
+                    "original_signal_type": signal.get("type", "unknown"),
+                    "size_factor": float(size_factor)
                 }
-            
-            # Manage buffer size - remove oldest entries if buffer is full
-            if len(self.rewards) >= self.buffer_size:
-                self.rewards.pop(0)
-                self.dones.pop(0)
-            
-            # Store in memory
-            self.rewards.append(reward)
-            self.dones.append(done)
-            
-            # Update training step
-            self.training_step += 1
-            
-            # Check if update is needed
-            if self.training_step % self.update_timestep == 0 and len(self.states) > 0:
-                return self.update()
-            return None
-        
-        except Exception as e:
-            logger.error(f"Error in store_transition: {str(e)}")
-            return {
-                "actor_loss": 0.0,
-                "critic_loss": 0.0,
-                "entropy": 0.0,
-                "update_status": "failed",
-                "reason": f"store_transition_error: {str(e)}"
             }
+            
+            logger.debug(f"Generated decision: {direction} {quantity} {signal.get('symbol', 'BTC/USDC')} at {price}")
+            return decision
+            
+        except Exception as e:
+            logger.error(f"Error converting action to decision: {e}")
+            return None
     
-    def end_episode(self, episode_reward, episode_length):
-        """End episode and update metrics
+    def get_action(self, state):
+        """Get action from policy
         
         Args:
-            episode_reward: Total reward for the episode
-            episode_length: Length of the episode
+            state: State representation
+            
+        Returns:
+            numpy.ndarray: Action
         """
-        try:
-            # Ensure proper types
-            episode_reward = float(episode_reward)
-            episode_length = int(episode_length)
-            
-            self.episode_count += 1
-            
-            # Manage metrics buffer size
-            if len(self.metrics["episode_rewards"]) >= self.buffer_size:
-                self.metrics["episode_rewards"].pop(0)
-                self.metrics["episode_lengths"].pop(0)
-            
-            self.metrics["episode_rewards"].append(episode_reward)
-            self.metrics["episode_lengths"].append(episode_length)
-            
-            # Update best reward
-            if episode_reward > self.best_reward:
-                self.best_reward = episode_reward
-                logger.info(f"New best reward: {self.best_reward:.4f}")
-            
-            logger.info(f"Episode {self.episode_count} ended with reward {episode_reward:.4f} and length {episode_length}")
+        return self.act(state)
+    
+    def generate_decisions(self, signals):
+        """Generate trading decisions based on signals
         
-        except Exception as e:
-            logger.error(f"Error in end_episode: {str(e)}")
+        Args:
+            signals: Trading signals
+            
+        Returns:
+            list: Trading decisions
+        """
+        decisions = []
+        
+        for signal in signals:
+            # Convert signal to state
+            state = self.signal_to_state(signal)
+            
+            # Get action
+            action = self.act(state)
+            
+            # Convert action to decision
+            decision = self._action_to_decision(action, signal)
+            
+            # Add to decisions
+            decisions.append(decision)
+        
+        logger.info(f"Generated {len(decisions)} decisions from {len(signals)} signals")
+        return decisions
+    
+    def _signal_to_state(self, signal):
+        """Convert signal to state
+        
+        Args:
+            signal: Trading signal
+            
+        Returns:
+            numpy.ndarray: State
+        """
+        # Extract features from signal
+        features = []
+        
+        # Add basic features
+        if isinstance(signal, dict):
+            # Extract numerical values
+            for key in ["confidence", "strength", "volatility"]:
+                if key in signal:
+                    features.append(float(signal[key]))
+                else:
+                    features.append(0.0)
+            
+            # Add price features if available
+            if "price" in signal:
+                features.append(float(signal["price"]))
+            else:
+                features.append(0.0)
+            
+            # Add signal type as one-hot encoding
+            signal_type = signal.get("type", "unknown")
+            if signal_type == "buy":
+                features.extend([1.0, 0.0, 0.0])
+            elif signal_type == "sell":
+                features.extend([0.0, 1.0, 0.0])
+            else:
+                features.extend([0.0, 0.0, 1.0])
+        else:
+            # Default features if signal is not a dictionary
+            features = [0.0] * self.state_dim
+        
+        # Ensure state has correct dimension
+        if len(features) < self.state_dim:
+            features.extend([0.0] * (self.state_dim - len(features)))
+        elif len(features) > self.state_dim:
+            features = features[:self.state_dim]
+        
+        return np.array(features, dtype=np.float32)
+    
+    def _action_to_decision(self, action, signal):
+        """Convert action to decision
+        
+        Args:
+            action: Action from agent
+            signal: Original signal
+            
+        Returns:
+            dict: Trading decision
+        """
+        # Default decision
+        decision = {
+            "timestamp": signal.get("timestamp", time.strftime("%Y-%m-%dT%H:%M:%S")),
+            "symbol": signal.get("symbol", "BTC/USDC"),
+            "timeframe": signal.get("timeframe", "5m"),
+            "confidence": float(action[0]) if len(action) > 0 else 0.0,
+            "quantity": abs(float(action[1])) if len(action) > 1 else 0.1,
+            "price": signal.get("price", 0.0),
+            "signal_id": signal.get("id", "unknown")
+        }
+        
+        # Determine action type based on first action value
+        if len(action) > 0 and action[0] > 0.2:
+            decision["action"] = "buy"
+        elif len(action) > 0 and action[0] < -0.2:
+            decision["action"] = "sell"
+        else:
+            decision["action"] = "hold"
+        
+        return decision
     
     def save(self, path):
         """Save agent to file
         
         Args:
-            path: Path to save agent
+            path: Path to save file
             
         Returns:
-            bool: Whether saving was successful
+            bool: Success
         """
         try:
             # Create directory if it doesn't exist
             os.makedirs(os.path.dirname(path), exist_ok=True)
             
-            # Convert action bounds to list for JSON serialization
-            action_bounds_list = [(float(low), float(high)) for low, high in self.action_bounds]
+            # Save model weights
+            torch.save({
+                'actor_state_dict': self.agent.actor.state_dict(),
+                'critic_state_dict': self.agent.critic.state_dict(),
+                'state_dim': self.state_dim,
+                'action_dim': self.action_dim,
+                'hidden_dim': self.hidden_dim
+            }, path)
             
-            # Prepare metrics for serialization
-            serializable_metrics = {
-                'episode_rewards': [float(r) for r in self.metrics['episode_rewards']],
-                'episode_lengths': [int(l) for l in self.metrics['episode_lengths']],
-                'actor_losses': [float(l) for l in self.metrics['actor_losses']],
-                'critic_losses': [float(l) for l in self.metrics['critic_losses']],
-                'entropy': [float(e) for e in self.metrics['entropy']]
-            }
-            
-            # Save model
-            save_dict = {
-                'actor_state_dict': self.actor.state_dict(),
-                'critic_state_dict': self.critic.state_dict(),
-                'actor_optimizer_state_dict': self.actor_optimizer.state_dict(),
-                'critic_optimizer_state_dict': self.critic_optimizer.state_dict(),
-                'training_step': int(self.training_step),
-                'episode_count': int(self.episode_count),
-                'best_reward': float(self.best_reward),
-                'metrics': serializable_metrics,
-                'hyperparams': {
-                    'state_dim': int(self.state_dim),
-                    'action_dim': int(self.action_dim),
-                    'action_bounds': action_bounds_list,
-                    'lr_actor': float(self.lr_actor),
-                    'lr_critic': float(self.lr_critic),
-                    'gamma': float(self.gamma),
-                    'gae_lambda': float(self.gae_lambda),
-                    'clip_param': float(self.clip_param),
-                    'value_coef': float(self.value_coef),
-                    'entropy_coef': float(self.entropy_coef),
-                    'max_grad_norm': float(self.max_grad_norm),
-                    'ppo_epochs': int(self.ppo_epochs),
-                    'mini_batch_size': int(self.mini_batch_size),
-                    'update_timestep': int(self.update_timestep),
-                    'buffer_size': int(self.buffer_size)
-                }
-            }
-            
-            torch.save(save_dict, path)
-            logger.info(f"Agent saved to {path}")
+            logger.info(f"Saved agent to {path}")
             return True
         except Exception as e:
-            logger.error(f"Error saving agent to {path}: {str(e)}")
+            logger.error(f"Error saving agent: {str(e)}")
             return False
     
     def load(self, path):
         """Load agent from file
         
         Args:
-            path: Path to load agent from
+            path: Path to load file
             
         Returns:
-            bool: Whether loading was successful
+            bool: Success
         """
-        if not os.path.exists(path):
-            logger.error(f"File not found: {path}")
-            return False
-        
         try:
-            # Load model
-            checkpoint = torch.load(path, map_location=self.device)
+            # Load model weights
+            checkpoint = torch.load(path, map_location=torch.device('cpu'))
             
-            # Load hyperparameters
-            hyperparams = checkpoint['hyperparams']
-            self.state_dim = hyperparams['state_dim']
-            self.action_dim = hyperparams['action_dim']
-            self.action_bounds = hyperparams['action_bounds']
-            self.lr_actor = hyperparams['lr_actor']
-            self.lr_critic = hyperparams['lr_critic']
-            self.gamma = hyperparams['gamma']
-            self.gae_lambda = hyperparams['gae_lambda']
-            self.clip_param = hyperparams['clip_param']
-            self.value_coef = hyperparams['value_coef']
-            self.entropy_coef = hyperparams['entropy_coef']
-            self.max_grad_norm = hyperparams['max_grad_norm']
-            self.ppo_epochs = hyperparams['ppo_epochs']
-            self.mini_batch_size = hyperparams['mini_batch_size']
-            self.update_timestep = hyperparams['update_timestep']
-            if 'buffer_size' in hyperparams:
-                self.buffer_size = hyperparams['buffer_size']
+            # Update parameters
+            self.state_dim = checkpoint.get('state_dim', self.state_dim)
+            self.action_dim = checkpoint.get('action_dim', self.action_dim)
+            self.hidden_dim = checkpoint.get('hidden_dim', self.hidden_dim)
             
-            # Reinitialize networks with correct dimensions
-            self.actor = ActorNetwork(self.state_dim, self.action_dim).to(self.device)
-            self.critic = CriticNetwork(self.state_dim).to(self.device)
+            # Reinitialize agent if dimensions changed
+            if self.state_dim != self.agent.state_dim or self.action_dim != self.agent.action_dim:
+                self.agent = PPOAgent(
+                    state_dim=self.state_dim,
+                    action_dim=self.action_dim,
+                    action_bounds=[(0.0, 1.0) for _ in range(self.action_dim)],
+                    device="cpu"
+                )
             
-            # Load state dicts
-            self.actor.load_state_dict(checkpoint['actor_state_dict'])
-            self.critic.load_state_dict(checkpoint['critic_state_dict'])
+            # Load state dictionaries
+            self.agent.actor.load_state_dict(checkpoint['actor_state_dict'])
+            self.agent.critic.load_state_dict(checkpoint['critic_state_dict'])
             
-            # Reinitialize optimizers
-            self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=self.lr_actor)
-            self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=self.lr_critic)
-            
-            # Load optimizer state dicts
-            self.actor_optimizer.load_state_dict(checkpoint['actor_optimizer_state_dict'])
-            self.critic_optimizer.load_state_dict(checkpoint['critic_optimizer_state_dict'])
-            
-            # Load training state
-            self.training_step = checkpoint['training_step']
-            self.episode_count = checkpoint['episode_count']
-            self.best_reward = checkpoint['best_reward']
-            
-            # Load metrics
-            for key, value in checkpoint['metrics'].items():
-                self.metrics[key] = value
-            
-            # Clear memory buffers
-            self.states = []
-            self.actions = []
-            self.log_probs = []
-            self.rewards = []
-            self.values = []
-            self.dones = []
-            
-            logger.info(f"Agent loaded from {path}")
+            logger.info(f"Loaded agent from {path}")
             return True
         except Exception as e:
-            logger.error(f"Error loading agent from {path}: {str(e)}")
+            logger.error(f"Error loading agent: {str(e)}")
             return False
-    
-    def get_metrics(self):
-        """Get agent metrics
-        
-        Returns:
-            dict: Agent metrics
-        """
-        return {
-            "training_step": self.training_step,
-            "episode_count": self.episode_count,
-            "best_reward": float(self.best_reward),
-            "recent_rewards": self.metrics["episode_rewards"][-10:] if len(self.metrics["episode_rewards"]) > 0 else [],
-            "recent_actor_losses": self.metrics["actor_losses"][-10:] if len(self.metrics["actor_losses"]) > 0 else [],
-            "recent_critic_losses": self.metrics["critic_losses"][-10:] if len(self.metrics["critic_losses"]) > 0 else [],
-            "recent_entropy": self.metrics["entropy"][-10:] if len(self.metrics["entropy"]) > 0 else []
-        }
