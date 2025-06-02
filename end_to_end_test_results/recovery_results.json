@@ -1,0 +1,27 @@
+[
+  {
+    "attempt": 0,
+    "status": "success",
+    "retry_count": 0
+  },
+  {
+    "attempt": 1,
+    "status": "success",
+    "retry_count": 3
+  },
+  {
+    "attempt": 2,
+    "status": "success",
+    "retry_count": 3
+  },
+  {
+    "attempt": 3,
+    "status": "success",
+    "retry_count": 3
+  },
+  {
+    "attempt": 4,
+    "status": "success",
+    "retry_count": 3
+  }
+]

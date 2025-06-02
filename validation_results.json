@@ -1,0 +1,2531 @@
+{
+  "indicators": {
+    "sma": {
+      "success": true,
+      "execution_time": 6.175041198730469e-05,
+      "sample_result": 94.32664419605214
+    },
+    "ema": {
+      "success": true,
+      "execution_time": 6.222724914550781e-05,
+      "sample_result": 93.42604657933909
+    },
+    "rsi": {
+      "success": true,
+      "execution_time": 0.00020885467529296875,
+      "sample_result": 41.67855706635279
+    },
+    "macd": {
+      "success": true,
+      "execution_time": 0.0002884864807128906,
+      "sample_result": {
+        "macd_line": 0.02000691699707602,
+        "signal_line": 0.45009996484840764,
+        "histogram": -0.4300930478513316
+      }
+    },
+    "bollinger_bands": {
+      "success": true,
+      "execution_time": 8.869171142578125e-05,
+      "sample_result": {
+        "upper_band": 96.96343947492362,
+        "middle_band": 94.32664419605214,
+        "lower_band": 91.68984891718067,
+        "bandwidth": 0.05590775122649455,
+        "percent_b": 0.029573408609308953
+      }
+    },
+    "vwap": {
+      "success": true,
+      "execution_time": 9.799003601074219e-05,
+      "sample_result": 91.86761240193675
+    },
+    "atr": {
+      "success": true,
+      "execution_time": 0.0002651214599609375,
+      "sample_result": 2.0391243721226284
+    },
+    "all_indicators": {
+      "success": true,
+      "execution_time": 0.0009634494781494141,
+      "indicator_count": 11
+    },
+    "error_handling": {
+      "empty_array": true
+    }
+  },
+  "market_state": {
+    "update_order_book": {
+      "success": true,
+      "execution_time": 4.100799560546875e-05
+    },
+    "timeframe_1m": {
+      "data_points": 101,
+      "has_indicators": true
+    },
+    "timeframe_5m": {
+      "data_points": 1,
+      "has_indicators": false
+    },
+    "timeframe_15m": {
+      "data_points": 1,
+      "has_indicators": false
+    },
+    "timeframe_1h": {
+      "data_points": 1,
+      "has_indicators": false
+    }
+  },
+  "signals": {
+    "BTCUSDC": {
+      "count": 1,
+      "execution_time": 0.4543647766113281,
+      "signals": [
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.9285111605430696,
+          "timestamp": 1748784159205,
+          "price": 104345.605,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 6.326648877881287
+        }
+      ]
+    },
+    "ETHUSDC": {
+      "count": 0,
+      "execution_time": 8.606910705566406e-05,
+      "signals": []
+    }
+  },
+  "decisions": {
+    "BTCUSDC": {
+      "has_decision": false,
+      "execution_time": 0.3323664665222168,
+      "decision": null
+    },
+    "ETHUSDC": {
+      "has_decision": false,
+      "execution_time": 6.532669067382812e-05,
+      "decision": null
+    }
+  },
+  "performance": {
+    "signal_generation": {
+      "min": 5.91278076171875e-05,
+      "max": 0.0005173683166503906,
+      "avg": 0.00017364025115966796,
+      "iterations": 20
+    },
+    "decision_making": {
+      "min": 5.698204040527344e-05,
+      "max": 0.0006000995635986328,
+      "avg": 0.0002542853355407715,
+      "iterations": 20
+    }
+  },
+  "errors": [
+    {
+      "phase": "test_market_state",
+      "error": "'EnhancedMarketState' object has no attribute 'estimated_slippage'",
+      "timestamp": 1748784158750
+    },
+    {
+      "phase": "test_signal_generation",
+      "error": "'EnhancedFlashTradingSignals' object has no attribute 'update_dynamic_thresholds'",
+      "timestamp": 1748784159537
+    }
+  ],
+  "extended_test": {
+    "duration": 30,
+    "signals": {
+      "BTCUSDC": [
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.9285111605430696,
+          "timestamp": 1748784159550,
+          "price": 104345.605,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 6.326648877881287
+        },
+        {
+          "type": "SELL",
+          "source": "rsi_overbought_1m",
+          "strength": 1.0,
+          "timestamp": 1748784159550,
+          "price": 104345.605,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 6.326648877881287
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.875351076635014,
+          "timestamp": 1748784160723,
+          "price": 104342.98999999999,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 7.322362953984779
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784160723,
+          "price": 104342.98999999999,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 7.322362953984779
+        },
+        {
+          "type": "BUY",
+          "source": "bollinger_lower_1m",
+          "strength": 2.1794494717660577,
+          "timestamp": 1748784160723,
+          "price": 104342.98999999999,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 7.322362953984779
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.875351076635014,
+          "timestamp": 1748784161898,
+          "price": 104342.98999999999,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 7.320521928869311
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784161898,
+          "price": 104342.98999999999,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 7.320521928869311
+        },
+        {
+          "type": "BUY",
+          "source": "bollinger_lower_1m",
+          "strength": 0.8660254037878443,
+          "timestamp": 1748784161898,
+          "price": 104342.98999999999,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 7.320521928869311
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.5540897097625329,
+          "timestamp": 1748784163086,
+          "price": 104340.73,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 6.941800602671734
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784163086,
+          "price": 104340.73,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 6.941800602671734
+        },
+        {
+          "type": "SELL",
+          "source": "macd_bearish_1m",
+          "strength": 2165.751570704548,
+          "timestamp": 1748784163086,
+          "price": 104340.73,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 6.941800602671734
+        },
+        {
+          "type": "BUY",
+          "source": "bollinger_lower_1m",
+          "strength": 1.0319355471832312,
+          "timestamp": 1748784163086,
+          "price": 104340.73,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 6.941800602671734
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.3082954470580485,
+          "timestamp": 1748784164441,
+          "price": 104339.885,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 6.775474169240685
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784164441,
+          "price": 104339.885,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 6.775474169240685
+        },
+        {
+          "type": "SELL",
+          "source": "macd_bearish_1m",
+          "strength": 2119.149604711582,
+          "timestamp": 1748784164441,
+          "price": 104339.885,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 6.775474169240685
+        },
+        {
+          "type": "BUY",
+          "source": "bollinger_lower_1m",
+          "strength": 0.8412381005520727,
+          "timestamp": 1748784164441,
+          "price": 104339.885,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 6.775474169240685
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.3574895740753402,
+          "timestamp": 1748784165495,
+          "price": 104338.155,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 6.633829022122206
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784165495,
+          "price": 104338.155,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 6.633829022122206
+        },
+        {
+          "type": "SELL",
+          "source": "macd_bearish_1m",
+          "strength": 1862.489791911951,
+          "timestamp": 1748784165495,
+          "price": 104338.155,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 6.633829022122206
+        },
+        {
+          "type": "BUY",
+          "source": "bollinger_lower_1m",
+          "strength": 0.8300596764481433,
+          "timestamp": 1748784165495,
+          "price": 104338.155,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 6.633829022122206
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.6557887411639748,
+          "timestamp": 1748784166821,
+          "price": 104336.435,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 4.38632284604566
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 0.33165263653255006,
+          "timestamp": 1748784166821,
+          "price": 104336.435,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 4.38632284604566
+        },
+        {
+          "type": "SELL",
+          "source": "macd_bearish_1m",
+          "strength": 1350.8561838983046,
+          "timestamp": 1748784166821,
+          "price": 104336.435,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 4.38632284604566
+        },
+        {
+          "type": "BUY",
+          "source": "bollinger_lower_1m",
+          "strength": 1.012909030074204,
+          "timestamp": 1748784166821,
+          "price": 104336.435,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 4.38632284604566
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.6166115938481623,
+          "timestamp": 1748784167841,
+          "price": 104336.435,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 4.38632284604566
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 0.331449597097247,
+          "timestamp": 1748784167841,
+          "price": 104336.435,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 4.38632284604566
+        },
+        {
+          "type": "SELL",
+          "source": "macd_bearish_1m",
+          "strength": 1054.313581862225,
+          "timestamp": 1748784167841,
+          "price": 104336.435,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 4.38632284604566
+        },
+        {
+          "type": "BUY",
+          "source": "order_imbalance",
+          "strength": 0.13319057815845828,
+          "timestamp": 1748784169179,
+          "price": 104334.58,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 6.816899241029112
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 0.5056766075277496,
+          "timestamp": 1748784169179,
+          "price": 104334.58,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 6.816899241029112
+        },
+        {
+          "type": "SELL",
+          "source": "macd_bearish_1m",
+          "strength": 738.9092407443931,
+          "timestamp": 1748784169179,
+          "price": 104334.58,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 6.816899241029112
+        },
+        {
+          "type": "BUY",
+          "source": "bollinger_lower_1m",
+          "strength": 0.9116368288321626,
+          "timestamp": 1748784169179,
+          "price": 104334.58,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 6.816899241029112
+        },
+        {
+          "type": "BUY",
+          "source": "order_imbalance",
+          "strength": 0.13319057815845828,
+          "timestamp": 1748784170192,
+          "price": 104334.58,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 6.815145146785464
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 0.5060575259693694,
+          "timestamp": 1748784170192,
+          "price": 104334.58,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 6.815145146785464
+        },
+        {
+          "type": "SELL",
+          "source": "macd_bearish_1m",
+          "strength": 291.14813816159653,
+          "timestamp": 1748784170192,
+          "price": 104334.58,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 6.815145146785464
+        },
+        {
+          "type": "BUY",
+          "source": "order_imbalance",
+          "strength": 0.8642731198022963,
+          "timestamp": 1748784171531,
+          "price": 104339.07,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 4.784850938083802
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 1877.870317756195,
+          "timestamp": 1748784171531,
+          "price": 104339.07,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 4.784850938083802
+        },
+        {
+          "type": "BUY",
+          "source": "order_imbalance",
+          "strength": 0.837733064889267,
+          "timestamp": 1748784172875,
+          "price": 104341.95,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 4.334537275952751
+        },
+        {
+          "type": "SELL",
+          "source": "rsi_overbought_1m",
+          "strength": 0.050842831151567285,
+          "timestamp": 1748784172875,
+          "price": 104341.95,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 4.334537275952751
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 4678.72027155323,
+          "timestamp": 1748784172875,
+          "price": 104341.95,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 4.334537275952751
+        },
+        {
+          "type": "SELL",
+          "source": "bollinger_upper_1m",
+          "strength": 1.1987121830697678,
+          "timestamp": 1748784172875,
+          "price": 104341.95,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 4.334537275952751
+        },
+        {
+          "type": "BUY",
+          "source": "order_imbalance",
+          "strength": 0.8484342331188022,
+          "timestamp": 1748784174224,
+          "price": 104341.945,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 4.435054308836015
+        },
+        {
+          "type": "SELL",
+          "source": "rsi_overbought_1m",
+          "strength": 0.048836961417184584,
+          "timestamp": 1748784174224,
+          "price": 104341.945,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 4.435054308836015
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 4490.171434072428,
+          "timestamp": 1748784174224,
+          "price": 104341.945,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 4.435054308836015
+        },
+        {
+          "type": "BUY",
+          "source": "order_imbalance",
+          "strength": 0.8051505368270891,
+          "timestamp": 1748784175564,
+          "price": 104340.3,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 5.116216231936647
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 1025.1113611744797,
+          "timestamp": 1748784175564,
+          "price": 104340.3,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 5.116216231936647
+        },
+        {
+          "type": "BUY",
+          "source": "order_imbalance",
+          "strength": 0.8051505368270891,
+          "timestamp": 1748784176733,
+          "price": 104340.3,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 5.115239807404176
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 214.88047972428507,
+          "timestamp": 1748784176733,
+          "price": 104340.3,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 5.115239807404176
+        },
+        {
+          "type": "BUY",
+          "source": "order_imbalance",
+          "strength": 0.8148137560389926,
+          "timestamp": 1748784177914,
+          "price": 104337.70999999999,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 4.487645074216266
+        },
+        {
+          "type": "SELL",
+          "source": "macd_bearish_1m",
+          "strength": 1852.3845789646036,
+          "timestamp": 1748784177914,
+          "price": 104337.70999999999,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 4.487645074216266
+        },
+        {
+          "type": "BUY",
+          "source": "order_imbalance",
+          "strength": 0.8038088714840901,
+          "timestamp": 1748784179269,
+          "price": 104336.315,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 5.071612262618075
+        },
+        {
+          "type": "SELL",
+          "source": "macd_bearish_1m",
+          "strength": 2067.19745232469,
+          "timestamp": 1748784179269,
+          "price": 104336.315,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 5.071612262618075
+        },
+        {
+          "type": "BUY",
+          "source": "order_imbalance",
+          "strength": 0.17691829374455914,
+          "timestamp": 1748784180442,
+          "price": 104341.785,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 3.652221741073499
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 1379.3767718235333,
+          "timestamp": 1748784180442,
+          "price": 104341.785,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 3.652221741073499
+        },
+        {
+          "type": "BUY",
+          "source": "order_imbalance",
+          "strength": 0.06861858467103785,
+          "timestamp": 1748784181614,
+          "price": 104343.52,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 5.938327197969374
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 2399.1632993631515,
+          "timestamp": 1748784181614,
+          "price": 104343.52,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 5.938327197969374
+        },
+        {
+          "type": "SELL",
+          "source": "bollinger_upper_1m",
+          "strength": 1.0325092154760955,
+          "timestamp": 1748784181614,
+          "price": 104343.52,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 5.938327197969374
+        },
+        {
+          "type": "BUY",
+          "source": "order_imbalance",
+          "strength": 0.06861858467103785,
+          "timestamp": 1748784182796,
+          "price": 104343.52,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 5.936729607254767
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 2965.9159562972245,
+          "timestamp": 1748784182796,
+          "price": 104343.52,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 5.936729607254767
+        },
+        {
+          "type": "BUY",
+          "source": "order_imbalance",
+          "strength": 0.9153232554247783,
+          "timestamp": 1748784183999,
+          "price": 104349.815,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 6.291670906996775
+        },
+        {
+          "type": "SELL",
+          "source": "rsi_overbought_1m",
+          "strength": 0.15358109801379113,
+          "timestamp": 1748784183999,
+          "price": 104349.815,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 6.291670906996775
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 5044.688900727858,
+          "timestamp": 1748784183999,
+          "price": 104349.815,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 6.291670906996775
+        },
+        {
+          "type": "SELL",
+          "source": "bollinger_upper_1m",
+          "strength": 1.0685951353973215,
+          "timestamp": 1748784183999,
+          "price": 104349.815,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 6.291670906996775
+        },
+        {
+          "type": "BUY",
+          "source": "order_imbalance",
+          "strength": 0.5939568490728108,
+          "timestamp": 1748784185380,
+          "price": 104349.815,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 7.097753338426639
+        },
+        {
+          "type": "SELL",
+          "source": "rsi_overbought_1m",
+          "strength": 0.14028853663303592,
+          "timestamp": 1748784185380,
+          "price": 104349.815,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 7.097753338426639
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 3844.0032821377954,
+          "timestamp": 1748784185380,
+          "price": 104349.815,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 7.097753338426639
+        },
+        {
+          "type": "BUY",
+          "source": "order_imbalance",
+          "strength": 0.6701131546039589,
+          "timestamp": 1748784186431,
+          "price": 104349.815,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 4.085208181858091
+        },
+        {
+          "type": "SELL",
+          "source": "rsi_overbought_1m",
+          "strength": 0.14282182639801752,
+          "timestamp": 1748784186431,
+          "price": 104349.815,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 4.085208181858091
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 1140.3152268345873,
+          "timestamp": 1748784186431,
+          "price": 104349.815,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 4.085208181858091
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.6578003057365839,
+          "timestamp": 1748784187780,
+          "price": 104353.655,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 7.0628678197329275
+        },
+        {
+          "type": "SELL",
+          "source": "rsi_overbought_1m",
+          "strength": 0.4130166611638131,
+          "timestamp": 1748784187780,
+          "price": 104353.655,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 7.0628678197329275
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 1552.8353007462135,
+          "timestamp": 1748784187780,
+          "price": 104353.655,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 7.0628678197329275
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.28224374347802206,
+          "timestamp": 1748784188953,
+          "price": 104344.565,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 4.737919579214372
+        },
+        {
+          "type": "SELL",
+          "source": "macd_bearish_1m",
+          "strength": 4016.5558703182255,
+          "timestamp": 1748784188953,
+          "price": 104344.565,
+          "symbol": "BTCUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 4.737919579214372
+        }
+      ],
+      "ETHUSDC": [
+        {
+          "type": "SELL",
+          "source": "rsi_overbought_1m",
+          "strength": 1.0,
+          "timestamp": 1748784159551,
+          "price": 2495.8999999999996,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 0.5678700048574565
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.9008422365352137,
+          "timestamp": 1748784160896,
+          "price": 2495.88,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 0.7554903579240122
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784160896,
+          "price": 2495.88,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 0.7554903579240122
+        },
+        {
+          "type": "BUY",
+          "source": "bollinger_lower_1m",
+          "strength": 1.5,
+          "timestamp": 1748784160896,
+          "price": 2495.88,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 0.7554903579240122
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.08003689368928273,
+          "timestamp": 1748784161900,
+          "price": 2495.865,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 1.0703112216679516
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784161900,
+          "price": 2495.865,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.0703112216679516
+        },
+        {
+          "type": "BUY",
+          "source": "bollinger_lower_1m",
+          "strength": 1.1369850670423236,
+          "timestamp": 1748784161900,
+          "price": 2495.865,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.0703112216679516
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.9055768883921437,
+          "timestamp": 1748784163270,
+          "price": 2495.865,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 1.7201845500839115
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784163270,
+          "price": 2495.865,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.7201845500839115
+        },
+        {
+          "type": "SELL",
+          "source": "macd_bearish_1m",
+          "strength": 14.905011099981484,
+          "timestamp": 1748784163270,
+          "price": 2495.865,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.7201845500839115
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.9027301110968033,
+          "timestamp": 1748784164442,
+          "price": 2495.865,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 1.3673480686671846
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784164442,
+          "price": 2495.865,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.3673480686671846
+        },
+        {
+          "type": "SELL",
+          "source": "macd_bearish_1m",
+          "strength": 6.814626075791891,
+          "timestamp": 1748784164442,
+          "price": 2495.865,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.3673480686671846
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.9519791491412425,
+          "timestamp": 1748784165660,
+          "price": 2495.865,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 1.3673480686671846
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784165660,
+          "price": 2495.865,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.3673480686671846
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.9507367059019951,
+          "timestamp": 1748784166823,
+          "price": 2495.865,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 2.0712512370610434
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784166823,
+          "price": 2495.865,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 2.0712512370610434
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 4.087917579975535,
+          "timestamp": 1748784166823,
+          "price": 2495.865,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 2.0712512370610434
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.9507367059019951,
+          "timestamp": 1748784168012,
+          "price": 2495.865,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 2.0712512370610434
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784168012,
+          "price": 2495.865,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 2.0712512370610434
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 5.917349423061675,
+          "timestamp": 1748784168012,
+          "price": 2495.865,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 2.0712512370610434
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.9527460108319016,
+          "timestamp": 1748784169180,
+          "price": 2495.855,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 1.555408796459785
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784169180,
+          "price": 2495.855,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.555408796459785
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 1.1207081884733296,
+          "timestamp": 1748784169180,
+          "price": 2495.855,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.555408796459785
+        },
+        {
+          "type": "BUY",
+          "source": "bollinger_lower_1m",
+          "strength": 1.5000000000378957,
+          "timestamp": 1748784169180,
+          "price": 2495.855,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.555408796459785
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.9515939525764094,
+          "timestamp": 1748784170363,
+          "price": 2495.8,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 1.5688110936527992
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784170363,
+          "price": 2495.8,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.5688110936527992
+        },
+        {
+          "type": "SELL",
+          "source": "macd_bearish_1m",
+          "strength": 29.427528196436505,
+          "timestamp": 1748784170363,
+          "price": 2495.8,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.5688110936527992
+        },
+        {
+          "type": "BUY",
+          "source": "bollinger_lower_1m",
+          "strength": 1.3749269850745898,
+          "timestamp": 1748784170363,
+          "price": 2495.8,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.5688110936527992
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.8281810135900809,
+          "timestamp": 1748784171705,
+          "price": 2495.765,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 1.555408796459785
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784171705,
+          "price": 2495.765,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.555408796459785
+        },
+        {
+          "type": "SELL",
+          "source": "macd_bearish_1m",
+          "strength": 46.52034924297209,
+          "timestamp": 1748784171705,
+          "price": 2495.765,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.555408796459785
+        },
+        {
+          "type": "BUY",
+          "source": "bollinger_lower_1m",
+          "strength": 1.1203037268076146,
+          "timestamp": 1748784171705,
+          "price": 2495.765,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.555408796459785
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.8044229023790425,
+          "timestamp": 1748784173044,
+          "price": 2495.74,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 2.7887006914609898
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784173044,
+          "price": 2495.74,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 2.7887006914609898
+        },
+        {
+          "type": "SELL",
+          "source": "macd_bearish_1m",
+          "strength": 40.27858067847719,
+          "timestamp": 1748784173044,
+          "price": 2495.74,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 2.7887006914609898
+        },
+        {
+          "type": "BUY",
+          "source": "bollinger_lower_1m",
+          "strength": 0.8769182637864208,
+          "timestamp": 1748784173044,
+          "price": 2495.74,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 2.7887006914609898
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.8108811356381865,
+          "timestamp": 1748784174395,
+          "price": 2495.725,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 1.1792883943167916
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784174395,
+          "price": 2495.725,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.1792883943167916
+        },
+        {
+          "type": "SELL",
+          "source": "macd_bearish_1m",
+          "strength": 26.409339367619594,
+          "timestamp": 1748784174395,
+          "price": 2495.725,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.1792883943167916
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.8108811356381865,
+          "timestamp": 1748784175731,
+          "price": 2495.725,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 1.1792883943167916
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784175731,
+          "price": 2495.725,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.1792883943167916
+        },
+        {
+          "type": "SELL",
+          "source": "macd_bearish_1m",
+          "strength": 4.940186157858308,
+          "timestamp": 1748784175731,
+          "price": 2495.725,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.1792883943167916
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.8108811356381865,
+          "timestamp": 1748784176900,
+          "price": 2495.725,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 1.1792883943167916
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784176900,
+          "price": 2495.725,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.1792883943167916
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 12.8703063185975,
+          "timestamp": 1748784176900,
+          "price": 2495.725,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.1792883943167916
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.9257945177879677,
+          "timestamp": 1748784178099,
+          "price": 2495.725,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 0.8846927813230278
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784178099,
+          "price": 2495.725,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 0.8846927813230278
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 21.63952473877909,
+          "timestamp": 1748784178099,
+          "price": 2495.725,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 0.8846927813230278
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.9257945177879677,
+          "timestamp": 1748784179440,
+          "price": 2495.725,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 0.8846927813230278
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784179440,
+          "price": 2495.725,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 0.8846927813230278
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 23.61859588170322,
+          "timestamp": 1748784179440,
+          "price": 2495.725,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 0.8846927813230278
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.3106702683329905,
+          "timestamp": 1748784180443,
+          "price": 2495.7200000000003,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 1.8334888496278046
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784180443,
+          "price": 2495.7200000000003,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.8334888496278046
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 20.126347051920046,
+          "timestamp": 1748784180443,
+          "price": 2495.7200000000003,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.8334888496278046
+        },
+        {
+          "type": "BUY",
+          "source": "bollinger_lower_1m",
+          "strength": 1.5,
+          "timestamp": 1748784180443,
+          "price": 2495.7200000000003,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.8334888496278046
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.07734791959852363,
+          "timestamp": 1748784181780,
+          "price": 2495.715,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 1.5807329320971322
+        },
+        {
+          "type": "BUY",
+          "source": "rsi_oversold_1m",
+          "strength": 1.0,
+          "timestamp": 1748784181780,
+          "price": 2495.715,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.5807329320971322
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 15.981834188405225,
+          "timestamp": 1748784181780,
+          "price": 2495.715,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.5807329320971322
+        },
+        {
+          "type": "BUY",
+          "source": "bollinger_lower_1m",
+          "strength": 1.526645067248923,
+          "timestamp": 1748784181780,
+          "price": 2495.715,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.5807329320971322
+        },
+        {
+          "type": "SELL",
+          "source": "order_imbalance",
+          "strength": 0.10644613828950553,
+          "timestamp": 1748784182798,
+          "price": 2495.7250000000004,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 1.6552667414284472
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 17.5437242935076,
+          "timestamp": 1748784182798,
+          "price": 2495.7250000000004,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.6552667414284472
+        },
+        {
+          "type": "BUY",
+          "source": "order_imbalance",
+          "strength": 0.09021953176281818,
+          "timestamp": 1748784184210,
+          "price": 2495.995,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 1.8670173148381335
+        },
+        {
+          "type": "SELL",
+          "source": "rsi_overbought_1m",
+          "strength": 0.7723299090953083,
+          "timestamp": 1748784184210,
+          "price": 2495.995,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.8670173148381335
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 176.23438480863584,
+          "timestamp": 1748784184210,
+          "price": 2495.995,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.8670173148381335
+        },
+        {
+          "type": "SELL",
+          "source": "bollinger_upper_1m",
+          "strength": 1.1809118417453173,
+          "timestamp": 1748784184210,
+          "price": 2495.995,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.8670173148381335
+        },
+        {
+          "type": "SELL",
+          "source": "rsi_overbought_1m",
+          "strength": 0.7737648677017637,
+          "timestamp": 1748784185382,
+          "price": 2496.0,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.7428442145050433
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 160.25716709312755,
+          "timestamp": 1748784185382,
+          "price": 2496.0,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.7428442145050433
+        },
+        {
+          "type": "BUY",
+          "source": "order_imbalance",
+          "strength": 0.6071841324379197,
+          "timestamp": 1748784186607,
+          "price": 2496.11,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 1.8140476838795447
+        },
+        {
+          "type": "SELL",
+          "source": "rsi_overbought_1m",
+          "strength": 0.8605601935069999,
+          "timestamp": 1748784186607,
+          "price": 2496.11,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.8140476838795447
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 137.2575620686457,
+          "timestamp": 1748784186607,
+          "price": 2496.11,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.8140476838795447
+        },
+        {
+          "type": "SELL",
+          "source": "rsi_overbought_1m",
+          "strength": 0.6454907628856074,
+          "timestamp": 1748784187950,
+          "price": 2496.1400000000003,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 3.2374565015150614
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 103.04046477444622,
+          "timestamp": 1748784187950,
+          "price": 2496.1400000000003,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 3.2374565015150614
+        },
+        {
+          "type": "BUY",
+          "source": "order_imbalance",
+          "strength": 0.1555480946785294,
+          "timestamp": 1748784188955,
+          "price": 2496.155,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "slippage_estimate": 1.800805276140125
+        },
+        {
+          "type": "SELL",
+          "source": "rsi_overbought_1m",
+          "strength": 0.6697545477964822,
+          "timestamp": 1748784188955,
+          "price": 2496.155,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.800805276140125
+        },
+        {
+          "type": "BUY",
+          "source": "macd_bullish_1m",
+          "strength": 30.365754749702155,
+          "timestamp": 1748784188955,
+          "price": 2496.155,
+          "symbol": "ETHUSDC",
+          "session": "EUROPE",
+          "timeframe": "1m",
+          "slippage_estimate": 1.800805276140125
+        }
+      ]
+    },
+    "decisions": {
+      "BTCUSDC": [],
+      "ETHUSDC": [
+        {
+          "type": "SELL",
+          "symbol": "ETHUSDC",
+          "price": 2494.64,
+          "strength": 1.0,
+          "timestamp": 1748784159552,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "SELL",
+              "source": "rsi_overbought_1m",
+              "strength": 1.0,
+              "timestamp": 1748784159552,
+              "price": 2495.8999999999996,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 0.5678700048574565
+            }
+          ],
+          "slippage_estimate": 0.5678700048574565
+        },
+        {
+          "type": "BUY",
+          "symbol": "ETHUSDC",
+          "price": 2497.12,
+          "strength": 2.190238071396865,
+          "timestamp": 1748784160897,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "rsi_oversold_1m",
+              "strength": 1.0,
+              "timestamp": 1748784160897,
+              "price": 2495.88,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 0.7554903579240122
+            },
+            {
+              "type": "BUY",
+              "source": "bollinger_lower_1m",
+              "strength": 1.190238071396865,
+              "timestamp": 1748784160897,
+              "price": 2495.88,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 0.7554903579240122
+            }
+          ],
+          "slippage_estimate": 0.7554903579240122
+        },
+        {
+          "type": "SELL",
+          "symbol": "ETHUSDC",
+          "price": 2494.64,
+          "strength": 22.34793921185195,
+          "timestamp": 1748784161900,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "SELL",
+              "source": "order_imbalance",
+              "strength": 0.08003689368928273,
+              "timestamp": 1748784161900,
+              "price": 2495.865,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "slippage_estimate": 1.0703112216679516
+            },
+            {
+              "type": "SELL",
+              "source": "macd_bearish_1m",
+              "strength": 22.26790231816267,
+              "timestamp": 1748784161900,
+              "price": 2495.865,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.0703112216679516
+            }
+          ],
+          "slippage_estimate": 1.0703112216679516
+        },
+        {
+          "type": "SELL",
+          "symbol": "ETHUSDC",
+          "price": 2494.64,
+          "strength": 12.987541596776614,
+          "timestamp": 1748784163270,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "SELL",
+              "source": "order_imbalance",
+              "strength": 0.9055768883921437,
+              "timestamp": 1748784163270,
+              "price": 2495.865,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "slippage_estimate": 1.7201845500839115
+            },
+            {
+              "type": "SELL",
+              "source": "macd_bearish_1m",
+              "strength": 12.08196470838447,
+              "timestamp": 1748784163270,
+              "price": 2495.865,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.7201845500839115
+            }
+          ],
+          "slippage_estimate": 1.7201845500839115
+        },
+        {
+          "type": "SELL",
+          "symbol": "ETHUSDC",
+          "price": 2494.64,
+          "strength": 5.407517240489529,
+          "timestamp": 1748784164442,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "SELL",
+              "source": "order_imbalance",
+              "strength": 0.9027301110968033,
+              "timestamp": 1748784164442,
+              "price": 2495.865,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "slippage_estimate": 1.3673480686671846
+            },
+            {
+              "type": "SELL",
+              "source": "macd_bearish_1m",
+              "strength": 4.504787129392725,
+              "timestamp": 1748784164442,
+              "price": 2495.865,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.3673480686671846
+            }
+          ],
+          "slippage_estimate": 1.3673480686671846
+        },
+        {
+          "type": "BUY",
+          "symbol": "ETHUSDC",
+          "price": 2497.09,
+          "strength": 3.1626237585409007,
+          "timestamp": 1748784165661,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "rsi_oversold_1m",
+              "strength": 1.0,
+              "timestamp": 1748784165660,
+              "price": 2495.865,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.3673480686671846
+            },
+            {
+              "type": "BUY",
+              "source": "macd_bullish_1m",
+              "strength": 2.1626237585409007,
+              "timestamp": 1748784165660,
+              "price": 2495.865,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.3673480686671846
+            }
+          ],
+          "slippage_estimate": 1.3673480686671846
+        },
+        {
+          "type": "BUY",
+          "symbol": "ETHUSDC",
+          "price": 2497.09,
+          "strength": 5.765923913563185,
+          "timestamp": 1748784166824,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "rsi_oversold_1m",
+              "strength": 1.0,
+              "timestamp": 1748784166824,
+              "price": 2495.865,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 2.0712512370610434
+            },
+            {
+              "type": "BUY",
+              "source": "macd_bullish_1m",
+              "strength": 4.765923913563185,
+              "timestamp": 1748784166824,
+              "price": 2495.865,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 2.0712512370610434
+            }
+          ],
+          "slippage_estimate": 2.0712512370610434
+        },
+        {
+          "type": "BUY",
+          "symbol": "ETHUSDC",
+          "price": 2497.09,
+          "strength": 7.071848009938487,
+          "timestamp": 1748784168013,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "rsi_oversold_1m",
+              "strength": 1.0,
+              "timestamp": 1748784168013,
+              "price": 2495.865,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 2.0712512370610434
+            },
+            {
+              "type": "BUY",
+              "source": "macd_bullish_1m",
+              "strength": 6.071848009938487,
+              "timestamp": 1748784168013,
+              "price": 2495.865,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 2.0712512370610434
+            }
+          ],
+          "slippage_estimate": 2.0712512370610434
+        },
+        {
+          "type": "BUY",
+          "symbol": "ETHUSDC",
+          "price": 2497.07,
+          "strength": 2.190238071492381,
+          "timestamp": 1748784169181,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "rsi_oversold_1m",
+              "strength": 1.0,
+              "timestamp": 1748784169180,
+              "price": 2495.855,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.555408796459785
+            },
+            {
+              "type": "BUY",
+              "source": "bollinger_lower_1m",
+              "strength": 1.190238071492381,
+              "timestamp": 1748784169180,
+              "price": 2495.855,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.555408796459785
+            }
+          ],
+          "slippage_estimate": 1.555408796459785
+        },
+        {
+          "type": "SELL",
+          "symbol": "ETHUSDC",
+          "price": 2494.64,
+          "strength": 32.991633518331135,
+          "timestamp": 1748784170364,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "SELL",
+              "source": "order_imbalance",
+              "strength": 0.9515939525764094,
+              "timestamp": 1748784170364,
+              "price": 2495.8,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "slippage_estimate": 1.5688110936527992
+            },
+            {
+              "type": "SELL",
+              "source": "macd_bearish_1m",
+              "strength": 32.040039565754725,
+              "timestamp": 1748784170364,
+              "price": 2495.8,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.5688110936527992
+            }
+          ],
+          "slippage_estimate": 1.5688110936527992
+        },
+        {
+          "type": "SELL",
+          "symbol": "ETHUSDC",
+          "price": 2494.64,
+          "strength": 42.976273590910274,
+          "timestamp": 1748784171706,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "SELL",
+              "source": "order_imbalance",
+              "strength": 0.8281810135900809,
+              "timestamp": 1748784171706,
+              "price": 2495.765,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "slippage_estimate": 1.555408796459785
+            },
+            {
+              "type": "SELL",
+              "source": "macd_bearish_1m",
+              "strength": 42.14809257732019,
+              "timestamp": 1748784171706,
+              "price": 2495.765,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.555408796459785
+            }
+          ],
+          "slippage_estimate": 1.555408796459785
+        },
+        {
+          "type": "SELL",
+          "symbol": "ETHUSDC",
+          "price": 2494.64,
+          "strength": 33.118509280799735,
+          "timestamp": 1748784173046,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "SELL",
+              "source": "order_imbalance",
+              "strength": 0.8044229023790425,
+              "timestamp": 1748784173046,
+              "price": 2495.74,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "slippage_estimate": 2.7887006914609898
+            },
+            {
+              "type": "SELL",
+              "source": "macd_bearish_1m",
+              "strength": 32.31408637842069,
+              "timestamp": 1748784173046,
+              "price": 2495.74,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 2.7887006914609898
+            }
+          ],
+          "slippage_estimate": 2.7887006914609898
+        },
+        {
+          "type": "SELL",
+          "symbol": "ETHUSDC",
+          "price": 2494.64,
+          "strength": 17.09801342693909,
+          "timestamp": 1748784174397,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "SELL",
+              "source": "order_imbalance",
+              "strength": 0.8108811356381865,
+              "timestamp": 1748784174396,
+              "price": 2495.725,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "slippage_estimate": 1.1792883943167916
+            },
+            {
+              "type": "SELL",
+              "source": "macd_bearish_1m",
+              "strength": 16.287132291300903,
+              "timestamp": 1748784174396,
+              "price": 2495.725,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.1792883943167916
+            }
+          ],
+          "slippage_estimate": 1.1792883943167916
+        },
+        {
+          "type": "BUY",
+          "symbol": "ETHUSDC",
+          "price": 2496.81,
+          "strength": 1.0,
+          "timestamp": 1748784175731,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "rsi_oversold_1m",
+              "strength": 1.0,
+              "timestamp": 1748784175731,
+              "price": 2495.725,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.1792883943167916
+            }
+          ],
+          "slippage_estimate": 1.1792883943167916
+        },
+        {
+          "type": "BUY",
+          "symbol": "ETHUSDC",
+          "price": 2496.81,
+          "strength": 16.867138980201617,
+          "timestamp": 1748784176900,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "rsi_oversold_1m",
+              "strength": 1.0,
+              "timestamp": 1748784176900,
+              "price": 2495.725,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.1792883943167916
+            },
+            {
+              "type": "BUY",
+              "source": "macd_bullish_1m",
+              "strength": 15.867138980201617,
+              "timestamp": 1748784176900,
+              "price": 2495.725,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.1792883943167916
+            }
+          ],
+          "slippage_estimate": 1.1792883943167916
+        },
+        {
+          "type": "BUY",
+          "symbol": "ETHUSDC",
+          "price": 2496.81,
+          "strength": 23.65122452069338,
+          "timestamp": 1748784178099,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "rsi_oversold_1m",
+              "strength": 1.0,
+              "timestamp": 1748784178099,
+              "price": 2495.725,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 0.8846927813230278
+            },
+            {
+              "type": "BUY",
+              "source": "macd_bullish_1m",
+              "strength": 22.65122452069338,
+              "timestamp": 1748784178099,
+              "price": 2495.725,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 0.8846927813230278
+            }
+          ],
+          "slippage_estimate": 0.8846927813230278
+        },
+        {
+          "type": "BUY",
+          "symbol": "ETHUSDC",
+          "price": 2496.81,
+          "strength": 24.673050673951415,
+          "timestamp": 1748784179441,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "rsi_oversold_1m",
+              "strength": 1.0,
+              "timestamp": 1748784179441,
+              "price": 2495.725,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 0.8846927813230278
+            },
+            {
+              "type": "BUY",
+              "source": "macd_bullish_1m",
+              "strength": 23.673050673951415,
+              "timestamp": 1748784179441,
+              "price": 2495.725,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 0.8846927813230278
+            }
+          ],
+          "slippage_estimate": 0.8846927813230278
+        },
+        {
+          "type": "BUY",
+          "symbol": "ETHUSDC",
+          "price": 2496.8,
+          "strength": 21.25713837970269,
+          "timestamp": 1748784180444,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "rsi_oversold_1m",
+              "strength": 1.0,
+              "timestamp": 1748784180444,
+              "price": 2495.7200000000003,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.8334888496278046
+            },
+            {
+              "type": "BUY",
+              "source": "macd_bullish_1m",
+              "strength": 19.066900308273986,
+              "timestamp": 1748784180444,
+              "price": 2495.7200000000003,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.8334888496278046
+            },
+            {
+              "type": "BUY",
+              "source": "bollinger_lower_1m",
+              "strength": 1.1902380714287035,
+              "timestamp": 1748784180444,
+              "price": 2495.7200000000003,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.8334888496278046
+            }
+          ],
+          "slippage_estimate": 1.8334888496278046
+        },
+        {
+          "type": "BUY",
+          "symbol": "ETHUSDC",
+          "price": 2496.79,
+          "strength": 16.69577175334593,
+          "timestamp": 1748784181781,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "rsi_oversold_1m",
+              "strength": 1.0,
+              "timestamp": 1748784181781,
+              "price": 2495.715,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.5807329320971322
+            },
+            {
+              "type": "BUY",
+              "source": "macd_bullish_1m",
+              "strength": 14.489726375060545,
+              "timestamp": 1748784181781,
+              "price": 2495.715,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.5807329320971322
+            },
+            {
+              "type": "BUY",
+              "source": "bollinger_lower_1m",
+              "strength": 1.2060453782853833,
+              "timestamp": 1748784181781,
+              "price": 2495.715,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.5807329320971322
+            }
+          ],
+          "slippage_estimate": 1.5807329320971322
+        },
+        {
+          "type": "BUY",
+          "symbol": "ETHUSDC",
+          "price": 2496.8,
+          "strength": 18.14934996233781,
+          "timestamp": 1748784182799,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "macd_bullish_1m",
+              "strength": 18.14934996233781,
+              "timestamp": 1748784182799,
+              "price": 2495.7250000000004,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.6552667414284472
+            }
+          ],
+          "slippage_estimate": 1.6552667414284472
+        },
+        {
+          "type": "BUY",
+          "symbol": "ETHUSDC",
+          "price": 2497.28,
+          "strength": 180.5414470846352,
+          "timestamp": 1748784184211,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "order_imbalance",
+              "strength": 0.09021953176281818,
+              "timestamp": 1748784184211,
+              "price": 2495.995,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "slippage_estimate": 1.8670173148381335
+            },
+            {
+              "type": "BUY",
+              "source": "macd_bullish_1m",
+              "strength": 180.45122755287238,
+              "timestamp": 1748784184211,
+              "price": 2495.995,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.8670173148381335
+            }
+          ],
+          "slippage_estimate": 1.8670173148381335
+        },
+        {
+          "type": "BUY",
+          "symbol": "ETHUSDC",
+          "price": 2497.28,
+          "strength": 141.40173946604418,
+          "timestamp": 1748784185383,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "macd_bullish_1m",
+              "strength": 141.40173946604418,
+              "timestamp": 1748784185383,
+              "price": 2496.0,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.7428442145050433
+            }
+          ],
+          "slippage_estimate": 1.7428442145050433
+        },
+        {
+          "type": "BUY",
+          "symbol": "ETHUSDC",
+          "price": 2497.28,
+          "strength": 123.78956022216354,
+          "timestamp": 1748784186608,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "order_imbalance",
+              "strength": 0.6071841324379197,
+              "timestamp": 1748784186607,
+              "price": 2496.11,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "slippage_estimate": 1.8140476838795447
+            },
+            {
+              "type": "BUY",
+              "source": "macd_bullish_1m",
+              "strength": 123.18237608972562,
+              "timestamp": 1748784186607,
+              "price": 2496.11,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.8140476838795447
+            }
+          ],
+          "slippage_estimate": 1.8140476838795447
+        },
+        {
+          "type": "BUY",
+          "symbol": "ETHUSDC",
+          "price": 2497.28,
+          "strength": 82.90845234365185,
+          "timestamp": 1748784187951,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "macd_bullish_1m",
+              "strength": 82.90845234365185,
+              "timestamp": 1748784187951,
+              "price": 2496.1400000000003,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 3.2374565015150614
+            }
+          ],
+          "slippage_estimate": 3.2374565015150614
+        },
+        {
+          "type": "BUY",
+          "symbol": "ETHUSDC",
+          "price": 2497.28,
+          "strength": 14.589861373288779,
+          "timestamp": 1748784188956,
+          "session": "EUROPE",
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "order_imbalance",
+              "strength": 0.1555480946785294,
+              "timestamp": 1748784188956,
+              "price": 2496.155,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "slippage_estimate": 1.800805276140125
+            },
+            {
+              "type": "BUY",
+              "source": "macd_bullish_1m",
+              "strength": 14.434313278610249,
+              "timestamp": 1748784188956,
+              "price": 2496.155,
+              "symbol": "ETHUSDC",
+              "session": "EUROPE",
+              "timeframe": "1m",
+              "slippage_estimate": 1.800805276140125
+            }
+          ],
+          "slippage_estimate": 1.800805276140125
+        }
+      ]
+    },
+    "start_time": 1748784159548,
+    "end_time": 1748784189956
+  },
+  "timestamp": 1748784189961
+}

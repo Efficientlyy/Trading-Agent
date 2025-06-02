@@ -1,0 +1,28 @@
+         945 function calls (927 primitive calls) in 0.001 seconds
+
+   Ordered by: cumulative time
+   List reduced from 137 to 20 due to restriction <20>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.001    0.001 /home/ubuntu/Trading-Agent/rl_environment_improved.py:499(reset)
+        1    0.000    0.000    0.001    0.001 /home/ubuntu/Trading-Agent/rl_environment_improved.py:1008(_get_state)
+        4    0.000    0.000    0.001    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/indexing.py:1176(__getitem__)
+        4    0.000    0.000    0.001    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/indexing.py:1719(_getitem_axis)
+        4    0.000    0.000    0.000    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/frame.py:3983(_ixs)
+        4    0.000    0.000    0.000    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/internals/managers.py:958(fast_xs)
+        1    0.000    0.000    0.000    0.000 /usr/lib/python3.11/logging/__init__.py:1479(info)
+        1    0.000    0.000    0.000    0.000 /usr/lib/python3.11/logging/__init__.py:1610(_log)
+        1    0.000    0.000    0.000    0.000 /usr/lib/python3.11/logging/__init__.py:1636(handle)
+        1    0.000    0.000    0.000    0.000 /usr/lib/python3.11/logging/__init__.py:1690(callHandlers)
+        4    0.000    0.000    0.000    0.000 /usr/lib/python3.11/logging/__init__.py:965(handle)
+        4    0.000    0.000    0.000    0.000 /usr/lib/python3.11/logging/__init__.py:1098(emit)
+        4    0.000    0.000    0.000    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/internals/base.py:378(interleaved_dtype)
+       20    0.000    0.000    0.000    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/generic.py:2077(__contains__)
+        4    0.000    0.000    0.000    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/dtypes/cast.py:1432(find_common_type)
+        9    0.000    0.000    0.000    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/series.py:1095(__getitem__)
+        2    0.000    0.000    0.000    0.000 /usr/lib/python3.11/logging/__init__.py:1216(emit)
+       20    0.000    0.000    0.000    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/indexes/base.py:5323(__contains__)
+        4    0.000    0.000    0.000    0.000 /usr/lib/python3.11/logging/__init__.py:942(format)
+        1    0.000    0.000    0.000    0.000 /usr/lib/python3.11/logging/__init__.py:1595(makeRecord)
+
+

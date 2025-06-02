@@ -1,0 +1,15 @@
+{
+  "indicators": {},
+  "market_state": {},
+  "signals": {},
+  "decisions": {},
+  "performance": {},
+  "errors": [
+    {
+      "phase": "setup",
+      "error": "MEXC API credentials not found in environment variables",
+      "timestamp": 1748785146358
+    }
+  ],
+  "timestamp": 1748785146358
+}

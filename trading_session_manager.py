@@ -258,6 +258,21 @@ class TradingSessionManager:
         with self.lock:
             session_name = self.get_current_session_name()
             return self.session_parameters.get(session_name, {}).copy()
+            
+    def get_session_parameters(self, session_name=None):
+        """Get parameters for a specific session or current session
+        
+        Args:
+            session_name: Name of the session to get parameters for, or None for current session
+            
+        Returns:
+            Dictionary of session parameters
+        """
+        with self.lock:
+            if session_name is None:
+                session_name = self.get_current_session_name()
+            
+            return self.session_parameters.get(session_name, {}).copy()
     
     def update_session_parameter(self, session_name, parameter_name, value):
         """Update a specific parameter for a session"""

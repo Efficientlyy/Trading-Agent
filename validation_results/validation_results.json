@@ -1,0 +1,245 @@
+{
+  "environment_tests": {
+    "initialization": {
+      "status": "Passed",
+      "details": {
+        "env_type": "TradingRLEnvironment"
+      }
+    },
+    "reset": {
+      "status": "Passed",
+      "details": {
+        "state_type": "dict",
+        "state_keys": [
+          "price_1m",
+          "price_5m",
+          "price_15m",
+          "price_1h",
+          "rsi_1m",
+          "rsi_5m",
+          "rsi_15m",
+          "rsi_1h",
+          "macd_1m",
+          "macd_5m",
+          "macd_15m",
+          "macd_1h",
+          "bb_1m",
+          "bb_5m",
+          "bb_15m",
+          "bb_1h",
+          "order_imbalance",
+          "spread",
+          "volatility",
+          "session",
+          "price_change_1m",
+          "price_change_5m",
+          "price_change_15m",
+          "param_imbalance_threshold",
+          "param_momentum_threshold",
+          "param_volatility_threshold",
+          "param_rsi_threshold",
+          "param_macd_threshold",
+          "param_bb_threshold",
+          "metric_pnl",
+          "metric_sharpe_ratio",
+          "metric_win_rate",
+          "metric_trade_count",
+          "metric_max_drawdown",
+          "metric_volatility",
+          "metric_profit_factor",
+          "metric_recovery_factor"
+        ],
+        "state_size": 37
+      }
+    },
+    "step": {
+      "status": "Passed",
+      "details": {
+        "next_state_type": "dict",
+        "reward_type": "float64",
+        "done_type": "bool",
+        "info_type": "dict"
+      }
+    },
+    "reward": {
+      "status": "Passed",
+      "details": {
+        "reward_range": [
+          -3.1940016882461906e+39,
+          -40.90130343497389
+        ],
+        "reward_mean": -6.388003376492588e+38,
+        "reward_std": 1.277600675298466e+39
+      }
+    },
+    "state": {
+      "status": "Passed",
+      "details": {
+        "state_keys": [
+          "price_1m",
+          "price_5m",
+          "price_15m",
+          "price_1h",
+          "rsi_1m",
+          "rsi_5m",
+          "rsi_15m",
+          "rsi_1h",
+          "macd_1m",
+          "macd_5m",
+          "macd_15m",
+          "macd_1h",
+          "bb_1m",
+          "bb_5m",
+          "bb_15m",
+          "bb_1h",
+          "order_imbalance",
+          "spread",
+          "volatility",
+          "session",
+          "price_change_1m",
+          "price_change_5m",
+          "price_change_15m",
+          "param_imbalance_threshold",
+          "param_momentum_threshold",
+          "param_volatility_threshold",
+          "param_rsi_threshold",
+          "param_macd_threshold",
+          "param_bb_threshold",
+          "metric_pnl",
+          "metric_sharpe_ratio",
+          "metric_win_rate",
+          "metric_trade_count",
+          "metric_max_drawdown",
+          "metric_volatility",
+          "metric_profit_factor",
+          "metric_recovery_factor",
+          "metric_pnl_percent"
+        ],
+        "state_size": 38
+      }
+    },
+    "status": "Passed"
+  },
+  "agent_tests": {
+    "initialization": {
+      "status": "Passed",
+      "details": {
+        "agent_type": "PPOAgent"
+      }
+    },
+    "action_selection": {
+      "status": "Passed",
+      "details": {
+        "action_type": "ndarray",
+        "action_shape": [
+          4
+        ],
+        "log_prob_type": "ndarray",
+        "value_type": "ndarray"
+      }
+    },
+    "update": {
+      "status": "Failed",
+      "details": {
+        "update_result": null
+      }
+    },
+    "save_load": {
+      "status": "Failed",
+      "details": {
+        "actions_match": false,
+        "save_path": "validation_results/test_agent.pt"
+      }
+    },
+    "status": "Failed"
+  },
+  "integration_tests": {
+    "initialization": {
+      "status": "Passed",
+      "details": {
+        "integration_type": "RLIntegration"
+      }
+    },
+    "training": {
+      "status": "Not Run",
+      "details": {}
+    },
+    "evaluation": {
+      "status": "Not Run",
+      "details": {}
+    },
+    "parameter_extraction": {
+      "status": "Not Run",
+      "details": {}
+    },
+    "status": "Failed",
+    "error": "new(): data must be a sequence (got dict)"
+  },
+  "performance_tests": {
+    "environment_performance": {
+      "status": "Passed",
+      "details": {
+        "metrics_type": "dict",
+        "avg_step_time": 0.0007786393165588379,
+        "max_step_time": 0.0009388923645019531
+      }
+    },
+    "agent_performance": {
+      "status": "Passed",
+      "details": {
+        "metrics_type": "dict",
+        "avg_select_action_time": 0.0007047867774963379,
+        "avg_update_time": 1.3470649719238281e-05
+      }
+    },
+    "integration_performance": {
+      "status": "Not Run",
+      "details": {}
+    },
+    "optimization": {
+      "status": "Not Run",
+      "details": {}
+    },
+    "status": "Failed",
+    "error": "new(): data must be a sequence (got dict)"
+  },
+  "edge_case_tests": {
+    "empty_data": {
+      "status": "Passed",
+      "details": {
+        "empty_data_handled": false
+      }
+    },
+    "invalid_action": {
+      "status": "Failed",
+      "details": {
+        "invalid_action_results": [
+          true,
+          true,
+          true,
+          false,
+          true
+        ]
+      }
+    },
+    "extreme_values": {
+      "status": "Passed",
+      "details": {
+        "extreme_value_results": [
+          true,
+          true,
+          true,
+          true
+        ]
+      }
+    },
+    "error_handling": {
+      "status": "Passed",
+      "details": {
+        "error_handled": true
+      }
+    },
+    "status": "Failed"
+  },
+  "overall_status": "Failed"
+}

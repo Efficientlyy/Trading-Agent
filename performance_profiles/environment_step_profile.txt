@@ -1,0 +1,28 @@
+         21063 function calls (20631 primitive calls) in 0.016 seconds
+
+   Ordered by: cumulative time
+   List reduced from 112 to 20 due to restriction <20>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+       20    0.000    0.000    0.016    0.001 /home/ubuntu/Trading-Agent/rl_environment_improved.py:557(step)
+       20    0.001    0.000    0.011    0.001 /home/ubuntu/Trading-Agent/rl_environment_improved.py:1008(_get_state)
+      104    0.000    0.000    0.010    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/indexing.py:1176(__getitem__)
+      104    0.000    0.000    0.010    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/indexing.py:1719(_getitem_axis)
+      104    0.001    0.000    0.008    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/frame.py:3983(_ixs)
+      104    0.002    0.000    0.006    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/internals/managers.py:958(fast_xs)
+       20    0.000    0.000    0.004    0.000 /home/ubuntu/Trading-Agent/rl_environment_improved.py:678(_simulation_step)
+      304    0.001    0.000    0.002    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/series.py:1095(__getitem__)
+       20    0.000    0.000    0.002    0.000 /home/ubuntu/Trading-Agent/rl_environment_improved.py:741(_simulate_trading)
+      104    0.000    0.000    0.002    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/internals/base.py:378(interleaved_dtype)
+      104    0.001    0.000    0.002    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/dtypes/cast.py:1432(find_common_type)
+      440    0.000    0.000    0.001    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/generic.py:2077(__contains__)
+      304    0.000    0.000    0.001    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/series.py:1220(_get_value)
+     3625    0.001    0.000    0.001    0.000 {built-in method builtins.isinstance}
+      104    0.000    0.000    0.001    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/frame.py:678(_constructor_sliced_from_mgr)
+      440    0.001    0.000    0.001    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/indexes/base.py:5323(__contains__)
+        2    0.000    0.000    0.001    0.000 /home/ubuntu/Trading-Agent/rl_environment_improved.py:825(_execute_simulated_trade)
+      100    0.000    0.000    0.001    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/generic.py:4526(get)
+      104    0.000    0.000    0.001    0.000 /usr/local/lib/python3.11/dist-packages/pandas/core/generic.py:6236(__finalize__)
+ 1022/590    0.000    0.000    0.001    0.000 {built-in method builtins.len}
+
+

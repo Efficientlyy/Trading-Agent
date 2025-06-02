@@ -1,0 +1,166 @@
+{
+  "technical_indicators": {
+    "rsi": {
+      "success": true,
+      "value": 41.67855706635279,
+      "expected_range": "0-100"
+    },
+    "macd": {
+      "success": true,
+      "value": {
+        "macd_line": 0.02000691699707602,
+        "signal_line": 0.45009996484840764,
+        "histogram": -0.4300930478513316
+      }
+    },
+    "bollinger_bands": {
+      "success": true,
+      "value": {
+        "upper_band": 96.96343947492362,
+        "middle_band": 94.32664419605214,
+        "lower_band": 91.68984891718067,
+        "bandwidth": 0.05590775122649455,
+        "percent_b": 0.029573408609308953
+      }
+    },
+    "all_indicators": {
+      "success": true,
+      "indicators_count": 11
+    },
+    "empty_data": {
+      "success": true,
+      "value": null
+    },
+    "insufficient_data": {
+      "success": true,
+      "value": null
+    },
+    "overall": {
+      "success": true
+    }
+  },
+  "multi_timeframe": {
+    "1m": {
+      "success": true,
+      "count": 300
+    },
+    "5m": {
+      "success": true,
+      "count": 60
+    },
+    "15m": {
+      "success": true,
+      "count": 20
+    },
+    "1h": {
+      "success": true,
+      "count": 5
+    },
+    "1m_indicators": {
+      "success": true,
+      "count": 11
+    },
+    "5m_indicators": {
+      "success": true,
+      "count": 11
+    },
+    "15m_indicators": {
+      "success": true,
+      "count": 11
+    },
+    "candle_closing": {
+      "success": true,
+      "1m_last_close": 1622523540000,
+      "5m_last_close": 1622523300000,
+      "15m_last_close": 1622522700000,
+      "1h_last_close": 1622520000000
+    },
+    "overall": {
+      "success": true
+    }
+  },
+  "dynamic_thresholds": {
+    "initial": {
+      "success": true,
+      "sessions": [
+        "ASIA",
+        "EUROPE",
+        "US"
+      ],
+      "signal_types": [
+        "order_imbalance",
+        "momentum",
+        "volatility"
+      ]
+    },
+    "adaptation": {
+      "success": true,
+      "initial_threshold": 0.15,
+      "updated_threshold": 0.22499999999999998
+    },
+    "bounds": {
+      "success": true,
+      "updated_threshold": 0.3,
+      "max_threshold": 0.3
+    },
+    "overall": {
+      "success": true
+    }
+  },
+  "liquidity_slippage": {
+    "liquidity": {
+      "success": true,
+      "bid_liquidity": 15.0,
+      "ask_liquidity": 15.0
+    },
+    "slippage": {
+      "success": true,
+      "slippage_estimate": 0.0
+    },
+    "order_size_impact": {
+      "success": true,
+      "small_order_slippage": 0.0,
+      "large_order_slippage": 0.0006664445184938354
+    },
+    "unfillable_order": {
+      "success": true,
+      "unfillable_slippage": 0.0012662445851382871
+    },
+    "overall": {
+      "success": true
+    }
+  },
+  "integration": {
+    "initialization": {
+      "success": true,
+      "market_states": [
+        "BTCUSDC",
+        "ETHUSDC"
+      ]
+    },
+    "signal_generation": {
+      "success": true,
+      "signals_count": 0
+    },
+    "decision_making": {
+      "success": true,
+      "decision": false
+    },
+    "multi_timeframe_analysis": {
+      "success": true,
+      "timeframes": [
+        "1m",
+        "5m",
+        "15m",
+        "1h"
+      ]
+    },
+    "overall": {
+      "success": true
+    }
+  },
+  "overall": {
+    "success": true,
+    "timestamp": 1748785130108
+  }
+}

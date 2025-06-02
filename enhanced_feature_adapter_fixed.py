@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """
-Enhanced Feature Adapter for Deep Learning Pattern Recognition
+Enhanced Feature Adapter for Deep Learning Models
 
-This module provides an enhanced feature adapter for deep learning pattern recognition
-in financial market data, with dynamic feature importance and market regime detection.
+This module provides enhanced feature adaptation for deep learning models,
+with improved feature selection and transformation capabilities.
 """
 
 import os
@@ -13,33 +13,33 @@ import logging
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Tuple, Any, Optional, Union
+from sklearn.feature_selection import mutual_info_regression, f_regression
 from collections import OrderedDict
-import time
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("enhanced_feature_adapter.log"),
+        logging.FileHandler("enhanced_feature_adapter_fixed.log"),
         logging.StreamHandler()
     ]
 )
-logger = logging.getLogger("enhanced_feature_adapter")
+logger = logging.getLogger("enhanced_feature_adapter_fixed")
 
 class EnhancedFeatureAdapter:
-    """Enhanced feature adapter with dynamic feature importance and market regime detection"""
+    """Enhanced feature adapter for deep learning models"""
     
     def __init__(self, 
-                 input_dim: int = 9, 
-                 importance_method: str = "mutual_info", 
+                 input_dim: int = 9,
+                 importance_method: str = "mutual_info",
                  config_path: str = None,
                  cache_enabled: bool = True,
                  cache_size: int = 100):
         """Initialize enhanced feature adapter
         
         Args:
-            input_dim: Number of input features required by the model
+            input_dim: Number of input features to select
             importance_method: Method for feature importance calculation
             config_path: Path to configuration file
             cache_enabled: Whether to enable caching
@@ -63,28 +63,12 @@ class EnhancedFeatureAdapter:
         self.cache_enabled = self.config.get("cache_enabled", self.cache_enabled)
         self.cache_size = self.config.get("cache_size", self.cache_size)
         
-        # Initialize feature importance
+        # Feature importance scores
         self.feature_importance = {}
         
-        # Initialize market regime detector
-        self.market_regimes = self.config.get("market_regimes", {
-            "trending": {
-                "features": ["momentum", "macd", "adx", "price_velocity"],
-                "weight": 1.5
-            },
-            "ranging": {
-                "features": ["bb_percent_b", "rsi", "stochastic", "mean_reversion"],
-                "weight": 1.2
-            },
-            "volatile": {
-                "features": ["volatility", "atr", "price_range", "volume_delta"],
-                "weight": 1.3
-            },
-            "normal": {
-                "features": ["price", "volume", "vwap", "open_close_ratio"],
-                "weight": 1.0
-            }
-        })
+        # Market regime detection thresholds
+        self.volatility_threshold = self.config.get("volatility_threshold", 0.02)
+        self.momentum_threshold = self.config.get("momentum_threshold", 0.01)
         
         logger.info(f"Initialized EnhancedFeatureAdapter with input_dim={input_dim}, "
                    f"importance_method={importance_method}")
@@ -100,37 +84,13 @@ class EnhancedFeatureAdapter:
             "importance_method": self.importance_method,
             "cache_enabled": self.cache_enabled,
             "cache_size": self.cache_size,
-            "default_features": [
-                "price", "volume", "rsi", "macd", "bb_percent_b", 
-                "volatility", "momentum", "order_imbalance", "spread"
-            ],
+            "volatility_threshold": 0.02,
+            "momentum_threshold": 0.01,
             "feature_groups": {
-                "price_based": ["open", "high", "low", "close", "price", "vwap"],
-                "volume_based": ["volume", "volume_delta", "volume_ma", "volume_std"],
-                "momentum": ["rsi", "macd", "macd_signal", "macd_hist", "momentum"],
-                "volatility": ["volatility", "atr", "bb_width", "price_range"],
-                "mean_reversion": ["bb_percent_b", "stochastic", "mean_reversion"],
-                "trend": ["adx", "price_velocity", "trend_strength"],
-                "liquidity": ["spread", "order_imbalance", "market_depth"],
-                "time": ["hour_of_day", "day_of_week", "day_of_month", "month_of_year", "is_weekend"]
-            },
-            "market_regimes": {
-                "trending": {
-                    "features": ["momentum", "macd", "adx", "price_velocity"],
-                    "weight": 1.5
-                },
-                "ranging": {
-                    "features": ["bb_percent_b", "rsi", "stochastic", "mean_reversion"],
-                    "weight": 1.2
-                },
-                "volatile": {
-                    "features": ["volatility", "atr", "price_range", "volume_delta"],
-                    "weight": 1.3
-                },
-                "normal": {
-                    "features": ["price", "volume", "vwap", "open_close_ratio"],
-                    "weight": 1.0
-                }
+                "price": ["close", "open", "high", "low"],
+                "volume": ["volume"],
+                "technical": ["rsi", "macd", "bollinger_upper", "bollinger_lower", "atr"],
+                "derived": ["momentum", "volatility", "trend"]
             }
         }
         
@@ -155,312 +115,307 @@ class EnhancedFeatureAdapter:
             df: Market data DataFrame
             
         Returns:
-            str: Market regime (trending, ranging, volatile, normal)
+            str: Market regime (high_volatility, trending, ranging)
         """
         try:
             # Check if DataFrame is empty
-            if df.empty:
+            if df is None or df.empty:
                 logger.warning("Empty DataFrame provided for market regime detection")
-                return "normal"
+                return "ranging"  # Default to ranging
             
-            # Extract price data if available
-            if "close" in df.columns:
-                prices = df["close"].values
-            elif "price" in df.columns:
-                prices = df["price"].values
+            # Calculate volatility (standard deviation of returns)
+            if 'close' in df.columns:
+                close_prices = df['close'].values
+                returns = np.diff(close_prices) / close_prices[:-1]
+                volatility = np.std(returns)
             else:
-                # Use first numeric column as price
-                for col in df.columns:
-                    if pd.api.types.is_numeric_dtype(df[col]):
-                        prices = df[col].values
-                        break
+                # Try to find any price column
+                price_cols = [col for col in df.columns if col in ['close', 'price', 'mid']]
+                if price_cols:
+                    prices = df[price_cols[0]].values
+                    returns = np.diff(prices) / prices[:-1]
+                    volatility = np.std(returns)
                 else:
-                    logger.warning("No numeric columns found for market regime detection")
-                    return "normal"
+                    logger.warning("No price column found for volatility calculation")
+                    volatility = 0.0
             
-            # Calculate returns
-            if len(prices) > 1:
-                returns = np.diff(prices) / prices[:-1]
+            # Calculate momentum (rate of change)
+            if len(close_prices) >= 10:
+                momentum = (close_prices[-1] - close_prices[-10]) / close_prices[-10]
             else:
-                logger.warning("Insufficient data for market regime detection")
-                return "normal"
+                momentum = 0.0
             
-            # Calculate metrics
-            volatility = np.std(returns) * np.sqrt(252)  # Annualized
-            
-            # Calculate momentum (price change over last N periods)
-            if len(prices) > 20:
-                momentum = (prices[-1] / prices[-20]) - 1
-            else:
-                momentum = 0
-            
-            # Calculate mean reversion tendency
-            if len(prices) > 20:
-                ma20 = np.mean(prices[-20:])
-                mean_reversion = (ma20 - prices[-1]) / ma20
-            else:
-                mean_reversion = 0
-            
-            # Determine regime
-            if volatility > 0.03:  # High volatility
-                regime = "volatile"
-            elif abs(momentum) > 0.05:  # Strong momentum
+            # Determine market regime
+            if volatility > self.volatility_threshold:
+                regime = "high_volatility"
+            elif abs(momentum) > self.momentum_threshold:
                 regime = "trending"
-            elif abs(mean_reversion) > 0.02:  # Mean reversion
-                regime = "ranging"
             else:
-                regime = "normal"
+                regime = "ranging"
             
-            logger.info(f"Detected market regime: {regime} (volatility={volatility:.4f}, "
-                       f"momentum={momentum:.4f}, mean_reversion={mean_reversion:.4f})")
-            
+            logger.info(f"Detected market regime: {regime} (volatility={volatility:.4f}, momentum={momentum:.4f})")
             return regime
         
         except Exception as e:
             logger.error(f"Error detecting market regime: {str(e)}")
-            return "normal"
+            return "ranging"  # Default to ranging
     
-    def get_feature_importance(self, X: np.ndarray, feature_names: List[str]) -> Dict[str, float]:
+    def adapt_features(self, X: np.ndarray, feature_names: List[str], market_regime: str = None) -> Tuple[np.ndarray, List[str]]:
+        """Adapt features for deep learning model
+        
+        Args:
+            X: Input features [batch_size, sequence_length, feature_dim]
+            feature_names: List of feature names
+            market_regime: Market regime (high_volatility, trending, ranging)
+            
+        Returns:
+            tuple: (Adapted features, Selected feature names)
+        """
+        try:
+            # Check if X is empty
+            if X is None or X.shape[0] == 0 or X.shape[2] == 0:
+                logger.warning("Empty input provided for feature adaptation")
+                return X, feature_names
+            
+            # Check cache first if enabled
+            if self.cache_enabled:
+                # Create cache key from X shape, feature names, and market regime
+                cache_key = (X.shape, tuple(feature_names), market_regime)
+                
+                if cache_key in self.feature_cache:
+                    logger.info("Using cached feature adaptation")
+                    return self.feature_cache[cache_key]
+            
+            # Detect market regime if not provided
+            if market_regime is None:
+                # Create a simple DataFrame from the last timestep
+                df = pd.DataFrame({
+                    name: X[0, -1, i] for i, name in enumerate(feature_names)
+                }, index=[0])
+                market_regime = self.detect_market_regime(df)
+            
+            # Calculate feature importance
+            importance_scores = self._calculate_feature_importance(X, feature_names)
+            
+            # Select features based on market regime and importance
+            selected_indices = self._select_features(importance_scores, feature_names, market_regime)
+            
+            # Extract selected features
+            X_adapted = X[:, :, selected_indices]
+            selected_features = [feature_names[i] for i in selected_indices]
+            
+            # Store in cache if enabled
+            if self.cache_enabled:
+                # Add to cache
+                self.feature_cache[cache_key] = (X_adapted, selected_features)
+                
+                # Limit cache size
+                while len(self.feature_cache) > self.cache_size:
+                    self.feature_cache.popitem(last=False)
+            
+            logger.info(f"Adapted features from {X.shape[2]} to {X_adapted.shape[2]} dimensions")
+            return X_adapted, selected_features
+        
+        except Exception as e:
+            logger.error(f"Error adapting features: {str(e)}")
+            return X, feature_names
+    
+    def _calculate_feature_importance(self, X: np.ndarray, feature_names: List[str]) -> Dict[str, float]:
         """Calculate feature importance
         
         Args:
-            X: Input data of shape (batch_size, sequence_length, num_features)
+            X: Input features [batch_size, sequence_length, feature_dim]
             feature_names: List of feature names
             
         Returns:
             dict: Feature importance scores
         """
         try:
-            # Check if we have enough data
-            if X.shape[0] == 0 or X.shape[2] == 0:
-                logger.warning("Insufficient data for feature importance calculation")
-                return {name: 1.0 for name in feature_names}
+            # Reshape X for feature importance calculation
+            # Use the last timestep for each sequence
+            X_last = X[:, -1, :]  # [batch_size, feature_dim]
             
-            # Calculate feature importance based on method
-            if self.importance_method == "mutual_info":
-                # Calculate variance of each feature
-                variances = np.var(X, axis=(0, 1))
-                
-                # Calculate correlation matrix
-                X_reshaped = X.reshape(-1, X.shape[2])
-                corr_matrix = np.corrcoef(X_reshaped.T)
-                
-                # Calculate mutual information (approximated by correlation)
-                importance = {}
-                for i, name in enumerate(feature_names):
-                    if i < len(variances):
-                        # Combine variance and correlation
-                        var_score = variances[i] / np.max(variances) if np.max(variances) > 0 else 0
-                        corr_score = np.mean(np.abs(corr_matrix[i])) if i < len(corr_matrix) else 0
-                        
-                        # Final score
-                        importance[name] = 0.7 * var_score + 0.3 * corr_score
-                    else:
-                        importance[name] = 0.0
-            
-            elif self.importance_method == "variance":
-                # Calculate variance of each feature
-                variances = np.var(X, axis=(0, 1))
-                
-                # Normalize
-                if np.max(variances) > 0:
-                    variances = variances / np.max(variances)
-                
-                # Create importance dictionary
-                importance = {}
-                for i, name in enumerate(feature_names):
-                    if i < len(variances):
-                        importance[name] = variances[i]
-                    else:
-                        importance[name] = 0.0
-            
+            # Create target variable (use next timestep of first feature as proxy)
+            if X.shape[1] > 1:
+                y = X[:, -1, 0]  # [batch_size]
             else:
-                # Default: equal importance
-                importance = {name: 1.0 for name in feature_names}
+                # If only one timestep, use random target
+                y = np.random.randn(X.shape[0])
             
-            # Ensure all features have importance scores
-            for name in feature_names:
-                if name not in importance:
-                    importance[name] = 0.0
+            # Calculate feature importance
+            if self.importance_method == "mutual_info":
+                importance = mutual_info_regression(X_last, y)
+            elif self.importance_method == "f_regression":
+                importance, _ = f_regression(X_last, y)
+            else:
+                # Default to equal importance
+                importance = np.ones(X.shape[2])
             
-            return importance
+            # Create dictionary of feature importance
+            importance_dict = {
+                feature_names[i]: float(importance[i])
+                for i in range(len(feature_names))
+            }
+            
+            # Store feature importance
+            self.feature_importance = importance_dict
+            
+            return importance_dict
         
         except Exception as e:
             logger.error(f"Error calculating feature importance: {str(e)}")
+            # Return equal importance
             return {name: 1.0 for name in feature_names}
     
-    def adapt_features(self, 
-                       X: np.ndarray, 
-                       feature_names: List[str], 
-                       market_regime: str = None) -> Tuple[np.ndarray, List[str]]:
-        """Adapt features based on importance and market regime
+    def _select_features(self, importance_scores: Dict[str, float], feature_names: List[str], market_regime: str) -> List[int]:
+        """Select features based on importance and market regime
         
         Args:
-            X: Input data of shape (batch_size, sequence_length, num_features)
+            importance_scores: Feature importance scores
             feature_names: List of feature names
-            market_regime: Market regime (trending, ranging, volatile, normal)
+            market_regime: Market regime
             
         Returns:
-            Tuple[np.ndarray, List[str]]: Adapted features and selected feature names
+            list: Indices of selected features
         """
         try:
-            # Check if X is empty
-            if X.shape[0] == 0 or X.shape[2] == 0:
-                logger.warning("Empty input data for feature adaptation")
-                # Return empty array with correct dimensions
-                return np.zeros((X.shape[0], X.shape[1], self.input_dim)), []
+            # Get feature groups from config
+            feature_groups = self.config.get("feature_groups", {})
             
-            # Check cache first if enabled
-            if self.cache_enabled:
-                # Create cache key from feature names and market regime
-                cache_key = (tuple(feature_names), market_regime)
+            # Determine feature allocation based on market regime
+            if market_regime == "high_volatility":
+                # In high volatility, prioritize technical indicators and derived metrics
+                group_weights = {
+                    "price": 0.2,
+                    "volume": 0.2,
+                    "technical": 0.4,
+                    "derived": 0.2
+                }
+            elif market_regime == "trending":
+                # In trending markets, prioritize momentum and price
+                group_weights = {
+                    "price": 0.3,
+                    "volume": 0.1,
+                    "technical": 0.3,
+                    "derived": 0.3
+                }
+            else:  # ranging
+                # In ranging markets, prioritize technical indicators
+                group_weights = {
+                    "price": 0.2,
+                    "volume": 0.1,
+                    "technical": 0.5,
+                    "derived": 0.2
+                }
+            
+            # Calculate number of features to select from each group
+            total_features = min(self.input_dim, len(feature_names))
+            group_allocation = {}
+            
+            for group, weight in group_weights.items():
+                group_allocation[group] = max(1, int(total_features * weight))
+            
+            # Adjust allocation to match total_features
+            while sum(group_allocation.values()) > total_features:
+                # Find group with highest allocation and reduce by 1
+                max_group = max(group_allocation.items(), key=lambda x: x[1])[0]
+                group_allocation[max_group] -= 1
+            
+            while sum(group_allocation.values()) < total_features:
+                # Find group with lowest allocation and increase by 1
+                min_group = min(group_allocation.items(), key=lambda x: x[1])[0]
+                group_allocation[min_group] += 1
+            
+            # Select features from each group based on importance
+            selected_indices = []
+            
+            for group, count in group_allocation.items():
+                # Get features in this group
+                group_features = feature_groups.get(group, [])
                 
-                if cache_key in self.feature_cache:
-                    logger.info("Using cached feature adaptation")
-                    indices, selected_features = self.feature_cache[cache_key]
-                    
-                    # Move to front of cache (most recently used)
-                    self.feature_cache.move_to_end(cache_key)
-                    
-                    # Check if indices are valid
-                    if max(indices, default=0) < X.shape[2]:
-                        # Select features using cached indices
-                        X_adapted = X[:, :, indices]
-                        return X_adapted, selected_features
-            
-            # Detect market regime if not provided
-            if market_regime is None:
-                # Create DataFrame from X for regime detection
-                # Use last timestep for simplicity
-                df = pd.DataFrame({
-                    name: X[0, -1, i] for i, name in enumerate(feature_names) if i < X.shape[2]
-                })
+                # Find indices of features in this group
+                group_indices = [
+                    i for i, name in enumerate(feature_names)
+                    if any(gf in name for gf in group_features)
+                ]
                 
-                market_regime = self.detect_market_regime(df)
-            
-            # Calculate feature importance
-            importance = self.get_feature_importance(X, feature_names)
-            
-            # Adjust importance based on market regime
-            if market_regime in self.market_regimes:
-                regime_features = self.market_regimes[market_regime]["features"]
-                regime_weight = self.market_regimes[market_regime]["weight"]
+                # If not enough features in this group, continue
+                if len(group_indices) == 0:
+                    continue
                 
-                for feature in regime_features:
-                    if feature in importance:
-                        importance[feature] *= regime_weight
-            
-            # Sort features by importance
-            sorted_features = sorted(importance.items(), key=lambda x: x[1], reverse=True)
-            
-            # Select top features
-            num_features = min(self.input_dim, len(sorted_features))
-            selected_features = [f[0] for f in sorted_features[:num_features]]
-            
-            # Get indices of selected features
-            indices = []
-            for feature in selected_features:
-                if feature in feature_names:
-                    idx = feature_names.index(feature)
-                    if idx < X.shape[2]:
-                        indices.append(idx)
-            
-            # Handle case where we don't have enough features
-            if len(indices) < self.input_dim:
-                logger.warning(f"Only {len(indices)} features selected, but {self.input_dim} required")
+                # Sort by importance
+                group_importance = {
+                    i: importance_scores.get(feature_names[i], 0.0)
+                    for i in group_indices
+                }
                 
-                # Add remaining features in order
-                for i in range(min(X.shape[2], len(feature_names))):
-                    if i not in indices and len(indices) < self.input_dim:
-                        indices.append(i)
-                        if i < len(feature_names):
-                            selected_features.append(feature_names[i])
+                sorted_indices = sorted(
+                    group_indices,
+                    key=lambda i: group_importance[i],
+                    reverse=True
+                )
                 
-                # If still not enough, pad with zeros
-                if len(indices) < self.input_dim:
-                    # Create adapted array with zeros
-                    X_adapted = np.zeros((X.shape[0], X.shape[1], self.input_dim))
-                    
-                    # Fill with available features
-                    for i, idx in enumerate(indices):
-                        if idx < X.shape[2]:
-                            X_adapted[:, :, i] = X[:, :, idx]
-                    
-                    # Cache result if enabled
-                    if self.cache_enabled:
-                        # Manage cache size
-                        if len(self.feature_cache) >= self.cache_size:
-                            # Remove oldest item (first item in OrderedDict)
-                            self.feature_cache.popitem(last=False)
-                        
-                        # Add to cache
-                        self.feature_cache[cache_key] = (indices, selected_features)
-                    
-                    logger.info(f"Selected features: {selected_features}")
-                    return X_adapted, selected_features
+                # Select top features
+                selected_indices.extend(sorted_indices[:count])
             
-            # Select features
-            X_adapted = X[:, :, indices]
-            
-            # Handle case where we have fewer features than required
-            if X_adapted.shape[2] < self.input_dim:
-                # Pad with zeros
-                padding = np.zeros((X.shape[0], X.shape[1], self.input_dim - X_adapted.shape[2]))
-                X_adapted = np.concatenate([X_adapted, padding], axis=2)
-            
-            # Handle case where we have more features than required
-            elif X_adapted.shape[2] > self.input_dim:
-                X_adapted = X_adapted[:, :, :self.input_dim]
-                selected_features = selected_features[:self.input_dim]
-            
-            # Cache result if enabled
-            if self.cache_enabled:
-                # Manage cache size
-                if len(self.feature_cache) >= self.cache_size:
-                    # Remove oldest item (first item in OrderedDict)
-                    self.feature_cache.popitem(last=False)
+            # If we still don't have enough features, add more based on importance
+            if len(selected_indices) < total_features:
+                # Get indices not already selected
+                remaining_indices = [
+                    i for i in range(len(feature_names))
+                    if i not in selected_indices
+                ]
                 
-                # Add to cache
-                self.feature_cache[cache_key] = (indices, selected_features)
+                # Sort by importance
+                remaining_importance = {
+                    i: importance_scores.get(feature_names[i], 0.0)
+                    for i in remaining_indices
+                }
+                
+                sorted_indices = sorted(
+                    remaining_indices,
+                    key=lambda i: remaining_importance[i],
+                    reverse=True
+                )
+                
+                # Add more features
+                selected_indices.extend(
+                    sorted_indices[:total_features - len(selected_indices)]
+                )
             
-            logger.info(f"Selected features: {selected_features}")
-            return X_adapted, selected_features
+            # Ensure we don't exceed the input_dim
+            selected_indices = selected_indices[:total_features]
+            
+            logger.info(f"Selected {len(selected_indices)} features for market regime {market_regime}")
+            return selected_indices
         
         except Exception as e:
-            logger.error(f"Error adapting features: {str(e)}")
+            logger.error(f"Error selecting features: {str(e)}")
+            # Return first input_dim features
+            return list(range(min(self.input_dim, len(feature_names))))
+    
+    # Add transform method for compatibility with test scripts
+    def transform(self, X: np.ndarray, feature_names: List[str] = None) -> np.ndarray:
+        """Transform features for deep learning model (compatibility method)
+        
+        Args:
+            X: Input features [batch_size, sequence_length, feature_dim]
+            feature_names: List of feature names (optional)
             
-            # Return empty array with correct dimensions
-            X_adapted = np.zeros((X.shape[0], X.shape[1], self.input_dim))
-            return X_adapted, []
-
-# Example usage
-if __name__ == "__main__":
-    # Create adapter
-    adapter = EnhancedFeatureAdapter(
-        input_dim=9,
-        importance_method="mutual_info",
-        cache_enabled=True
-    )
-    
-    # Create sample data
-    batch_size = 16
-    sequence_length = 60
-    num_features = 27
-    
-    X = np.random.randn(batch_size, sequence_length, num_features)
-    feature_names = [f"feature_{i}" for i in range(num_features)]
-    
-    # Adapt features
-    X_adapted, selected_features = adapter.adapt_features(X, feature_names)
-    
-    print(f"Input shape: {X.shape}")
-    print(f"Output shape: {X_adapted.shape}")
-    print(f"Selected features: {selected_features}")
-    
-    # Test caching
-    start_time = time.time()
-    X_adapted2, selected_features2 = adapter.adapt_features(X, feature_names)
-    cache_time = time.time() - start_time
-    
-    print(f"Cache time: {cache_time:.6f}s")
-    print(f"Features match: {selected_features == selected_features2}")
+        Returns:
+            np.ndarray: Transformed features
+        """
+        try:
+            # If feature names not provided, create generic names
+            if feature_names is None:
+                feature_names = [f"feature_{i}" for i in range(X.shape[2])]
+            
+            # Adapt features
+            X_adapted, _ = self.adapt_features(X, feature_names)
+            
+            logger.info(f"Transformed features from {X.shape} to {X_adapted.shape}")
+            return X_adapted
+        
+        except Exception as e:
+            logger.error(f"Error transforming features: {str(e)}")
+            return X

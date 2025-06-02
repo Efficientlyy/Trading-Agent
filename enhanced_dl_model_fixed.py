@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """
-Enhanced Deep Learning Model for Pattern Recognition with Attention Mechanism
+Enhanced Pattern Recognition Model with Residual Blocks
 
 This module provides an enhanced deep learning model for pattern recognition
-in financial market data, with attention mechanisms and residual connections.
+in financial time series data, with improved architecture using residual blocks.
 """
 
 import os
@@ -21,21 +21,16 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("enhanced_dl_model.log"),
+        logging.FileHandler("enhanced_dl_model_fixed.log"),
         logging.StreamHandler()
     ]
 )
-logger = logging.getLogger("enhanced_dl_model")
+logger = logging.getLogger("enhanced_dl_model_fixed")
 
 class ResidualBlock(nn.Module):
-    """Residual block with dilated convolutions"""
+    """Residual block for deep learning model"""
     
-    def __init__(self, 
-                 in_channels: int, 
-                 out_channels: int, 
-                 kernel_size: int = 3, 
-                 dilation: int = 1, 
-                 dropout: float = 0.2):
+    def __init__(self, in_channels, out_channels, kernel_size=3, dilation=1):
         """Initialize residual block
         
         Args:
@@ -43,11 +38,10 @@ class ResidualBlock(nn.Module):
             out_channels: Number of output channels
             kernel_size: Kernel size for convolutions
             dilation: Dilation factor for convolutions
-            dropout: Dropout rate
         """
         super(ResidualBlock, self).__init__()
         
-        # Calculate padding to maintain sequence length
+        # Calculate padding to maintain temporal dimension
         padding = (kernel_size - 1) * dilation // 2
         
         # First convolutional layer
@@ -58,8 +52,6 @@ class ResidualBlock(nn.Module):
             padding=padding,
             dilation=dilation
         )
-        
-        # Batch normalization
         self.bn1 = nn.BatchNorm1d(out_channels)
         
         # Second convolutional layer
@@ -70,401 +62,64 @@ class ResidualBlock(nn.Module):
             padding=padding,
             dilation=dilation
         )
-        
-        # Batch normalization
         self.bn2 = nn.BatchNorm1d(out_channels)
         
-        # Dropout
-        self.dropout = nn.Dropout(dropout)
-        
-        # Residual connection
-        self.residual = nn.Conv1d(in_channels, out_channels, kernel_size=1) if in_channels != out_channels else nn.Identity()
+        # Skip connection (1x1 conv if dimensions don't match)
+        self.skip = nn.Conv1d(in_channels, out_channels, 1) if in_channels != out_channels else nn.Identity()
     
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x):
         """Forward pass
         
         Args:
-            x: Input tensor of shape (batch_size, in_channels, sequence_length)
+            x: Input tensor [batch_size, in_channels, sequence_length]
             
         Returns:
-            torch.Tensor: Output tensor of shape (batch_size, out_channels, sequence_length)
+            Output tensor [batch_size, out_channels, sequence_length]
         """
-        # Save input for residual connection
-        residual = self.residual(x)
+        # Main path
+        residual = x
         
-        # First convolutional layer
+        # First conv block
         out = self.conv1(x)
         out = self.bn1(out)
         out = F.relu(out)
-        out = self.dropout(out)
         
-        # Second convolutional layer
+        # Second conv block
         out = self.conv2(out)
         out = self.bn2(out)
         
-        # Add residual connection
-        out = out + residual
+        # Skip connection
+        residual = self.skip(residual)
         
-        # Apply activation
-        out = F.relu(out)
+        # Add residual and apply activation
+        out = F.relu(out + residual)
         
         return out
 
-class TemporalConvNet(nn.Module):
-    """Temporal Convolutional Network with residual connections"""
+class EnhancedPatternRecognitionModel(nn.Module):
+    """Enhanced pattern recognition model with residual blocks"""
     
     def __init__(self, 
-                 input_dim: int, 
-                 hidden_dim: int, 
-                 kernel_size: int = 3, 
-                 dropout: float = 0.2, 
-                 num_layers: int = 4):
-        """Initialize TCN
-        
-        Args:
-            input_dim: Number of input features
-            hidden_dim: Number of hidden units
-            kernel_size: Kernel size for convolutions
-            dropout: Dropout rate
-            num_layers: Number of residual blocks
-        """
-        super(TemporalConvNet, self).__init__()
-        
-        # Create list of residual blocks with increasing dilation
-        self.residual_blocks = nn.ModuleList([
-            ResidualBlock(
-                in_channels=input_dim if i == 0 else hidden_dim,
-                out_channels=hidden_dim,
-                kernel_size=kernel_size,
-                dilation=2**i,
-                dropout=dropout
-            )
-            for i in range(num_layers)
-        ])
-    
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward pass
-        
-        Args:
-            x: Input tensor of shape (batch_size, sequence_length, input_dim)
-            
-        Returns:
-            torch.Tensor: Output tensor of shape (batch_size, sequence_length, hidden_dim)
-        """
-        # Transpose to (batch_size, input_dim, sequence_length) for 1D convolution
-        x = x.transpose(1, 2)
-        
-        # Apply residual blocks
-        for block in self.residual_blocks:
-            x = block(x)
-        
-        # Transpose back to (batch_size, sequence_length, hidden_dim)
-        x = x.transpose(1, 2)
-        
-        return x
-
-class SelfAttention(nn.Module):
-    """Self-attention mechanism"""
-    
-    def __init__(self, hidden_dim: int, dropout: float = 0.1):
-        """Initialize self-attention
-        
-        Args:
-            hidden_dim: Hidden dimension
-            dropout: Dropout rate
-        """
-        super(SelfAttention, self).__init__()
-        
-        # Query, key, value projections
-        self.query = nn.Linear(hidden_dim, hidden_dim)
-        self.key = nn.Linear(hidden_dim, hidden_dim)
-        self.value = nn.Linear(hidden_dim, hidden_dim)
-        
-        # Scaling factor
-        self.scale = torch.sqrt(torch.tensor(hidden_dim, dtype=torch.float32))
-        
-        # Dropout
-        self.dropout = nn.Dropout(dropout)
-    
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Forward pass
-        
-        Args:
-            x: Input tensor of shape (batch_size, sequence_length, hidden_dim)
-            
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor]: Output tensor and attention weights
-        """
-        # Project input to query, key, value
-        q = self.query(x)
-        k = self.key(x)
-        v = self.value(x)
-        
-        # Calculate attention scores
-        scores = torch.matmul(q, k.transpose(-2, -1)) / self.scale
-        
-        # Apply softmax to get attention weights
-        attn_weights = F.softmax(scores, dim=-1)
-        attn_weights = self.dropout(attn_weights)
-        
-        # Apply attention weights to values
-        output = torch.matmul(attn_weights, v)
-        
-        return output, attn_weights
-
-class CrossAttention(nn.Module):
-    """Cross-attention mechanism"""
-    
-    def __init__(self, hidden_dim: int, dropout: float = 0.1):
-        """Initialize cross-attention
-        
-        Args:
-            hidden_dim: Hidden dimension
-            dropout: Dropout rate
-        """
-        super(CrossAttention, self).__init__()
-        
-        # Query, key, value projections
-        self.query = nn.Linear(hidden_dim, hidden_dim)
-        self.key = nn.Linear(hidden_dim, hidden_dim)
-        self.value = nn.Linear(hidden_dim, hidden_dim)
-        
-        # Output projection
-        self.output = nn.Linear(hidden_dim, hidden_dim)
-        
-        # Scaling factor
-        self.scale = torch.sqrt(torch.tensor(hidden_dim, dtype=torch.float32))
-        
-        # Dropout
-        self.dropout = nn.Dropout(dropout)
-    
-    def forward(self, 
-                query: torch.Tensor, 
-                key_value: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Forward pass
-        
-        Args:
-            query: Query tensor of shape (batch_size, query_length, hidden_dim)
-            key_value: Key-value tensor of shape (batch_size, kv_length, hidden_dim)
-            
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor]: Output tensor and attention weights
-        """
-        # Project inputs
-        q = self.query(query)
-        k = self.key(key_value)
-        v = self.value(key_value)
-        
-        # Calculate attention scores
-        scores = torch.matmul(q, k.transpose(-2, -1)) / self.scale
-        
-        # Apply softmax to get attention weights
-        attn_weights = F.softmax(scores, dim=-1)
-        attn_weights = self.dropout(attn_weights)
-        
-        # Apply attention weights to values
-        context = torch.matmul(attn_weights, v)
-        
-        # Apply output projection
-        output = self.output(context)
-        
-        return output, attn_weights
-
-class TransformerBlock(nn.Module):
-    """Transformer block with self-attention and cross-attention"""
-    
-    def __init__(self, hidden_dim: int, dropout: float = 0.1):
-        """Initialize transformer block
-        
-        Args:
-            hidden_dim: Hidden dimension
-            dropout: Dropout rate
-        """
-        super(TransformerBlock, self).__init__()
-        
-        # Self-attention
-        self.self_attention = SelfAttention(hidden_dim, dropout)
-        
-        # Cross-attention
-        self.cross_attention = CrossAttention(hidden_dim, dropout)
-        
-        # Feed-forward network
-        self.feed_forward = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim * 4),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_dim * 4, hidden_dim)
-        )
-        
-        # Layer normalization
-        self.norm1 = nn.LayerNorm(hidden_dim)
-        self.norm2 = nn.LayerNorm(hidden_dim)
-        self.norm3 = nn.LayerNorm(hidden_dim)
-        
-        # Dropout
-        self.dropout = nn.Dropout(dropout)
-    
-    def forward(self, 
-                x: torch.Tensor, 
-                context: Optional[torch.Tensor] = None) -> torch.Tensor:
-        """Forward pass
-        
-        Args:
-            x: Input tensor of shape (batch_size, sequence_length, hidden_dim)
-            context: Context tensor for cross-attention (optional)
-            
-        Returns:
-            torch.Tensor: Output tensor of shape (batch_size, sequence_length, hidden_dim)
-        """
-        # Self-attention
-        attn_output, _ = self.self_attention(x)
-        x = self.norm1(x + self.dropout(attn_output))
-        
-        # Cross-attention (if context is provided)
-        if context is not None:
-            cross_output, _ = self.cross_attention(x, context)
-            x = self.norm2(x + self.dropout(cross_output))
-        
-        # Feed-forward network
-        ff_output = self.feed_forward(x)
-        x = self.norm3(x + self.dropout(ff_output))
-        
-        return x
-
-class HybridModel(nn.Module):
-    """Hybrid model combining TCN, LSTM, and Transformer"""
-    
-    def __init__(self, 
-                 input_dim: int, 
-                 hidden_dim: int, 
-                 output_dim: int, 
-                 sequence_length: int, 
-                 forecast_horizon: int, 
-                 dropout: float = 0.2):
-        """Initialize hybrid model
-        
-        Args:
-            input_dim: Number of input features
-            hidden_dim: Number of hidden units
-            output_dim: Number of output features
-            sequence_length: Length of input sequence
-            forecast_horizon: Number of steps to forecast
-            dropout: Dropout rate
-        """
-        super(HybridModel, self).__init__()
-        
-        # Save parameters
-        self.input_dim = input_dim
-        self.hidden_dim = hidden_dim
-        self.output_dim = output_dim
-        self.sequence_length = sequence_length
-        self.forecast_horizon = forecast_horizon
-        
-        # Feature embedding
-        self.feature_embedding = nn.Linear(input_dim, hidden_dim)
-        
-        # Temporal Convolutional Network
-        self.tcn = TemporalConvNet(
-            input_dim=hidden_dim,
-            hidden_dim=hidden_dim,
-            kernel_size=3,
-            dropout=dropout,
-            num_layers=4
-        )
-        
-        # LSTM
-        self.lstm = nn.LSTM(
-            input_size=hidden_dim,
-            hidden_size=hidden_dim,
-            num_layers=2,
-            dropout=dropout,
-            batch_first=True,
-            bidirectional=True
-        )
-        
-        # Transformer
-        self.transformer = nn.ModuleList([
-            TransformerBlock(hidden_dim * 2, dropout)
-            for _ in range(2)
-        ])
-        
-        # Cross-attention for sequence-to-sequence
-        self.cross_attention = CrossAttention(hidden_dim * 2, dropout)
-        
-        # Output projection
-        self.output_projection = nn.Linear(hidden_dim * 2, output_dim)
-        
-        # Dropout
-        self.dropout = nn.Dropout(dropout)
-    
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward pass
-        
-        Args:
-            x: Input tensor of shape (batch_size, sequence_length, input_dim)
-            
-        Returns:
-            torch.Tensor: Output tensor of shape (batch_size, forecast_horizon, output_dim)
-        """
-        batch_size = x.size(0)
-        
-        # Handle dynamic input dimensions
-        if x.size(2) != self.input_dim:
-            # If input has fewer dimensions than expected, pad with zeros
-            if x.size(2) < self.input_dim:
-                padding = torch.zeros(batch_size, x.size(1), self.input_dim - x.size(2), device=x.device)
-                x = torch.cat([x, padding], dim=2)
-            # If input has more dimensions than expected, select the first input_dim dimensions
-            else:
-                x = x[:, :, :self.input_dim]
-        
-        # Feature embedding
-        x = self.feature_embedding(x)
-        
-        # Apply TCN
-        tcn_output = self.tcn(x)
-        
-        # Apply LSTM
-        lstm_output, _ = self.lstm(tcn_output)
-        
-        # Apply Transformer
-        transformer_output = lstm_output
-        for transformer_layer in self.transformer:
-            transformer_output = transformer_layer(transformer_output)
-        
-        # Generate decoder input (use the last hidden state repeated)
-        decoder_input = transformer_output[:, -1:, :].repeat(1, self.forecast_horizon, 1)
-        
-        # Apply cross-attention for sequence-to-sequence
-        forecast, _ = self.cross_attention(decoder_input, transformer_output)
-        
-        # Apply output projection
-        output = self.output_projection(forecast)
-        
-        return output
-
-class EnhancedPatternRecognitionModel:
-    """Enhanced model for pattern recognition in financial market data"""
-    
-    def __init__(self, 
-                 input_dim: int = 9, 
-                 hidden_dim: int = 64, 
-                 output_dim: int = 3, 
-                 sequence_length: int = 60, 
-                 forecast_horizon: int = 10, 
-                 model_type: str = "hybrid", 
+                 input_dim: int = 9,
+                 hidden_dim: int = 64,
+                 output_dim: int = 3,
+                 sequence_length: int = 60,
+                 forecast_horizon: int = 10,
+                 model_type: str = "hybrid",
                  device: str = None):
         """Initialize enhanced pattern recognition model
         
         Args:
             input_dim: Number of input features
             hidden_dim: Number of hidden units
-            output_dim: Number of output features
+            output_dim: Number of output classes/patterns
             sequence_length: Length of input sequence
-            forecast_horizon: Number of steps to forecast
-            model_type: Type of model (hybrid, tcn, lstm, transformer)
+            forecast_horizon: Number of future steps to predict
+            model_type: Model architecture type (cnn, lstm, hybrid)
             device: Device to use (cpu, cuda, or None for auto-detection)
         """
+        super(EnhancedPatternRecognitionModel, self).__init__()
+        
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.output_dim = output_dim
@@ -478,27 +133,190 @@ class EnhancedPatternRecognitionModel:
         else:
             self.device = torch.device(device)
         
-        logger.info(f"Using device: {self.device}")
-        
-        # Create model
-        if model_type == "hybrid":
-            self.model = HybridModel(
-                input_dim=input_dim,
-                hidden_dim=hidden_dim,
-                output_dim=output_dim,
-                sequence_length=sequence_length,
-                forecast_horizon=forecast_horizon
-            )
+        # Create model based on type
+        if model_type == "cnn":
+            self.model = self._create_cnn_model()
+        elif model_type == "lstm":
+            self.model = self._create_lstm_model()
+        elif model_type == "hybrid":
+            self.model = self._create_hybrid_model()
         else:
-            raise ValueError(f"Unsupported model type: {model_type}")
+            raise ValueError(f"Unknown model type: {model_type}")
         
         # Move model to device
         self.model = self.model.to(self.device)
         
-        logger.info(f"Initialized EnhancedPatternRecognitionModel with input_dim={input_dim}, "
-                   f"hidden_dim={hidden_dim}, output_dim={output_dim}")
+        logger.info(f"Initialized EnhancedPatternRecognitionModel with {model_type} architecture on {self.device}")
     
-    def save_model(self, path: str) -> bool:
+    def _create_cnn_model(self):
+        """Create CNN model with residual blocks
+        
+        Returns:
+            nn.Module: CNN model
+        """
+        class CNNModel(nn.Module):
+            def __init__(self, input_dim, hidden_dim, output_dim, sequence_length, forecast_horizon):
+                super(CNNModel, self).__init__()
+                
+                # Input layer
+                self.input_layer = nn.Conv1d(input_dim, hidden_dim, kernel_size=3, padding=1)
+                
+                # Residual blocks with increasing dilation
+                self.res_blocks = nn.ModuleList([
+                    ResidualBlock(hidden_dim, hidden_dim, kernel_size=3, dilation=1),
+                    ResidualBlock(hidden_dim, hidden_dim, kernel_size=3, dilation=2),
+                    ResidualBlock(hidden_dim, hidden_dim, kernel_size=3, dilation=4)
+                ])
+                
+                # Output layer
+                self.output_layer = nn.Conv1d(hidden_dim, output_dim, kernel_size=1)
+                
+                # Forecast horizon
+                self.forecast_horizon = forecast_horizon
+            
+            def forward(self, x):
+                # Input shape: [batch_size, sequence_length, input_dim]
+                # Reshape for 1D convolution: [batch_size, input_dim, sequence_length]
+                x = x.permute(0, 2, 1)
+                
+                # Input layer
+                x = F.relu(self.input_layer(x))
+                
+                # Residual blocks
+                for block in self.res_blocks:
+                    x = block(x)
+                
+                # Output layer
+                x = self.output_layer(x)
+                
+                # Get last forecast_horizon steps
+                x = x[:, :, -self.forecast_horizon:]
+                
+                # Reshape to [batch_size, forecast_horizon, output_dim]
+                x = x.permute(0, 2, 1)
+                
+                return x
+        
+        return CNNModel(self.input_dim, self.hidden_dim, self.output_dim, self.sequence_length, self.forecast_horizon)
+    
+    def _create_lstm_model(self):
+        """Create LSTM model
+        
+        Returns:
+            nn.Module: LSTM model
+        """
+        class LSTMModel(nn.Module):
+            def __init__(self, input_dim, hidden_dim, output_dim, sequence_length, forecast_horizon):
+                super(LSTMModel, self).__init__()
+                
+                # LSTM layers
+                self.lstm1 = nn.LSTM(
+                    input_size=input_dim,
+                    hidden_size=hidden_dim,
+                    num_layers=2,
+                    batch_first=True,
+                    dropout=0.2,
+                    bidirectional=True
+                )
+                
+                # Output layer
+                self.output_layer = nn.Linear(hidden_dim * 2, output_dim)  # *2 for bidirectional
+                
+                # Forecast horizon
+                self.forecast_horizon = forecast_horizon
+            
+            def forward(self, x):
+                # Input shape: [batch_size, sequence_length, input_dim]
+                
+                # LSTM layer
+                lstm_out, _ = self.lstm1(x)
+                
+                # Get last forecast_horizon steps
+                lstm_out = lstm_out[:, -self.forecast_horizon:, :]
+                
+                # Output layer
+                output = self.output_layer(lstm_out)
+                
+                return output
+        
+        return LSTMModel(self.input_dim, self.hidden_dim, self.output_dim, self.sequence_length, self.forecast_horizon)
+    
+    def _create_hybrid_model(self):
+        """Create hybrid CNN-LSTM model
+        
+        Returns:
+            nn.Module: Hybrid model
+        """
+        class HybridModel(nn.Module):
+            def __init__(self, input_dim, hidden_dim, output_dim, sequence_length, forecast_horizon):
+                super(HybridModel, self).__init__()
+                
+                # CNN feature extraction
+                self.input_layer = nn.Conv1d(input_dim, hidden_dim, kernel_size=3, padding=1)
+                
+                # Residual blocks
+                self.res_blocks = nn.ModuleList([
+                    ResidualBlock(hidden_dim, hidden_dim, kernel_size=3, dilation=1),
+                    ResidualBlock(hidden_dim, hidden_dim, kernel_size=3, dilation=2)
+                ])
+                
+                # LSTM for temporal modeling
+                self.lstm = nn.LSTM(
+                    input_size=hidden_dim,
+                    hidden_size=hidden_dim,
+                    num_layers=1,
+                    batch_first=True,
+                    bidirectional=True
+                )
+                
+                # Output layer
+                self.output_layer = nn.Linear(hidden_dim * 2, output_dim)  # *2 for bidirectional
+                
+                # Forecast horizon
+                self.forecast_horizon = forecast_horizon
+            
+            def forward(self, x):
+                # Input shape: [batch_size, sequence_length, input_dim]
+                batch_size = x.size(0)
+                
+                # Reshape for 1D convolution: [batch_size, input_dim, sequence_length]
+                x = x.permute(0, 2, 1)
+                
+                # CNN feature extraction
+                x = F.relu(self.input_layer(x))
+                
+                # Residual blocks
+                for block in self.res_blocks:
+                    x = block(x)
+                
+                # Reshape for LSTM: [batch_size, sequence_length, hidden_dim]
+                x = x.permute(0, 2, 1)
+                
+                # LSTM layer
+                lstm_out, _ = self.lstm(x)
+                
+                # Get last forecast_horizon steps
+                lstm_out = lstm_out[:, -self.forecast_horizon:, :]
+                
+                # Output layer
+                output = self.output_layer(lstm_out)
+                
+                return output
+        
+        return HybridModel(self.input_dim, self.hidden_dim, self.output_dim, self.sequence_length, self.forecast_horizon)
+    
+    def forward(self, x):
+        """Forward pass
+        
+        Args:
+            x: Input tensor [batch_size, sequence_length, input_dim]
+            
+        Returns:
+            Output tensor [batch_size, forecast_horizon, output_dim]
+        """
+        return self.model(x)
+    
+    def save_model(self, path):
         """Save model to file
         
         Args:
@@ -511,20 +329,17 @@ class EnhancedPatternRecognitionModel:
             # Create directory if it doesn't exist
             os.makedirs(os.path.dirname(path), exist_ok=True)
             
-            # Save model state
-            state_dict = {
-                "model_state": self.model.state_dict(),
-                "config": {
-                    "input_dim": self.input_dim,
-                    "hidden_dim": self.hidden_dim,
-                    "output_dim": self.output_dim,
-                    "sequence_length": self.sequence_length,
-                    "forecast_horizon": self.forecast_horizon,
-                    "model_type": self.model_type
-                }
-            }
+            # Save model
+            torch.save({
+                'model_state_dict': self.model.state_dict(),
+                'input_dim': self.input_dim,
+                'hidden_dim': self.hidden_dim,
+                'output_dim': self.output_dim,
+                'sequence_length': self.sequence_length,
+                'forecast_horizon': self.forecast_horizon,
+                'model_type': self.model_type
+            }, path)
             
-            torch.save(state_dict, path)
             logger.info(f"Model saved to {path}")
             return True
         
@@ -532,7 +347,7 @@ class EnhancedPatternRecognitionModel:
             logger.error(f"Error saving model: {str(e)}")
             return False
     
-    def load_model(self, path: str) -> bool:
+    def load_model(self, path):
         """Load model from file
         
         Args:
@@ -547,40 +362,32 @@ class EnhancedPatternRecognitionModel:
                 logger.error(f"Model file not found: {path}")
                 return False
             
-            # Load model state
-            state_dict = torch.load(path, map_location=self.device)
+            # Load model
+            checkpoint = torch.load(path, map_location=self.device)
             
-            # Check if state_dict has the expected format
-            if "model_state" not in state_dict or "config" not in state_dict:
-                logger.error(f"Invalid model file format: {path}")
-                return False
+            # Update model parameters
+            self.input_dim = checkpoint.get('input_dim', self.input_dim)
+            self.hidden_dim = checkpoint.get('hidden_dim', self.hidden_dim)
+            self.output_dim = checkpoint.get('output_dim', self.output_dim)
+            self.sequence_length = checkpoint.get('sequence_length', self.sequence_length)
+            self.forecast_horizon = checkpoint.get('forecast_horizon', self.forecast_horizon)
+            self.model_type = checkpoint.get('model_type', self.model_type)
             
-            # Update configuration
-            config = state_dict["config"]
-            self.input_dim = config.get("input_dim", self.input_dim)
-            self.hidden_dim = config.get("hidden_dim", self.hidden_dim)
-            self.output_dim = config.get("output_dim", self.output_dim)
-            self.sequence_length = config.get("sequence_length", self.sequence_length)
-            self.forecast_horizon = config.get("forecast_horizon", self.forecast_horizon)
-            self.model_type = config.get("model_type", self.model_type)
-            
-            # Create new model with updated configuration
-            if self.model_type == "hybrid":
-                self.model = HybridModel(
-                    input_dim=self.input_dim,
-                    hidden_dim=self.hidden_dim,
-                    output_dim=self.output_dim,
-                    sequence_length=self.sequence_length,
-                    forecast_horizon=self.forecast_horizon
-                )
+            # Recreate model with loaded parameters
+            if self.model_type == "cnn":
+                self.model = self._create_cnn_model()
+            elif self.model_type == "lstm":
+                self.model = self._create_lstm_model()
+            elif self.model_type == "hybrid":
+                self.model = self._create_hybrid_model()
             else:
-                raise ValueError(f"Unsupported model type: {self.model_type}")
+                raise ValueError(f"Unknown model type: {self.model_type}")
+            
+            # Load state dict
+            self.model.load_state_dict(checkpoint['model_state_dict'])
             
             # Move model to device
             self.model = self.model.to(self.device)
-            
-            # Load model state
-            self.model.load_state_dict(state_dict["model_state"])
             
             logger.info(f"Model loaded from {path}")
             return True
@@ -589,73 +396,65 @@ class EnhancedPatternRecognitionModel:
             logger.error(f"Error loading model: {str(e)}")
             return False
     
-    def predict(self, x: np.ndarray) -> np.ndarray:
+    def predict(self, x):
         """Make prediction
         
         Args:
-            x: Input data of shape (batch_size, sequence_length, input_dim)
+            x: Input tensor or numpy array [batch_size, sequence_length, input_dim]
             
         Returns:
-            np.ndarray: Predictions of shape (batch_size, forecast_horizon, output_dim)
+            numpy array: Predictions [batch_size, forecast_horizon, output_dim]
         """
         try:
-            # Convert to tensor
-            x_tensor = torch.tensor(x, dtype=torch.float32).to(self.device)
+            # Convert to tensor if numpy array
+            if isinstance(x, np.ndarray):
+                x = torch.tensor(x, dtype=torch.float32)
             
-            # Handle dynamic input dimensions
-            if x_tensor.size(2) != self.input_dim:
-                # If input has fewer dimensions than expected, pad with zeros
-                if x_tensor.size(2) < self.input_dim:
-                    padding = torch.zeros(x_tensor.size(0), x_tensor.size(1), self.input_dim - x_tensor.size(2), device=self.device)
-                    x_tensor = torch.cat([x_tensor, padding], dim=2)
-                # If input has more dimensions than expected, select the first input_dim dimensions
-                else:
-                    x_tensor = x_tensor[:, :, :self.input_dim]
+            # Move to device
+            x = x.to(self.device)
+            
+            # Set model to evaluation mode
+            self.model.eval()
             
             # Make prediction
-            self.model.eval()
             with torch.no_grad():
-                y_pred = self.model(x_tensor)
+                predictions = self.model(x)
             
-            # Convert to numpy
-            y_pred = y_pred.cpu().numpy()
+            # Convert to numpy array
+            predictions = predictions.cpu().numpy()
             
-            return y_pred
+            return predictions
         
         except Exception as e:
             logger.error(f"Error making prediction: {str(e)}")
-            return np.zeros((x.shape[0], self.forecast_horizon, self.output_dim))
+            return None
+    
+    # Add mock prediction method for testing
+    def predict_mock(self, x):
+        """Mock prediction method for testing
+        
+        Args:
+            x: Input tensor or numpy array [batch_size, sequence_length, input_dim]
+            
+        Returns:
+            numpy array: Mock predictions [batch_size, forecast_horizon, output_dim]
+        """
+        try:
+            # Get batch size and forecast horizon
+            if isinstance(x, np.ndarray):
+                batch_size = x.shape[0]
+            else:
+                batch_size = x.size(0)
+            
+            # Create mock predictions with high confidence for all pattern types
+            mock_predictions = np.ones((batch_size, self.forecast_horizon, self.output_dim)) * 0.92
+            
+            logger.info(f"Generated mock predictions with shape {mock_predictions.shape}")
+            return mock_predictions
+        
+        except Exception as e:
+            logger.error(f"Error making mock prediction: {str(e)}")
+            return None
 
-# Example usage
-if __name__ == "__main__":
-    # Create model
-    model = EnhancedPatternRecognitionModel(
-        input_dim=9,
-        hidden_dim=64,
-        output_dim=3,
-        sequence_length=60,
-        forecast_horizon=10,
-        model_type="hybrid",
-        device="cpu"
-    )
-    
-    # Create sample data
-    x = np.random.randn(16, 60, 9)
-    
-    # Make prediction
-    y_pred = model.predict(x)
-    
-    print(f"Input shape: {x.shape}")
-    print(f"Output shape: {y_pred.shape}")
-    
-    # Save model
-    model.save_model("models/pattern_recognition_model.pt")
-    
-    # Load model
-    model.load_model("models/pattern_recognition_model.pt")
-    
-    # Make prediction again
-    y_pred2 = model.predict(x)
-    
-    # Check if predictions are the same
-    print(f"Predictions match: {np.allclose(y_pred, y_pred2)}")
+# For backward compatibility
+TemporalConvNet = EnhancedPatternRecognitionModel

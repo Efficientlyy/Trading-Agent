@@ -1,0 +1,76 @@
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>End-to-End Test Report</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                h1 { color: #333; }
+                .summary { margin: 20px 0; padding: 10px; background-color: #f5f5f5; border-radius: 5px; }
+                .scenario { margin: 10px 0; padding: 10px; border-radius: 5px; }
+                .passed { background-color: #dff0d8; border: 1px solid #d6e9c6; }
+                .failed { background-color: #f2dede; border: 1px solid #ebccd1; }
+                .skipped { background-color: #fcf8e3; border: 1px solid #faebcc; }
+                .details { margin-top: 10px; font-family: monospace; white-space: pre-wrap; }
+            </style>
+        </head>
+        <body>
+            <h1>End-to-End Test Report</h1>
+            <div class="summary">
+                <h2>Summary</h2>
+                <p>Timestamp: 2025-06-02T02:21:23</p>
+                <p>Total Scenarios: 5</p>
+                <p>Passed: 1</p>
+                <p>Failed: 2</p>
+                <p>Skipped: 2</p>
+            </div>
+            <h2>Scenarios</h2>
+        
+            <div class="scenario failed">
+                <h3>Market Data Processing and Signal Generation</h3>
+                <p>Status: FAILED</p>
+                <p>Timestamp: 2025-06-02T02:21:23</p>
+                <div class="details">
+            <p><strong>error:</strong> No signals generated</p><p><strong>execution_time:</strong> 0.18 seconds</p>
+                </div>
+            </div>
+            
+            <div class="scenario skipped">
+                <h3>Signal to Decision Pipeline</h3>
+                <p>Status: SKIPPED</p>
+                <p>Timestamp: 2025-06-02T02:21:23</p>
+                <div class="details">
+            <p><strong>reason:</strong> No signals found from previous test</p>
+                </div>
+            </div>
+            
+            <div class="scenario failed">
+                <h3>Pattern Recognition Integration</h3>
+                <p>Status: FAILED</p>
+                <p>Timestamp: 2025-06-02T02:21:25</p>
+                <div class="details">
+            <p><strong>error:</strong> No pattern signals generated</p><p><strong>execution_time:</strong> 1.54 seconds</p>
+                </div>
+            </div>
+            
+            <div class="scenario skipped">
+                <h3>End-to-End Order Execution</h3>
+                <p>Status: SKIPPED</p>
+                <p>Timestamp: 2025-06-02T02:21:25</p>
+                <div class="details">
+            <p><strong>reason:</strong> No decisions found from previous test</p>
+                </div>
+            </div>
+            
+            <div class="scenario passed">
+                <h3>System Recovery and Error Handling</h3>
+                <p>Status: PASSED</p>
+                <p>Timestamp: 2025-06-02T02:21:29</p>
+                <div class="details">
+            <p><strong>retry_count:</strong> 12</p><p><strong>error_count:</strong> 12</p><p><strong>recovery_rate:</strong> 0.0</p><p><strong>execution_time:</strong> 4.05 seconds</p>
+                </div>
+            </div>
+            
+        </body>
+        </html>
+        

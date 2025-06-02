@@ -1,0 +1,85 @@
+{
+  "results": {
+    "model": {
+      "success": false,
+      "tests": {
+        "initialization": true,
+        "forward_pass": true,
+        "attention_mechanism": false,
+        "residual_connections": true,
+        "save_load": false
+      },
+      "errors": [
+        "Attention mechanism not found in model",
+        "Save and load functionality failed, outputs differ"
+      ]
+    },
+    "adapter": {
+      "success": true,
+      "tests": {
+        "initialization": true,
+        "feature_adaptation": true,
+        "feature_importance": true,
+        "market_regime_detection": true,
+        "caching": true
+      },
+      "errors": []
+    },
+    "integration": {
+      "success": true,
+      "tests": {
+        "service_initialization": true,
+        "integrator_initialization": true,
+        "pattern_detection": true,
+        "signal_integration": true,
+        "circuit_breaker": true,
+        "shutdown": true
+      },
+      "errors": []
+    },
+    "end_to_end": {
+      "success": true,
+      "tests": {
+        "end_to_end_initialization": true,
+        "market_regime_processing": true,
+        "timeframe_processing": true,
+        "feature_dimension_processing": true,
+        "end_to_end_shutdown": true
+      },
+      "errors": []
+    },
+    "performance": {
+      "success": true,
+      "tests": {
+        "model_inference": true,
+        "feature_adaptation": true,
+        "integration_processing": true,
+        "memory_usage": true,
+        "async_performance": true
+      },
+      "errors": [],
+      "metrics": {
+        "model_inference_time": 0.03733415603637695,
+        "feature_adaptation_time": 4.7659873962402345e-05,
+        "integration_processing_time": 0.00034389495849609377,
+        "memory_usage_mb": 748.4453125,
+        "async_processing_time": 0.0004371166229248047,
+        "sync_processing_time": 0.00034389495849609377
+      }
+    },
+    "edge_cases": {
+      "success": false,
+      "tests": {
+        "empty_data": false,
+        "missing_columns": true,
+        "invalid_timeframe": true,
+        "invalid_current_state": true,
+        "large_data": true
+      },
+      "errors": [
+        "Empty data handling failed, expected error signal, got {'buy': 0.7777777777777777, 'sell': 0.2222222222222222, 'hold': 1.1102230246251565e-16, 'confidence': 0.7777777777777777, 'sources': [{'type': 'pattern', 'weight': 0.6, 'buy': 0.0, 'sell': 0.0, 'patterns': []}, {'type': 'technical', 'weight': 0.3, 'buy': 0.7, 'sell': 0.2, 'indicators': []}, {'type': 'fundamental', 'weight': 0.1, 'buy': 0.0, 'sell': 0.0}], 'timestamp': '2025-06-01T11:43:57.%f', 'historical_context': {'trend': 'bullish', 'strength': 0.5555555555555555, 'consistency': 1.0}}"
+      ]
+    }
+  },
+  "timestamp": "2025-06-01T11:43:58.236485"
+}

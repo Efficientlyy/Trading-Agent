@@ -1,0 +1,265 @@
+{
+  "environment_tests": {
+    "initialization": {
+      "status": "Passed",
+      "details": {
+        "env_type": "TradingRLEnvironment"
+      }
+    },
+    "reset": {
+      "status": "Passed",
+      "details": {
+        "state_type": "dict",
+        "state_keys": [
+          "price_1m",
+          "price_5m",
+          "price_15m",
+          "price_1h",
+          "rsi_1m",
+          "rsi_5m",
+          "rsi_15m",
+          "rsi_1h",
+          "macd_1m",
+          "macd_5m",
+          "macd_15m",
+          "macd_1h",
+          "bb_1m",
+          "bb_5m",
+          "bb_15m",
+          "bb_1h",
+          "order_imbalance",
+          "spread",
+          "volatility",
+          "session",
+          "price_change_1m",
+          "price_change_5m",
+          "price_change_15m",
+          "param_imbalance_threshold",
+          "param_momentum_threshold",
+          "param_volatility_threshold",
+          "param_rsi_threshold",
+          "param_macd_threshold",
+          "param_bb_threshold",
+          "metric_pnl",
+          "metric_sharpe_ratio",
+          "metric_win_rate",
+          "metric_trade_count",
+          "metric_max_drawdown",
+          "metric_volatility",
+          "metric_profit_factor",
+          "metric_recovery_factor"
+        ],
+        "state_size": 37
+      }
+    },
+    "step": {
+      "status": "Passed",
+      "details": {
+        "next_state_type": "dict",
+        "reward_type": "float64",
+        "done_type": "bool",
+        "info_type": "dict"
+      }
+    },
+    "reward": {
+      "status": "Passed",
+      "details": {
+        "reward_range": [
+          -3.5977090298392626e+33,
+          -2025.5737083351173
+        ],
+        "reward_mean": -7.19541813038731e+32,
+        "reward_std": 1.4390836084002662e+33
+      }
+    },
+    "state": {
+      "status": "Passed",
+      "details": {
+        "state_keys": [
+          "price_1m",
+          "price_5m",
+          "price_15m",
+          "price_1h",
+          "rsi_1m",
+          "rsi_5m",
+          "rsi_15m",
+          "rsi_1h",
+          "macd_1m",
+          "macd_5m",
+          "macd_15m",
+          "macd_1h",
+          "bb_1m",
+          "bb_5m",
+          "bb_15m",
+          "bb_1h",
+          "order_imbalance",
+          "spread",
+          "volatility",
+          "session",
+          "price_change_1m",
+          "price_change_5m",
+          "price_change_15m",
+          "param_imbalance_threshold",
+          "param_momentum_threshold",
+          "param_volatility_threshold",
+          "param_rsi_threshold",
+          "param_macd_threshold",
+          "param_bb_threshold",
+          "metric_pnl",
+          "metric_sharpe_ratio",
+          "metric_win_rate",
+          "metric_trade_count",
+          "metric_max_drawdown",
+          "metric_volatility",
+          "metric_profit_factor",
+          "metric_recovery_factor",
+          "metric_pnl_percent"
+        ],
+        "state_size": 38
+      }
+    },
+    "status": "Passed"
+  },
+  "agent_tests": {
+    "initialization": {
+      "status": "Passed",
+      "details": {
+        "agent_type": "PPOAgent"
+      }
+    },
+    "action_selection": {
+      "status": "Passed",
+      "details": {
+        "action_type": "ndarray",
+        "action_shape": [
+          4
+        ],
+        "log_prob_type": "ndarray",
+        "value_type": "ndarray"
+      }
+    },
+    "update": {
+      "status": "Not Run",
+      "details": {}
+    },
+    "save_load": {
+      "status": "Not Run",
+      "details": {}
+    },
+    "status": "Failed",
+    "error": "index 100 is out of bounds for dimension 0 with size 100"
+  },
+  "integration_tests": {
+    "initialization": {
+      "status": "Passed",
+      "details": {
+        "integration_type": "RLIntegration"
+      }
+    },
+    "training": {
+      "status": "Passed",
+      "details": {
+        "metrics_type": "dict",
+        "metrics_keys": [
+          "episode_rewards",
+          "episode_lengths",
+          "parameter_history",
+          "performance_metrics"
+        ]
+      }
+    },
+    "evaluation": {
+      "status": "Passed",
+      "details": {
+        "metrics_type": "dict",
+        "metrics_keys": [
+          "avg_reward",
+          "avg_steps",
+          "avg_pnl",
+          "avg_win_rate",
+          "rewards",
+          "steps",
+          "pnls",
+          "win_rates"
+        ]
+      }
+    },
+    "parameter_extraction": {
+      "status": "Passed",
+      "details": {
+        "params_type": "dict",
+        "params_keys": [
+          "imbalance_threshold",
+          "momentum_threshold",
+          "volatility_threshold",
+          "rsi_threshold",
+          "_metadata"
+        ]
+      }
+    },
+    "status": "Passed"
+  },
+  "performance_tests": {
+    "environment_performance": {
+      "status": "Passed",
+      "details": {
+        "avg_step_time": 0.0005114078521728516,
+        "max_step_time": 0.0005831718444824219,
+        "min_step_time": 0.00044727325439453125
+      }
+    },
+    "agent_performance": {
+      "status": "Not Run",
+      "details": {}
+    },
+    "integration_performance": {
+      "status": "Not Run",
+      "details": {}
+    },
+    "optimization": {
+      "status": "Not Run",
+      "details": {}
+    },
+    "status": "Failed",
+    "error": "index 138 is out of bounds for dimension 0 with size 100"
+  },
+  "edge_case_tests": {
+    "empty_data": {
+      "status": "Passed",
+      "details": {
+        "empty_data_handled": false
+      }
+    },
+    "invalid_action": {
+      "status": "Failed",
+      "details": {
+        "invalid_action_results": [
+          true,
+          true,
+          true,
+          false,
+          true
+        ]
+      }
+    },
+    "extreme_values": {
+      "status": "Passed",
+      "details": {
+        "extreme_value_results": [
+          true,
+          true,
+          true,
+          true
+        ]
+      }
+    },
+    "error_handling": {
+      "status": "Passed",
+      "details": {
+        "error_handled": true
+      }
+    },
+    "status": "Failed"
+  },
+  "overall_status": "Failed"
+}
