@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """
-Compounding strategy module for LLM Strategic Overseer.
+Capital allocation strategy module for LLM Strategic Overseer.
 
-This module implements profit reinvestment logic with configurable
-compounding rates for optimizing trading capital growth.
+This module implements configurable capital allocation logic for trading,
+allowing a specified percentage of available USDC to be used for trading.
 """
 
 import os
@@ -15,50 +15,47 @@ from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
-class CompoundingStrategy:
+class CapitalAllocationStrategy:
     """
-    Compounding strategy for profit reinvestment.
+    Capital allocation strategy for trading.
     
-    Implements configurable profit reinvestment logic to optimize
-    trading capital growth over time.
+    Implements configurable capital allocation logic to determine
+    how much of the available USDC should be used for trading.
     """
     
     def __init__(self, config):
         """
-        Initialize compounding strategy.
+        Initialize capital allocation strategy.
         
         Args:
             config: Configuration object
         """
         self.config = config
         
-        # Load compounding configuration
-        self.enabled = self.config.get("trading.compounding.enabled", True)
-        self.reinvestment_rate = self.config.get("trading.compounding.reinvestment_rate", 0.8)  # 80% by default
-        self.min_profit_threshold = self.config.get("trading.compounding.min_profit_threshold", 100)  # $100 minimum
-        self.frequency = self.config.get("trading.compounding.frequency", "monthly")  # monthly, weekly, or daily
+        # Load allocation configuration
+        self.enabled = self.config.get("trading.allocation.enabled", True)
+        self.allocation_percentage = self.config.get("trading.allocation.percentage", 0.8)  # 80% by default
+        self.min_reserve = self.config.get("trading.allocation.min_reserve", 100)  # $100 minimum reserve
         
         # Initialize tracking variables
-        self.initial_capital = 0.0
-        self.current_capital = 0.0
-        self.total_profit = 0.0
-        self.reinvested_profit = 0.0
-        self.withdrawn_profit = 0.0
-        self.last_compounding_date = None
+        self.total_capital = 0.0
+        self.allocated_capital = 0.0
+        self.reserve_capital = 0.0
+        self.last_allocation_date = None
         
         # Load historical data if available
         self.history = []
         self.data_file = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             "data",
-            "compounding_history.json"
+            "allocation_history.json"
         )
         self._load_history()
         
-        logger.info(f"Compounding strategy initialized with {self.reinvestment_rate*100:.0f}% reinvestment rate")
+        logger.info(f"Capital allocation strategy initialized with {self.allocation_percentage*100:.0f}% allocation percentage")
     
     def _load_history(self) -> None:
-        """Load compounding history from file."""
+        """Load allocation history from file."""
         os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
         
         if os.path.exists(self.data_file):
@@ -66,289 +63,266 @@ class CompoundingStrategy:
                 with open(self.data_file, 'r') as f:
                     data = json.load(f)
                     self.history = data.get("history", [])
-                    self.initial_capital = data.get("initial_capital", 0.0)
-                    self.current_capital = data.get("current_capital", 0.0)
-                    self.total_profit = data.get("total_profit", 0.0)
-                    self.reinvested_profit = data.get("reinvested_profit", 0.0)
-                    self.withdrawn_profit = data.get("withdrawn_profit", 0.0)
+                    self.total_capital = data.get("total_capital", 0.0)
+                    self.allocated_capital = data.get("allocated_capital", 0.0)
+                    self.reserve_capital = data.get("reserve_capital", 0.0)
                     
-                    last_date = data.get("last_compounding_date")
+                    last_date = data.get("last_allocation_date")
                     if last_date:
-                        self.last_compounding_date = datetime.fromisoformat(last_date)
+                        self.last_allocation_date = datetime.fromisoformat(last_date)
                     
-                    logger.info(f"Loaded compounding history: {len(self.history)} records")
+                    logger.info(f"Loaded allocation history: {len(self.history)} records")
             except Exception as e:
-                logger.error(f"Error loading compounding history: {e}")
+                logger.error(f"Error loading allocation history: {e}")
     
     def _save_history(self) -> None:
-        """Save compounding history to file."""
+        """Save allocation history to file."""
         try:
             data = {
                 "history": self.history,
-                "initial_capital": self.initial_capital,
-                "current_capital": self.current_capital,
-                "total_profit": self.total_profit,
-                "reinvested_profit": self.reinvested_profit,
-                "withdrawn_profit": self.withdrawn_profit,
-                "last_compounding_date": self.last_compounding_date.isoformat() if self.last_compounding_date else None
+                "total_capital": self.total_capital,
+                "allocated_capital": self.allocated_capital,
+                "reserve_capital": self.reserve_capital,
+                "last_allocation_date": self.last_allocation_date.isoformat() if self.last_allocation_date else None
             }
             
             with open(self.data_file, 'w') as f:
                 json.dump(data, f, indent=2)
                 
-            logger.info(f"Saved compounding history: {len(self.history)} records")
+            logger.info(f"Saved allocation history: {len(self.history)} records")
         except Exception as e:
-            logger.error(f"Error saving compounding history: {e}")
+            logger.error(f"Error saving allocation history: {e}")
     
-    def initialize_capital(self, initial_capital: float) -> None:
+    def update_capital(self, available_usdc: float) -> None:
         """
-        Initialize trading capital.
+        Update available capital.
         
         Args:
-            initial_capital: Initial trading capital
+            available_usdc: Total available USDC
         """
-        self.initial_capital = initial_capital
-        self.current_capital = initial_capital
-        self._save_history()
+        old_capital = self.total_capital
+        self.total_capital = available_usdc
         
-        logger.info(f"Initialized capital: ${initial_capital:.2f}")
+        # Calculate change
+        change = available_usdc - old_capital
+        
+        logger.info(f"Updated capital: ${available_usdc:.2f} (change: ${change:.2f})")
     
-    def update_capital(self, current_capital: float) -> None:
+    def calculate_allocation(self, available_usdc: float) -> Dict[str, Any]:
         """
-        Update current trading capital.
+        Calculate capital allocation for trading.
         
         Args:
-            current_capital: Current trading capital
-        """
-        old_capital = self.current_capital
-        self.current_capital = current_capital
-        
-        # Calculate profit since last update
-        profit = current_capital - old_capital
-        self.total_profit += profit
-        
-        logger.info(f"Updated capital: ${current_capital:.2f} (change: ${profit:.2f})")
-    
-    def should_compound(self, current_date: Optional[datetime] = None) -> bool:
-        """
-        Check if compounding should be performed.
-        
-        Args:
-            current_date: Current date (defaults to now)
+            available_usdc: Total available USDC
             
         Returns:
-            True if compounding should be performed, False otherwise
+            Capital allocation calculation results
         """
-        if not self.enabled:
-            return False
+        # Update total capital
+        self.update_capital(available_usdc)
         
-        if not current_date:
-            current_date = datetime.now()
+        # Calculate allocation
+        raw_allocation = available_usdc * self.allocation_percentage
+        raw_reserve = available_usdc - raw_allocation
         
-        if not self.last_compounding_date:
-            # First time compounding
-            self.last_compounding_date = current_date
-            return True
+        # Ensure minimum reserve
+        if raw_reserve < self.min_reserve:
+            # Adjust allocation to maintain minimum reserve
+            reserve = self.min_reserve
+            allocation = max(0, available_usdc - reserve)
+        else:
+            allocation = raw_allocation
+            reserve = raw_reserve
         
-        # Check if enough time has passed based on frequency
-        if self.frequency == "daily":
-            return (current_date - self.last_compounding_date).days >= 1
-        elif self.frequency == "weekly":
-            return (current_date - self.last_compounding_date).days >= 7
-        else:  # monthly
-            # Check if we're in a new month
-            return (current_date.year > self.last_compounding_date.year or 
-                    current_date.month > self.last_compounding_date.month)
-    
-    def calculate_compounding(self, current_capital: float, 
-                             current_date: Optional[datetime] = None) -> Dict[str, Any]:
-        """
-        Calculate compounding amounts.
-        
-        Args:
-            current_capital: Current trading capital
-            current_date: Current date (defaults to now)
-            
-        Returns:
-            Compounding calculation results
-        """
-        if not current_date:
-            current_date = datetime.now()
-        
-        # Update current capital
-        self.update_capital(current_capital)
-        
-        # Calculate profit
-        profit = current_capital - self.initial_capital
-        
-        # Check if profit meets minimum threshold
-        if profit < self.min_profit_threshold:
-            return {
-                "can_compound": False,
-                "reason": f"Profit (${profit:.2f}) below minimum threshold (${self.min_profit_threshold:.2f})",
-                "profit": profit,
-                "reinvest_amount": 0.0,
-                "withdraw_amount": 0.0
-            }
-        
-        # Calculate reinvestment and withdrawal amounts
-        reinvest_amount = profit * self.reinvestment_rate
-        withdraw_amount = profit - reinvest_amount
+        # Calculate allocation percentage (actual)
+        actual_percentage = allocation / available_usdc if available_usdc > 0 else 0
         
         return {
-            "can_compound": True,
-            "profit": profit,
-            "reinvest_amount": reinvest_amount,
-            "withdraw_amount": withdraw_amount,
-            "reinvestment_rate": self.reinvestment_rate,
-            "new_capital": self.initial_capital + reinvest_amount
+            "total_capital": available_usdc,
+            "allocation_amount": allocation,
+            "reserve_amount": reserve,
+            "target_percentage": self.allocation_percentage,
+            "actual_percentage": actual_percentage,
+            "timestamp": datetime.now().isoformat()
         }
     
-    def execute_compounding(self, current_capital: float, 
-                           current_date: Optional[datetime] = None) -> Dict[str, Any]:
+    def execute_allocation(self, available_usdc: float) -> Dict[str, Any]:
         """
-        Execute compounding strategy.
+        Execute capital allocation strategy.
         
         Args:
-            current_capital: Current trading capital
-            current_date: Current date (defaults to now)
+            available_usdc: Total available USDC
             
         Returns:
-            Compounding execution results
+            Capital allocation execution results
         """
-        if not current_date:
-            current_date = datetime.now()
+        # Calculate allocation
+        calc = self.calculate_allocation(available_usdc)
         
-        # Check if compounding should be performed
-        if not self.should_compound(current_date):
-            return {
-                "compounded": False,
-                "reason": "Compounding not scheduled for this period",
-                "next_compounding": self._get_next_compounding_date()
-            }
-        
-        # Calculate compounding amounts
-        calc = self.calculate_compounding(current_capital, current_date)
-        
-        if not calc["can_compound"]:
-            return {
-                "compounded": False,
-                "reason": calc["reason"],
-                "next_compounding": self._get_next_compounding_date()
-            }
-        
-        # Execute compounding
-        self.reinvested_profit += calc["reinvest_amount"]
-        self.withdrawn_profit += calc["withdraw_amount"]
-        self.initial_capital += calc["reinvest_amount"]
-        self.last_compounding_date = current_date
+        # Update tracking variables
+        self.allocated_capital = calc["allocation_amount"]
+        self.reserve_capital = calc["reserve_amount"]
+        self.last_allocation_date = datetime.now()
         
         # Record in history
         self.history.append({
-            "date": current_date.isoformat(),
-            "capital_before": current_capital,
-            "profit": calc["profit"],
-            "reinvested": calc["reinvest_amount"],
-            "withdrawn": calc["withdraw_amount"],
-            "capital_after": calc["new_capital"]
+            "date": self.last_allocation_date.isoformat(),
+            "total_capital": available_usdc,
+            "allocated": self.allocated_capital,
+            "reserve": self.reserve_capital,
+            "allocation_percentage": self.allocation_percentage
         })
         
         # Save history
         self._save_history()
         
-        logger.info(f"Executed compounding: ${calc['reinvest_amount']:.2f} reinvested, ${calc['withdraw_amount']:.2f} withdrawn")
+        logger.info(f"Executed allocation: ${self.allocated_capital:.2f} allocated, ${self.reserve_capital:.2f} reserve")
         
         return {
-            "compounded": True,
-            "date": current_date.isoformat(),
-            "capital_before": current_capital,
-            "profit": calc["profit"],
-            "reinvested": calc["reinvest_amount"],
-            "withdrawn": calc["withdraw_amount"],
-            "capital_after": calc["new_capital"],
-            "next_compounding": self._get_next_compounding_date()
+            "allocated": True,
+            "date": self.last_allocation_date.isoformat(),
+            "total_capital": available_usdc,
+            "allocated_amount": self.allocated_capital,
+            "reserve_amount": self.reserve_capital,
+            "allocation_percentage": self.allocation_percentage
         }
     
-    def _get_next_compounding_date(self) -> str:
+    def get_trading_capital(self, available_usdc: float) -> float:
         """
-        Get next scheduled compounding date.
+        Get capital amount to use for trading.
         
+        Args:
+            available_usdc: Total available USDC
+            
         Returns:
-            Next compounding date as ISO format string
+            Amount to use for trading
         """
-        if not self.last_compounding_date:
-            return datetime.now().isoformat()
+        # Calculate allocation
+        calc = self.calculate_allocation(available_usdc)
         
-        next_date = self.last_compounding_date
-        
-        if self.frequency == "daily":
-            next_date += timedelta(days=1)
-        elif self.frequency == "weekly":
-            next_date += timedelta(days=7)
-        else:  # monthly
-            # Move to next month
-            if next_date.month == 12:
-                next_date = next_date.replace(year=next_date.year + 1, month=1)
-            else:
-                next_date = next_date.replace(month=next_date.month + 1)
-        
-        return next_date.isoformat()
+        # Return allocation amount
+        return calc["allocation_amount"]
     
     def get_statistics(self) -> Dict[str, Any]:
         """
-        Get compounding statistics.
+        Get allocation statistics.
         
         Returns:
-            Compounding statistics
+            Allocation statistics
         """
         return {
             "enabled": self.enabled,
-            "reinvestment_rate": self.reinvestment_rate,
-            "frequency": self.frequency,
-            "initial_capital": self.initial_capital,
-            "current_capital": self.current_capital,
-            "total_profit": self.total_profit,
-            "reinvested_profit": self.reinvested_profit,
-            "withdrawn_profit": self.withdrawn_profit,
-            "last_compounding_date": self.last_compounding_date.isoformat() if self.last_compounding_date else None,
-            "next_compounding_date": self._get_next_compounding_date(),
-            "compounding_events": len(self.history)
+            "allocation_percentage": self.allocation_percentage,
+            "min_reserve": self.min_reserve,
+            "total_capital": self.total_capital,
+            "allocated_capital": self.allocated_capital,
+            "reserve_capital": self.reserve_capital,
+            "last_allocation_date": self.last_allocation_date.isoformat() if self.last_allocation_date else None,
+            "allocation_events": len(self.history)
         }
     
-    def set_reinvestment_rate(self, rate: float) -> None:
+    def set_allocation_percentage(self, percentage: float) -> Dict[str, Any]:
         """
-        Set reinvestment rate.
+        Set allocation percentage.
         
         Args:
-            rate: Reinvestment rate (0.0 to 1.0)
+            percentage: Allocation percentage (0.0 to 1.0)
+            
+        Returns:
+            Update result
         """
-        if rate < 0.0 or rate > 1.0:
-            logger.warning(f"Invalid reinvestment rate: {rate}, must be between 0.0 and 1.0")
-            return
+        if percentage < 0.0 or percentage > 1.0:
+            logger.warning(f"Invalid allocation percentage: {percentage}, must be between 0.0 and 1.0")
+            return {
+                "success": False,
+                "error": f"Invalid allocation percentage: {percentage}, must be between 0.0 and 1.0",
+                "timestamp": datetime.now().isoformat()
+            }
         
-        self.reinvestment_rate = rate
-        logger.info(f"Set reinvestment rate to {rate*100:.0f}%")
+        old_value = self.allocation_percentage
+        self.allocation_percentage = percentage
+        
+        logger.info(f"Set allocation percentage to {percentage*100:.0f}%")
+        
+        return {
+            "success": True,
+            "parameter": "allocation_percentage",
+            "old_value": old_value,
+            "new_value": percentage,
+            "timestamp": datetime.now().isoformat()
+        }
     
-    def enable(self) -> None:
-        """Enable compounding strategy."""
+    def set_min_reserve(self, min_reserve: float) -> Dict[str, Any]:
+        """
+        Set minimum reserve amount.
+        
+        Args:
+            min_reserve: Minimum reserve amount
+            
+        Returns:
+            Update result
+        """
+        if min_reserve < 0.0:
+            logger.warning(f"Invalid minimum reserve: {min_reserve}, must be non-negative")
+            return {
+                "success": False,
+                "error": f"Invalid minimum reserve: {min_reserve}, must be non-negative",
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        old_value = self.min_reserve
+        self.min_reserve = min_reserve
+        
+        logger.info(f"Set minimum reserve to ${min_reserve:.2f}")
+        
+        return {
+            "success": True,
+            "parameter": "min_reserve",
+            "old_value": old_value,
+            "new_value": min_reserve,
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    def enable(self) -> Dict[str, Any]:
+        """
+        Enable capital allocation strategy.
+        
+        Returns:
+            Update result
+        """
+        old_value = self.enabled
         self.enabled = True
-        logger.info("Compounding strategy enabled")
+        
+        logger.info("Capital allocation strategy enabled")
+        
+        return {
+            "success": True,
+            "parameter": "enabled",
+            "old_value": old_value,
+            "new_value": True,
+            "timestamp": datetime.now().isoformat()
+        }
     
-    def disable(self) -> None:
-        """Disable compounding strategy."""
+    def disable(self) -> Dict[str, Any]:
+        """
+        Disable capital allocation strategy.
+        
+        Returns:
+            Update result
+        """
+        old_value = self.enabled
         self.enabled = False
-        logger.info("Compounding strategy disabled")
-    
-    def set_frequency(self, frequency: str) -> None:
-        """
-        Set compounding frequency.
         
-        Args:
-            frequency: Compounding frequency ("daily", "weekly", or "monthly")
-        """
-        if frequency not in ["daily", "weekly", "monthly"]:
-            logger.warning(f"Invalid frequency: {frequency}, must be 'daily', 'weekly', or 'monthly'")
-            return
+        logger.info("Capital allocation strategy disabled")
         
-        self.frequency = frequency
-        logger.info(f"Set compounding frequency to {frequency}")
+        return {
+            "success": True,
+            "parameter": "enabled",
+            "old_value": old_value,
+            "new_value": False,
+            "timestamp": datetime.now().isoformat()
+        }
+
+
+# For backward compatibility, keep the old class name as an alias
+CompoundingStrategy = CapitalAllocationStrategy

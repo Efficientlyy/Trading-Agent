@@ -1,234 +1,217 @@
 #!/usr/bin/env python
 """
-Test module for compounding strategy logic.
+Test module for capital allocation strategy.
 
-This module tests the compounding strategy implementation,
-focusing on profit reinvestment and capital growth.
+This module tests the capital allocation strategy functionality,
+ensuring that the configurable percentage allocation works correctly.
 """
 
 import os
 import sys
 import unittest
-from unittest.mock import MagicMock, patch
 from datetime import datetime, timedelta
-import json
+from unittest.mock import MagicMock
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Use absolute imports
-from llm_overseer.strategy.compounding import CompoundingStrategy
-from llm_overseer.config.config import Config
+# Import components
+from strategy.compounding import CapitalAllocationStrategy
 
-class TestCompoundingStrategy(unittest.TestCase):
-    """Test compounding strategy logic."""
+class TestCapitalAllocation(unittest.TestCase):
+    """Test capital allocation strategy functionality."""
     
     def setUp(self):
         """Set up test environment."""
-        # Create mock config
-        self.config = MagicMock(spec=Config)
+        # Create a mock config class that returns real values
+        self.mock_config = MagicMock()
+        def mock_config_get(key, default=None):
+            if key == "trading.allocation.enabled":
+                return True
+            elif key == "trading.allocation.percentage":
+                return 0.8  # 80% by default
+            elif key == "trading.allocation.min_reserve":
+                return 100  # $100 minimum reserve
+            return default
+        self.mock_config.get.side_effect = mock_config_get
         
-        # Configure mock to return specific values
-        def config_get_side_effect(key, default=None):
-            config_values = {
-                "trading.compounding.enabled": True,
-                "trading.compounding.reinvestment_rate": 0.8,
-                "trading.compounding.min_profit_threshold": 100,
-                "trading.compounding.frequency": "monthly"
-            }
-            return config_values.get(key, default)
+        # Initialize capital allocation strategy
+        self.strategy = CapitalAllocationStrategy(self.mock_config)
         
-        self.config.get.side_effect = config_get_side_effect
-        
-        # Create temporary data file path
-        self.test_data_file = os.path.join(
+        # Set up test data directory
+        self.test_data_dir = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
-            "test_compounding_history.json"
+            "test_data"
         )
+        os.makedirs(self.test_data_dir, exist_ok=True)
         
-        # Patch the data file path
-        with patch('llm_overseer.strategy.compounding.os.path.join', return_value=self.test_data_file):
-            # Create compounding strategy
-            self.compounding = CompoundingStrategy(self.config)
+        # Override data file path
+        self.strategy.data_file = os.path.join(
+            self.test_data_dir,
+            "test_allocation_history.json"
+        )
     
     def tearDown(self):
         """Clean up after tests."""
         # Remove test data file if it exists
-        if os.path.exists(self.test_data_file):
-            os.remove(self.test_data_file)
+        if os.path.exists(self.strategy.data_file):
+            os.remove(self.strategy.data_file)
     
     def test_initialization(self):
-        """Test initialization of compounding strategy."""
-        self.assertTrue(self.compounding.enabled)
-        self.assertEqual(self.compounding.reinvestment_rate, 0.8)
-        self.assertEqual(self.compounding.min_profit_threshold, 100)
-        self.assertEqual(self.compounding.frequency, "monthly")
-        self.assertEqual(self.compounding.initial_capital, 0.0)
-        self.assertEqual(self.compounding.current_capital, 0.0)
-    
-    def test_initialize_capital(self):
-        """Test initializing capital."""
-        self.compounding.initialize_capital(10000.0)
-        self.assertEqual(self.compounding.initial_capital, 10000.0)
-        self.assertEqual(self.compounding.current_capital, 10000.0)
+        """Test initialization of capital allocation strategy."""
+        self.assertTrue(self.strategy.enabled)
+        self.assertEqual(self.strategy.allocation_percentage, 0.8)
+        self.assertEqual(self.strategy.min_reserve, 100)
+        self.assertEqual(self.strategy.total_capital, 0.0)
+        self.assertEqual(self.strategy.allocated_capital, 0.0)
+        self.assertEqual(self.strategy.reserve_capital, 0.0)
+        self.assertIsNone(self.strategy.last_allocation_date)
     
     def test_update_capital(self):
         """Test updating capital."""
-        self.compounding.initialize_capital(10000.0)
-        self.compounding.update_capital(10500.0)
-        self.assertEqual(self.compounding.current_capital, 10500.0)
-        self.assertEqual(self.compounding.total_profit, 500.0)
+        self.strategy.update_capital(1000.0)
+        self.assertEqual(self.strategy.total_capital, 1000.0)
     
-    def test_should_compound_first_time(self):
-        """Test should_compound for first time."""
-        current_date = datetime(2025, 6, 1)
-        self.assertTrue(self.compounding.should_compound(current_date))
+    def test_calculate_allocation(self):
+        """Test calculating capital allocation."""
+        # Test with 1000 USDC
+        result = self.strategy.calculate_allocation(1000.0)
+        self.assertEqual(result["total_capital"], 1000.0)
+        self.assertEqual(result["allocation_amount"], 800.0)  # 80% of 1000
+        self.assertEqual(result["reserve_amount"], 200.0)  # 20% of 1000
+        self.assertEqual(result["target_percentage"], 0.8)
+        self.assertEqual(result["actual_percentage"], 0.8)
+        
+        # Test with minimum reserve enforcement
+        result = self.strategy.calculate_allocation(100.0)
+        self.assertEqual(result["total_capital"], 100.0)
+        self.assertEqual(result["allocation_amount"], 0.0)  # All goes to reserve
+        self.assertEqual(result["reserve_amount"], 100.0)  # Minimum reserve
+        self.assertEqual(result["target_percentage"], 0.8)
+        self.assertEqual(result["actual_percentage"], 0.0)
+        
+        # Test with small amount
+        result = self.strategy.calculate_allocation(120.0)
+        self.assertEqual(result["total_capital"], 120.0)
+        self.assertEqual(result["allocation_amount"], 20.0)  # 120 - 100 (min reserve)
+        self.assertEqual(result["reserve_amount"], 100.0)  # Minimum reserve
+        self.assertEqual(result["target_percentage"], 0.8)
+        self.assertAlmostEqual(result["actual_percentage"], 20.0/120.0)
     
-    def test_should_compound_monthly(self):
-        """Test should_compound for monthly frequency."""
-        # Set last compounding date to May 15, 2025
-        self.compounding.last_compounding_date = datetime(2025, 5, 15)
+    def test_execute_allocation(self):
+        """Test executing capital allocation."""
+        result = self.strategy.execute_allocation(1000.0)
+        self.assertTrue(result["allocated"])
+        self.assertEqual(result["total_capital"], 1000.0)
+        self.assertEqual(result["allocated_amount"], 800.0)
+        self.assertEqual(result["reserve_amount"], 200.0)
+        self.assertEqual(result["allocation_percentage"], 0.8)
         
-        # Same month - should not compound
-        self.assertFalse(self.compounding.should_compound(datetime(2025, 5, 30)))
+        # Check that tracking variables were updated
+        self.assertEqual(self.strategy.total_capital, 1000.0)
+        self.assertEqual(self.strategy.allocated_capital, 800.0)
+        self.assertEqual(self.strategy.reserve_capital, 200.0)
+        self.assertIsNotNone(self.strategy.last_allocation_date)
         
-        # Next month - should compound
-        self.assertTrue(self.compounding.should_compound(datetime(2025, 6, 1)))
+        # Check that history was updated
+        self.assertEqual(len(self.strategy.history), 1)
+        self.assertEqual(self.strategy.history[0]["total_capital"], 1000.0)
+        self.assertEqual(self.strategy.history[0]["allocated"], 800.0)
+        self.assertEqual(self.strategy.history[0]["reserve"], 200.0)
     
-    def test_should_compound_weekly(self):
-        """Test should_compound for weekly frequency."""
-        # Set frequency to weekly
-        self.compounding.frequency = "weekly"
+    def test_get_trading_capital(self):
+        """Test getting trading capital."""
+        # Test with 1000 USDC
+        trading_capital = self.strategy.get_trading_capital(1000.0)
+        self.assertEqual(trading_capital, 800.0)  # 80% of 1000
         
-        # Set last compounding date to June 1, 2025
-        self.compounding.last_compounding_date = datetime(2025, 6, 1)
+        # Test with minimum reserve enforcement
+        trading_capital = self.strategy.get_trading_capital(100.0)
+        self.assertEqual(trading_capital, 0.0)  # All goes to reserve
         
-        # Less than 7 days - should not compound
-        self.assertFalse(self.compounding.should_compound(datetime(2025, 6, 7)))
-        
-        # 7 days or more - should compound
-        self.assertTrue(self.compounding.should_compound(datetime(2025, 6, 8)))
+        # Test with small amount
+        trading_capital = self.strategy.get_trading_capital(120.0)
+        self.assertEqual(trading_capital, 20.0)  # 120 - 100 (min reserve)
     
-    def test_should_compound_daily(self):
-        """Test should_compound for daily frequency."""
-        # Set frequency to daily
-        self.compounding.frequency = "daily"
+    def test_set_allocation_percentage(self):
+        """Test setting allocation percentage."""
+        # Test valid percentage
+        result = self.strategy.set_allocation_percentage(0.7)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["old_value"], 0.8)
+        self.assertEqual(result["new_value"], 0.7)
+        self.assertEqual(self.strategy.allocation_percentage, 0.7)
         
-        # Set last compounding date to June 1, 2025
-        self.compounding.last_compounding_date = datetime(2025, 6, 1)
+        # Test invalid percentage (too low)
+        result = self.strategy.set_allocation_percentage(-0.1)
+        self.assertFalse(result["success"])
+        self.assertEqual(self.strategy.allocation_percentage, 0.7)  # Unchanged
         
-        # Same day - should not compound
-        self.assertFalse(self.compounding.should_compound(datetime(2025, 6, 1)))
-        
-        # Next day - should compound
-        self.assertTrue(self.compounding.should_compound(datetime(2025, 6, 2)))
+        # Test invalid percentage (too high)
+        result = self.strategy.set_allocation_percentage(1.1)
+        self.assertFalse(result["success"])
+        self.assertEqual(self.strategy.allocation_percentage, 0.7)  # Unchanged
     
-    def test_calculate_compounding_below_threshold(self):
-        """Test calculate_compounding below threshold."""
-        self.compounding.initialize_capital(10000.0)
-        result = self.compounding.calculate_compounding(10050.0)
+    def test_set_min_reserve(self):
+        """Test setting minimum reserve."""
+        # Test valid minimum reserve
+        result = self.strategy.set_min_reserve(200.0)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["old_value"], 100.0)
+        self.assertEqual(result["new_value"], 200.0)
+        self.assertEqual(self.strategy.min_reserve, 200.0)
         
-        self.assertFalse(result["can_compound"])
-        self.assertEqual(result["profit"], 50.0)
-        self.assertEqual(result["reinvest_amount"], 0.0)
-        self.assertEqual(result["withdraw_amount"], 0.0)
-    
-    def test_calculate_compounding_above_threshold(self):
-        """Test calculate_compounding above threshold."""
-        self.compounding.initialize_capital(10000.0)
-        result = self.compounding.calculate_compounding(10200.0)
-        
-        self.assertTrue(result["can_compound"])
-        self.assertEqual(result["profit"], 200.0)
-        self.assertEqual(result["reinvest_amount"], 160.0)  # 80% of 200
-        self.assertEqual(result["withdraw_amount"], 40.0)   # 20% of 200
-        self.assertEqual(result["new_capital"], 10160.0)    # 10000 + 160
-    
-    def test_execute_compounding_not_scheduled(self):
-        """Test execute_compounding when not scheduled."""
-        self.compounding.initialize_capital(10000.0)
-        self.compounding.last_compounding_date = datetime(2025, 6, 1)
-        
-        result = self.compounding.execute_compounding(10200.0, datetime(2025, 6, 15))
-        
-        self.assertFalse(result["compounded"])
-        self.assertEqual(result["reason"], "Compounding not scheduled for this period")
-    
-    def test_execute_compounding_below_threshold(self):
-        """Test execute_compounding below threshold."""
-        self.compounding.initialize_capital(10000.0)
-        
-        result = self.compounding.execute_compounding(10050.0, datetime(2025, 6, 1))
-        
-        self.assertFalse(result["compounded"])
-        self.assertTrue("below minimum threshold" in result["reason"])
-    
-    def test_execute_compounding_success(self):
-        """Test execute_compounding success."""
-        self.compounding.initialize_capital(10000.0)
-        
-        result = self.compounding.execute_compounding(10200.0, datetime(2025, 6, 1))
-        
-        self.assertTrue(result["compounded"])
-        self.assertEqual(result["capital_before"], 10200.0)
-        self.assertEqual(result["profit"], 200.0)
-        self.assertEqual(result["reinvested"], 160.0)
-        self.assertEqual(result["withdrawn"], 40.0)
-        self.assertEqual(result["capital_after"], 10160.0)
-        
-        # Check that state was updated
-        self.assertEqual(self.compounding.initial_capital, 10160.0)
-        self.assertEqual(self.compounding.reinvested_profit, 160.0)
-        self.assertEqual(self.compounding.withdrawn_profit, 40.0)
-        self.assertEqual(self.compounding.last_compounding_date, datetime(2025, 6, 1))
-        self.assertEqual(len(self.compounding.history), 1)
-    
-    def test_get_statistics(self):
-        """Test get_statistics."""
-        self.compounding.initialize_capital(10000.0)
-        self.compounding.update_capital(10200.0)
-        self.compounding.execute_compounding(10200.0, datetime(2025, 6, 1))
-        
-        stats = self.compounding.get_statistics()
-        
-        self.assertTrue(stats["enabled"])
-        self.assertEqual(stats["reinvestment_rate"], 0.8)
-        self.assertEqual(stats["frequency"], "monthly")
-        self.assertEqual(stats["initial_capital"], 10160.0)
-        self.assertEqual(stats["current_capital"], 10200.0)
-        self.assertEqual(stats["total_profit"], 200.0)
-        self.assertEqual(stats["reinvested_profit"], 160.0)
-        self.assertEqual(stats["withdrawn_profit"], 40.0)
-        self.assertEqual(stats["compounding_events"], 1)
-    
-    def test_set_reinvestment_rate(self):
-        """Test set_reinvestment_rate."""
-        self.compounding.set_reinvestment_rate(0.5)
-        self.assertEqual(self.compounding.reinvestment_rate, 0.5)
-        
-        # Test invalid rate
-        self.compounding.set_reinvestment_rate(1.5)
-        self.assertEqual(self.compounding.reinvestment_rate, 0.5)  # Should not change
+        # Test invalid minimum reserve (negative)
+        result = self.strategy.set_min_reserve(-50.0)
+        self.assertFalse(result["success"])
+        self.assertEqual(self.strategy.min_reserve, 200.0)  # Unchanged
     
     def test_enable_disable(self):
-        """Test enable and disable."""
-        self.compounding.disable()
-        self.assertFalse(self.compounding.enabled)
+        """Test enabling and disabling capital allocation strategy."""
+        # Test disabling
+        result = self.strategy.disable()
+        self.assertTrue(result["success"])
+        self.assertEqual(result["old_value"], True)
+        self.assertEqual(result["new_value"], False)
+        self.assertFalse(self.strategy.enabled)
         
-        self.compounding.enable()
-        self.assertTrue(self.compounding.enabled)
+        # Test enabling
+        result = self.strategy.enable()
+        self.assertTrue(result["success"])
+        self.assertEqual(result["old_value"], False)
+        self.assertEqual(result["new_value"], True)
+        self.assertTrue(self.strategy.enabled)
     
-    def test_set_frequency(self):
-        """Test set_frequency."""
-        self.compounding.set_frequency("weekly")
-        self.assertEqual(self.compounding.frequency, "weekly")
+    def test_get_statistics(self):
+        """Test getting allocation statistics."""
+        # Initialize with some data
+        self.strategy.update_capital(1000.0)
+        self.strategy.execute_allocation(1000.0)
         
-        self.compounding.set_frequency("daily")
-        self.assertEqual(self.compounding.frequency, "daily")
+        # Get statistics
+        stats = self.strategy.get_statistics()
+        self.assertTrue(stats["enabled"])
+        self.assertEqual(stats["allocation_percentage"], 0.8)
+        self.assertEqual(stats["min_reserve"], 100.0)
+        self.assertEqual(stats["total_capital"], 1000.0)
+        self.assertEqual(stats["allocated_capital"], 800.0)
+        self.assertEqual(stats["reserve_capital"], 200.0)
+        self.assertIsNotNone(stats["last_allocation_date"])
+        self.assertEqual(stats["allocation_events"], 1)
+    
+    def test_backward_compatibility(self):
+        """Test backward compatibility with CompoundingStrategy name."""
+        from strategy.compounding import CompoundingStrategy
         
-        # Test invalid frequency
-        self.compounding.set_frequency("yearly")
-        self.assertEqual(self.compounding.frequency, "daily")  # Should not change
+        # Create a CompoundingStrategy instance
+        strategy = CompoundingStrategy(self.mock_config)
+        
+        # Verify it's actually a CapitalAllocationStrategy
+        self.assertIsInstance(strategy, CapitalAllocationStrategy)
+        
+        # Test basic functionality
+        result = strategy.calculate_allocation(1000.0)
+        self.assertEqual(result["allocation_amount"], 800.0)
 
 if __name__ == "__main__":
     unittest.main()

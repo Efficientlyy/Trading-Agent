@@ -11,7 +11,7 @@ The LLM Strategic Overseer is an advanced AI-powered decision-making system for 
 - **Strategic Decision Engine**: AI-powered analysis and decision making for trading optimization
 - **Market Analysis**: Advanced order book and market microstructure analysis
 - **Risk Management**: Sophisticated position sizing and risk control
-- **Profit Compounding**: Automated 80% profit reinvestment strategy
+- **Capital Allocation**: Configurable percentage of available USDC for trading (default 80%)
 - **Notification System**: Real-time alerts and performance reporting
 
 ## Architecture
@@ -37,7 +37,7 @@ llm_overseer/
 - **Decision Engine**: Generates strategic trading decisions
 - **Market Analyzer**: Analyzes market microstructure and order book
 - **Risk Manager**: Controls position sizing and risk parameters
-- **Compounding Strategy**: Manages profit reinvestment
+- **Capital Allocation Strategy**: Manages trading capital allocation
 
 ## Configuration
 
@@ -65,11 +65,10 @@ Configuration is managed through a combination of:
     "allowed_user_ids": [123456789]
   },
   "trading": {
-    "compounding": {
+    "allocation": {
       "enabled": true,
-      "reinvestment_rate": 0.8,
-      "min_profit_threshold": 100,
-      "frequency": "monthly"
+      "percentage": 0.8,
+      "min_reserve": 100
     },
     "risk": {
       "max_position_size": 0.1,
@@ -79,6 +78,17 @@ Configuration is managed through a combination of:
   }
 }
 ```
+
+## Capital Allocation Strategy
+
+The system implements a configurable capital allocation strategy that:
+
+1. Uses a specified percentage (default 80%) of available USDC for trading
+2. Maintains a minimum reserve amount (default $100)
+3. Provides easy configuration through settings or commands
+4. Tracks allocation history for analysis
+
+This approach ensures that trading operations consistently use the specified portion of available capital while maintaining a safety reserve.
 
 ## Security
 
@@ -129,6 +139,8 @@ Once the system is running, you can interact with it via Telegram:
 - `/analyze <symbol>` - Analyze market for symbol
 - `/strategy <symbol>` - Generate trading strategy
 - `/risk` - Get risk metrics
+- `/allocation` - View capital allocation settings
+- `/set_allocation <percentage>` - Set allocation percentage (0-100)
 - `/performance` - Get performance metrics
 - `/settings` - View current settings
 - `/help` - Show available commands
@@ -142,7 +154,7 @@ Once the system is running, you can interact with it via Telegram:
 python -m unittest discover -s llm_overseer/tests
 
 # Run specific test
-python -m llm_overseer.tests.test_e2e
+python -m llm_overseer.tests.test_compounding
 ```
 
 ### Adding New Features
