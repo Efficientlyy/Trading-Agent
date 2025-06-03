@@ -1,0 +1,36 @@
+{
+  "llm": {
+    "provider": "openrouter",
+    "api_key": "test_api_key_for_development",
+    "models": {
+      "tier_1": "openai/gpt-3.5-turbo",
+      "tier_2": "anthropic/claude-3-sonnet",
+      "tier_3": "anthropic/claude-3-opus"
+    },
+    "cost_per_million_tokens": {
+      "tier_1": {"input": 0.20, "output": 0.20},
+      "tier_2": {"input": 0.50, "output": 0.75},
+      "tier_3": {"input": 5.00, "output": 10.00}
+    }
+  },
+  "telegram": {
+    "bot_token": "test_bot_token_for_development",
+    "allowed_user_ids": ["123456789"],
+    "notification_levels": {
+      "trade_execution": "high",
+      "performance_update": "medium",
+      "system_status": "low"
+    }
+  },
+  "trading": {
+    "default_symbol": "BTCUSDC",
+    "paper_trading": true,
+    "risk_level": "medium",
+    "max_position_size_pct": 0.10,
+    "compounding_rate": 0.80
+  },
+  "system": {
+    "log_level": "INFO",
+    "data_retention_days": 30
+  }
+}

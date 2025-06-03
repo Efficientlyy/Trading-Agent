@@ -1,0 +1,12 @@
+{
+  "timestamp": "2025-06-03T17:21:18.886656",
+  "tests": {
+    "llm_overseer": {
+      "status": "failed",
+      "details": {
+        "error": "'api_key_env'"
+      }
+    }
+  },
+  "overall_status": "failed"
+}

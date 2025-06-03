@@ -1,0 +1,18 @@
+{
+  "history": [
+    {
+      "date": "2025-06-01T00:00:00",
+      "capital_before": 10200.0,
+      "profit": 200.0,
+      "reinvested": 160.0,
+      "withdrawn": 40.0,
+      "capital_after": 10160.0
+    }
+  ],
+  "initial_capital": 10160.0,
+  "current_capital": 10200.0,
+  "total_profit": 200.0,
+  "reinvested_profit": 160.0,
+  "withdrawn_profit": 40.0,
+  "last_compounding_date": "2025-06-01T00:00:00"
+}
