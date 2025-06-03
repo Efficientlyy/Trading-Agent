@@ -2,148 +2,101 @@
 
 ## Overview
 
-The LLM Strategic Overseer is an advanced AI-powered decision-making system for the Trading-Agent platform. It leverages large language models (LLMs) to provide strategic insights, optimize trading parameters, and manage risk for cryptocurrency trading operations.
+The LLM Strategic Overseer is an advanced AI-powered system that provides strategic decision-making, risk management, and performance optimization for the Trading-Agent platform. It integrates with the trading system core to provide real-time insights, pattern recognition, and automated decision support.
 
-## Key Features
+## Features
 
-- **Tiered LLM Integration**: Cost-optimized approach using different model tiers based on task complexity
-- **Secure Telegram Interface**: Authenticated command interface with session management
-- **Strategic Decision Engine**: AI-powered analysis and decision making for trading optimization
-- **Market Analysis**: Advanced order book and market microstructure analysis
-- **Risk Management**: Sophisticated position sizing and risk control
-- **Capital Allocation**: Configurable percentage of available USDC for trading (default 80%)
-- **Notification System**: Real-time alerts and performance reporting
+- **Tiered LLM Integration**: Cost-optimized approach using OpenRouter with multiple model tiers
+- **Strategic Decision Making**: AI-powered analysis and trading recommendations
+- **Pattern Recognition**: Advanced technical analysis and chart pattern detection
+- **Real-time Visualization**: Interactive charts with pattern markers and decision indicators
+- **Secure Telegram Integration**: Authenticated command interface and notifications
+- **Capital Allocation Strategy**: Configurable percentage-based allocation (default 80%)
+- **Performance Optimization**: Resource monitoring and cost reduction strategies
+- **Comprehensive Notifications**: Configurable alerts and performance reports
 
 ## Architecture
 
-The LLM Strategic Overseer consists of the following core components:
+The LLM Strategic Overseer is built with a modular architecture:
 
 ```
 llm_overseer/
-├── config/               # Configuration management
-├── core/                 # Core LLM functionality
-├── strategy/             # Trading strategy components
-├── telegram/             # Secure Telegram interface
-├── integration/          # Trading system integration
-├── tests/                # Test suite
-└── main.py               # Main entry point
+├── analysis/              # Pattern recognition and technical analysis
+├── config/                # Configuration and settings management
+├── core/                  # Core components (LLM, context, event bus)
+├── data/                  # Data management and unified pipeline
+├── integration/           # Integration with trading system
+├── notifications/         # Notification and reporting system
+├── optimization/          # Performance optimization and cost reduction
+├── strategy/              # Trading strategy components
+├── telegram/              # Telegram bot and authentication
+├── tests/                 # Test suite
+├── visualization/         # Chart visualization and dashboard
+└── main.py                # Main entry point
 ```
 
-### Core Components
+## Installation
 
-- **LLM Manager**: Handles API calls to OpenRouter with tiered model selection
-- **Context Manager**: Maintains market context and trading history
-- **Token Tracker**: Monitors token usage and costs
-- **Decision Engine**: Generates strategic trading decisions
-- **Market Analyzer**: Analyzes market microstructure and order book
-- **Risk Manager**: Controls position sizing and risk parameters
-- **Capital Allocation Strategy**: Manages trading capital allocation
+1. Clone the repository:
+```bash
+git clone https://github.com/Efficientlyy/Trading-Agent.git
+cd Trading-Agent
+```
+
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Configure environment variables:
+```bash
+cp .env.example .env
+# Edit .env with your API keys and settings
+```
 
 ## Configuration
 
-Configuration is managed through a combination of:
-
-1. **settings.json**: Default configuration values
-2. **Environment Variables**: Secure API keys and tokens
-3. **Command Interface**: Runtime parameter adjustments
-
-### Example Configuration
+The system is configured through the `config/settings.json` file and environment variables:
 
 ```json
 {
   "llm": {
     "provider": "openrouter",
     "api_key_env": "OPENROUTER_API_KEY",
-    "models": {
-      "tier_1": "openai/gpt-3.5-turbo",
-      "tier_2": "anthropic/claude-3-sonnet",
-      "tier_3": "anthropic/claude-3-opus"
-    }
+    "default_model": "gpt-3.5-turbo",
+    "timeout": 30
   },
   "telegram": {
     "bot_token_env": "TELEGRAM_BOT_TOKEN",
-    "allowed_user_ids": [123456789]
+    "allowed_user_ids": [123456789],
+    "admin_user_ids": [123456789]
   },
   "trading": {
-    "allocation": {
-      "enabled": true,
-      "percentage": 0.8,
-      "min_reserve": 100
-    },
-    "risk": {
-      "max_position_size": 0.1,
-      "max_total_exposure": 0.5,
-      "risk_reward_ratio": 2.0
-    }
+    "capital_allocation_percentage": 80,
+    "minimum_reserve": 100,
+    "supported_assets": ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
   }
 }
 ```
 
-## Capital Allocation Strategy
-
-The system implements a configurable capital allocation strategy that:
-
-1. Uses a specified percentage (default 80%) of available USDC for trading
-2. Maintains a minimum reserve amount (default $100)
-3. Provides easy configuration through settings or commands
-4. Tracks allocation history for analysis
-
-This approach ensures that trading operations consistently use the specified portion of available capital while maintaining a safety reserve.
-
-## Security
-
-The system implements multiple security layers:
-
-1. **Authentication**: Secure Telegram authentication with verification codes
-2. **Session Management**: Time-limited sessions with automatic expiration
-3. **Access Control**: Whitelisted user IDs for command access
-4. **Secure Storage**: Environment variables for sensitive API keys
-
 ## Usage
 
-### Prerequisites
-
-- Python 3.11+
-- OpenRouter API key
-- Telegram Bot token
-- Trading system integration
-
-### Installation
+### Starting the System
 
 ```bash
-# Clone the repository
-git clone https://github.com/Efficientlyy/Trading-Agent.git
-cd Trading-Agent
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your API keys
-```
-
-### Running the System
-
-```bash
-# Start the LLM Strategic Overseer
 python -m llm_overseer.main
 ```
 
 ### Telegram Commands
 
-Once the system is running, you can interact with it via Telegram:
-
-- `/start` - Begin authentication process
-- `/status` - Get system status
-- `/analyze <symbol>` - Analyze market for symbol
-- `/strategy <symbol>` - Generate trading strategy
-- `/risk` - Get risk metrics
-- `/allocation` - View capital allocation settings
-- `/set_allocation <percentage>` - Set allocation percentage (0-100)
-- `/performance` - Get performance metrics
-- `/settings` - View current settings
+- `/start` - Start the bot and verify authentication
 - `/help` - Show available commands
+- `/status` - Check system status
+- `/allocate <percentage>` - Set capital allocation percentage
+- `/analyze <symbol> <timeframe>` - Request analysis for a specific asset
+- `/report <daily|weekly>` - Generate performance report
+- `/settings` - View current settings
+- `/update_settings <setting> <value>` - Update a setting
 
 ## Development
 
@@ -151,33 +104,28 @@ Once the system is running, you can interact with it via Telegram:
 
 ```bash
 # Run all tests
-python -m unittest discover -s llm_overseer/tests
+python -m llm_overseer.tests.run_tests
 
 # Run specific test
-python -m llm_overseer.tests.test_compounding
+python -m llm_overseer.tests.test_visualization
 ```
 
-### Adding New Features
+### Adding New Components
 
-1. Implement new functionality in the appropriate module
-2. Add tests to verify behavior
-3. Update configuration if needed
-4. Document changes in this README
+1. Create a new module in the appropriate directory
+2. Update `__init__.py` to expose the module
+3. Add tests in the `tests/` directory
+4. Update documentation
 
-## Cost Optimization
+## Integration
 
-The tiered LLM approach optimizes costs by:
+The LLM Strategic Overseer integrates with the Trading-Agent system through the `integration` module. It connects to:
 
-1. Using cheaper models for routine tasks (Tier 1)
-2. Using mid-range models for analysis tasks (Tier 2)
-3. Reserving expensive models for critical strategy decisions (Tier 3)
-
-This approach reduces monthly costs from $500+ to $100-150 while maintaining high-quality decision making.
+- Trading system core for execution
+- Visualization components for chart display
+- Telegram for user interaction
+- Data pipeline for market data
 
 ## License
 
-This project is proprietary and confidential. All rights reserved.
-
-## Contributors
-
-- Efficientlyy Team
+Copyright (c) 2025 Efficientlyy - All Rights Reserved
