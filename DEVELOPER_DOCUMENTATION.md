@@ -9,11 +9,12 @@ This document provides comprehensive instructions for new developers to deploy, 
 1. [System Requirements](#system-requirements)
 2. [Quick Start](#quick-start)
 3. [Detailed Deployment Options](#detailed-deployment-options)
-4. [Project Structure](#project-structure)
-5. [Configuration](#configuration)
-6. [Development Workflow](#development-workflow)
-7. [Testing](#testing)
-8. [Troubleshooting](#troubleshooting)
+4. [Trading Modes](#trading-modes)
+5. [Project Structure](#project-structure)
+6. [Configuration](#configuration)
+7. [Development Workflow](#development-workflow)
+8. [Testing](#testing)
+9. [Troubleshooting](#troubleshooting)
 
 ## System Requirements
 
@@ -37,17 +38,21 @@ This document provides comprehensive instructions for new developers to deploy, 
 2. Set up environment variables:
    ```bash
    cp .env.example .env
-   # Edit .env file with your MEXC API credentials
+   # Edit .env file with your MEXC API credentials (optional for mock mode)
    ```
 
 3. Deploy with Docker:
    ```bash
+   # For real trading mode (requires API credentials)
    docker-compose up -d
+   
+   # For mock trading mode (no API credentials needed)
+   docker-compose -f docker-compose.mock.yml up -d
    ```
 
 4. Access the system:
-   - Trading Dashboard: http://localhost:5000/
-   - Parameter Management: http://localhost:5000/parameters
+   - Trading Dashboard: http://localhost:8080/
+   - Parameter Management: http://localhost:8080/parameters
    - Monitoring Dashboard: http://localhost:5001/
    - Chart Visualization: http://localhost:5002/
 
@@ -67,12 +72,16 @@ This document provides comprehensive instructions for new developers to deploy, 
 3. Set up environment variables:
    ```bash
    cp .env.example .env
-   # Edit .env file with your MEXC API credentials
+   # Edit .env file with your MEXC API credentials (optional for mock mode)
    ```
 
 4. Launch the system:
    ```bash
+   # For real trading mode (requires API credentials)
    ./start_trading_system.sh
+   
+   # For mock trading mode (no API credentials needed)
+   ./start_trading_system.sh --mock
    ```
 
 5. Access the system at the same URLs as in the Docker deployment.
@@ -118,7 +127,7 @@ The local deployment uses the `start_trading_system.sh` script to launch all com
 
 #### Components Started
 
-1. Core Trading Engine (`trading_engine.py`)
+1. Core Trading Engine (`start_btc_usdc_trading.py`)
 2. Parameter Management API (`parameter_management_api.py`)
 3. Visualization Dashboard (`visualization/chart_component.py`)
 4. Monitoring Dashboard (`monitoring/monitoring_dashboard.py`)
@@ -136,15 +145,55 @@ To stop all components:
 ./stop_trading_system.sh
 ```
 
+## Trading Modes
+
+The Trading-Agent system supports two operational modes:
+
+### Real Trading Mode
+
+- **Requirements**: Valid MEXC API credentials in the `.env` file
+- **Data Source**: Real-time market data from MEXC exchange API
+- **Features**:
+  - Live market data for BTC, ETH, and SOL
+  - Real order book and trade history
+  - Actual account balance information
+  - Zero-fee trading for BTC/USDC
+  - Ability to execute real trades (if enabled)
+
+### Mock Trading Mode
+
+- **Requirements**: None (works without API credentials)
+- **Data Source**: Simulated market data that mimics real market behavior
+- **Features**:
+  - Realistic price movements based on statistical models
+  - Simulated order book and trade history
+  - Virtual account balances for paper trading
+  - Full trading simulation without real funds at risk
+  - Perfect for development, testing, and demonstrations
+
+### Switching Between Modes
+
+- **Command Line**: Use the `--mock` flag with `start_btc_usdc_trading.py` or `start_trading_system.sh`
+- **Docker**: Use `docker-compose.yml` for real mode or `docker-compose.mock.yml` for mock mode
+- **Automatic Fallback**: The system automatically switches to mock mode if API credentials are missing
+
+### Mode Identification
+
+You can identify which mode the system is running in through:
+- The health endpoint: `GET /health` returns `{"status": "healthy", "mode": "mock"}` or `{"status": "healthy", "mode": "real"}`
+- Log messages: The startup log clearly indicates "Running in MOCK MODE" or "Running in REAL MODE"
+- UI indicator: The dashboard displays the current mode in the header
+
 ## Project Structure
 
 ```
 Trading-Agent/
 ├── .env                      # Environment variables
-├── docker-compose.yml        # Docker configuration
+├── docker-compose.yml        # Docker configuration for real mode
+├── docker-compose.mock.yml   # Docker configuration for mock mode
 ├── requirements.txt          # Python dependencies
 ├── start_trading_system.sh   # Unified startup script
-├── trading_engine.py         # Core trading engine
+├── start_btc_usdc_trading.py # Core trading engine
 ├── parameter_management_api.py # Parameter management API
 ├── execution_optimization.py # Order execution logic
 ├── mock_exchange_client.py   # Mock exchange for testing
@@ -173,7 +222,7 @@ Key environment variables in `.env`:
 
 ```
 MEXC_API_KEY=your_api_key
-MEXC_API_SECRET=your_api_secret
+MEXC_SECRET_KEY=your_api_secret
 LOG_LEVEL=INFO
 ENABLE_PAPER_TRADING=true
 MAX_PORTFOLIO_RISK_PERCENT=1.5
@@ -183,7 +232,7 @@ MAX_PORTFOLIO_RISK_PERCENT=1.5
 
 The system includes a comprehensive parameter management system with:
 
-1. **Web Interface**: Access at http://localhost:5000/parameters
+1. **Web Interface**: Access at http://localhost:8080/parameters
 2. **API Endpoints**:
    - GET `/parameters` - List all parameters
    - GET `/parameters/{module}` - Get parameters for a specific module
@@ -273,15 +322,22 @@ client = MockExchangeClient()
    - Verify MEXC API credentials in `.env`
    - Check internet connection
    - Ensure MEXC API is operational
+   - Try running in mock mode with `--mock` flag
 
 2. **Component Startup Failures**:
    - Check logs in `logs/` directory
    - Verify all dependencies are installed
    - Check for port conflicts
+   - Ensure the system has proper permissions
 
 3. **Parameter Validation Errors**:
    - Review parameter values against allowed ranges
    - Check parameter metadata in `parameter_management_api.py`
+
+4. **Mock Mode Issues**:
+   - Ensure you're using the latest version of the startup script
+   - Check if any component is still trying to access real API
+   - Verify that mock data generation is working properly
 
 ### Getting Help
 

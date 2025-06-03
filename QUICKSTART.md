@@ -25,7 +25,7 @@ cd Trading-Agent
 cp .env.example .env
 
 # Edit the .env file with your credentials
-# For development, you can use mock data without real credentials
+# For development, you can use mock mode without real credentials
 ```
 
 ## Deployment Options
@@ -33,10 +33,13 @@ cp .env.example .env
 ### Option 1: One-Click Docker Deployment (Recommended)
 
 ```bash
-# Start all services
+# Start all services in real mode (requires API credentials)
 docker-compose up -d
 
-# Access the system at http://localhost:5000
+# Start all services in mock mode (no API credentials needed)
+docker-compose -f docker-compose.mock.yml up -d
+
+# Access the system at http://localhost:8080
 ```
 
 ### Option 2: Single Command Script
@@ -45,11 +48,28 @@ docker-compose up -d
 # Install dependencies
 pip install -r requirements.txt
 
-# Start all services
+# Start all services in real mode (requires API credentials)
 ./start_trading_system.sh
 
-# Access the system at http://localhost:5000
+# Start all services in mock mode (no API credentials needed)
+./start_trading_system.sh --mock
+
+# Access the system at http://localhost:8080
 ```
+
+## Trading Modes
+
+### Real Trading Mode
+- Requires valid MEXC API credentials in the `.env` file
+- Connects to the real MEXC exchange API
+- Uses real market data for analysis and visualization
+- Can execute real trades (if enabled)
+
+### Mock Trading Mode
+- No API credentials required
+- Uses simulated market data that mimics real market behavior
+- Perfect for development, testing, and demonstrations
+- No real trades will be executed
 
 ## Key Features
 

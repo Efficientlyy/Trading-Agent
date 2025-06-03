@@ -2,7 +2,7 @@
 """
 BTC/USDC Trading System Starter
 This script runs the necessary components to launch the BTC/USDC trading system
-with real API integration.
+with real API integration or mock mode for development.
 """
 
 import os
@@ -13,6 +13,7 @@ import threading
 import requests
 import websocket
 import datetime
+import argparse
 from dotenv import load_dotenv
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
@@ -24,23 +25,39 @@ import numpy as np
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    filename='trading_agent.log',
+    filemode='a'
 )
+# Add console handler
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+console.setFormatter(formatter)
+logging.getLogger('').addHandler(console)
+
 logger = logging.getLogger(__name__)
+
+# Parse command line arguments
+parser = argparse.ArgumentParser(description='BTC/USDC Trading System')
+parser.add_argument('--mock', action='store_true', help='Run in mock mode without real API credentials')
+args = parser.parse_args()
 
 # Load environment variables
 load_dotenv()
 MEXC_API_KEY = os.getenv('MEXC_API_KEY')
-MEXC_API_SECRET = os.getenv('MEXC_API_SECRET')
+MEXC_API_SECRET = os.getenv('MEXC_SECRET_KEY')  # Fixed key name to match .env file
 
-if not MEXC_API_KEY or not MEXC_API_SECRET:
-    logger.error("API credentials not found in .env file")
-    sys.exit(1)
+# Check if we should use mock mode
+use_mock_mode = args.mock or not (MEXC_API_KEY and MEXC_API_SECRET)
 
-logger.info(f"Loaded API credentials: {MEXC_API_KEY[:4]}...{MEXC_API_KEY[-4:]}")
+if use_mock_mode:
+    logger.info("Running in MOCK MODE - no real trades will be executed")
+else:
+    logger.info(f"Running in REAL MODE with API credentials: {MEXC_API_KEY[:4]}...{MEXC_API_KEY[-4:]}")
 
 # Initialize Flask app for the dashboard API
-app = Flask(__name__, static_folder='boilerplate/rust/market-data-processor/dashboard/build')
+app = Flask(__name__, static_folder='static')
 CORS(app)
 
 # Global data storage
@@ -178,6 +195,69 @@ def generate_trades(count=20):
     
     logger.info(f"Generated {len(trades)} recent trades")
 
+# Fetch real market data from MEXC API
+def fetch_real_market_data():
+    global ticker_data, order_book_data, trades_data, candles_data
+    
+    try:
+        # Fetch ticker data
+        ticker_url = f"{MEXC_REST_API_URL}/api/v3/ticker/24hr?symbol={TRADING_PAIR}"
+        ticker_response = requests.get(ticker_url)
+        ticker_data_raw = ticker_response.json()
+        
+        ticker_data = {
+            "price": float(ticker_data_raw.get("lastPrice", 0)),
+            "volume": float(ticker_data_raw.get("volume", 0)),
+            "change": float(ticker_data_raw.get("priceChangePercent", 0))
+        }
+        
+        # Fetch order book
+        orderbook_url = f"{MEXC_REST_API_URL}/api/v3/depth?symbol={TRADING_PAIR}&limit=20"
+        orderbook_response = requests.get(orderbook_url)
+        orderbook_data_raw = orderbook_response.json()
+        
+        order_book_data = {
+            "bids": orderbook_data_raw.get("bids", []),
+            "asks": orderbook_data_raw.get("asks", [])
+        }
+        
+        # Fetch recent trades
+        trades_url = f"{MEXC_REST_API_URL}/api/v3/trades?symbol={TRADING_PAIR}&limit=20"
+        trades_response = requests.get(trades_url)
+        trades_data_raw = trades_response.json()
+        
+        trades_data = []
+        for trade in trades_data_raw:
+            trades_data.append({
+                "id": trade.get("id", ""),
+                "price": trade.get("price", ""),
+                "quantity": trade.get("qty", ""),
+                "timestamp": trade.get("time", 0),
+                "isBuyerMaker": trade.get("isBuyerMaker", False)
+            })
+        
+        # Fetch klines (candles)
+        klines_url = f"{MEXC_REST_API_URL}/api/v3/klines?symbol={TRADING_PAIR}&interval=1h&limit=168"
+        klines_response = requests.get(klines_url)
+        klines_data_raw = klines_response.json()
+        
+        candles_data = []
+        for kline in klines_data_raw:
+            candles_data.append({
+                "timestamp": kline[0],
+                "open": float(kline[1]),
+                "high": float(kline[2]),
+                "low": float(kline[3]),
+                "close": float(kline[4]),
+                "volume": float(kline[5])
+            })
+        
+        logger.info("Successfully fetched real market data from MEXC API")
+        return True
+    except Exception as e:
+        logger.error(f"Error fetching real market data: {str(e)}")
+        return False
+
 # API routes
 @app.route('/api/v1/ticker', methods=['GET'])
 def get_ticker():
@@ -206,7 +286,7 @@ def place_order():
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    return jsonify({"status": "healthy"})
+    return jsonify({"status": "healthy", "mode": "mock" if use_mock_mode else "real"})
 
 @app.route('/ws')
 def websocket():
@@ -225,39 +305,55 @@ def update_data():
     global ticker_data, order_book_data, trades_data, last_order_book_update, last_trades_update
     
     while True:
-        # Update ticker randomly every 1-3 seconds
-        current_price = ticker_data["price"]
-        price_change = current_price * random.uniform(-0.002, 0.002)
-        new_price = current_price + price_change
-        
-        ticker_data = {
-            "price": new_price,
-            "volume": random.uniform(100, 1000),
-            "change": price_change / current_price * 100
-        }
-        
-        # Update order book every 5 seconds
-        if time.time() - last_order_book_update > 5:
-            generate_order_book()
-            last_order_book_update = time.time()
-        
-        # Update trades occasionally
-        if time.time() - last_trades_update > 10:
-            # Add 1-3 new trades
-            new_trade_count = random.randint(1, 3)
-            generate_trades(new_trade_count)
-            last_trades_update = time.time()
+        if use_mock_mode:
+            # Update ticker randomly every 1-3 seconds
+            current_price = ticker_data["price"]
+            price_change = current_price * random.uniform(-0.002, 0.002)
+            new_price = current_price + price_change
+            
+            ticker_data = {
+                "price": new_price,
+                "volume": random.uniform(100, 1000),
+                "change": price_change / current_price * 100
+            }
+            
+            # Update order book every 5 seconds
+            if time.time() - last_order_book_update > 5:
+                generate_order_book()
+                last_order_book_update = time.time()
+            
+            # Update trades occasionally
+            if time.time() - last_trades_update > 10:
+                # Add 1-3 new trades
+                new_trade_count = random.randint(1, 3)
+                generate_trades(new_trade_count)
+                last_trades_update = time.time()
+        else:
+            # Fetch real market data every 10 seconds
+            if time.time() - last_order_book_update > 10:
+                fetch_real_market_data()
+                last_order_book_update = time.time()
+                last_trades_update = time.time()
         
         time.sleep(random.uniform(1, 3))
 
 # Main function
 def main():
-    logger.info("Starting BTC/USDC Trading System")
+    logger.info(f"Starting BTC/USDC Trading System in {'MOCK' if use_mock_mode else 'REAL'} mode")
     
-    # Generate initial data
-    generate_initial_candles()
-    generate_order_book()
-    generate_trades()
+    if use_mock_mode:
+        # Generate initial mock data
+        generate_initial_candles()
+        generate_order_book()
+        generate_trades()
+    else:
+        # Fetch initial real market data
+        success = fetch_real_market_data()
+        if not success:
+            logger.warning("Failed to fetch initial real market data, falling back to mock data")
+            generate_initial_candles()
+            generate_order_book()
+            generate_trades()
     
     # Start data update thread
     update_thread = threading.Thread(target=update_data, daemon=True)
