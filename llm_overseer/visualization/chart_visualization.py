@@ -1,801 +1,825 @@
 #!/usr/bin/env python
 """
-Real-Time Chart Visualization Module for Trading-Agent
+Real-time Chart Visualization for LLM Strategic Overseer.
 
-This module provides real-time chart visualization capabilities for multiple assets
-(BTC, ETH, SOL) with support for different timeframes and technical indicators.
+This module provides real-time chart visualization for traded assets,
+with support for technical indicators and pattern recognition.
 """
 
 import os
 import sys
 import json
-import time
 import logging
 import asyncio
-import threading
+from typing import Dict, List, Any, Optional, Union, Callable
+from datetime import datetime
+import traceback
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Any, Optional, Union, Callable
-from datetime import datetime, timedelta
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from io import BytesIO
+import base64
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("chart_visualization.log"),
+        logging.FileHandler(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'logs', 'chart_visualization.log')),
         logging.StreamHandler()
     ]
 )
-logger = logging.getLogger("chart_visualization")
+logger = logging.getLogger(__name__)
+
+# Import event bus
+from ..core.event_bus import EventBus
 
 class ChartVisualization:
     """
-    Real-Time Chart Visualization for multiple assets.
+    Real-time Chart Visualization for LLM Strategic Overseer.
     
-    This class provides real-time chart visualization capabilities for multiple assets
-    with support for different timeframes, technical indicators, and strategic markers.
+    This class provides real-time chart visualization for traded assets,
+    with support for technical indicators and pattern recognition.
     """
     
-    def __init__(self, event_bus=None, data_pipeline=None):
+    def __init__(self, config, event_bus: Optional[EventBus] = None):
         """
         Initialize Chart Visualization.
         
         Args:
-            event_bus: Event Bus instance
-            data_pipeline: Unified Data Pipeline instance
+            config: Configuration object
+            event_bus: Event bus instance (optional, will create new if None)
         """
-        self.event_bus = event_bus
-        self.data_pipeline = data_pipeline
+        self.config = config
         
-        # Supported assets and timeframes
-        self.supported_assets = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
-        self.supported_timeframes = ["1m", "5m", "15m", "1h", "4h", "1d"]
+        # Initialize event bus if not provided
+        self.event_bus = event_bus if event_bus else EventBus()
         
-        # Chart data
-        self.chart_data = {}
-        for symbol in self.supported_assets:
-            self.chart_data[symbol] = {}
-            for timeframe in self.supported_timeframes:
-                self.chart_data[symbol][timeframe] = {
-                    "klines": pd.DataFrame(),
-                    "indicators": {},
-                    "markers": []
-                }
+        # Initialize subscriptions
+        self.subscriptions = {}
         
-        # Active charts
-        self.active_charts = {}
+        # Initialize data storage
+        self.market_data = {}
+        self.indicators = {}
+        self.patterns = {}
         
-        # Chart update callbacks
-        self.update_callbacks = {}
+        # Initialize chart settings
+        self.chart_settings = {
+            "timeframe": self.config.get("visualization.timeframe", "1h"),
+            "max_points": self.config.get("visualization.max_points", 100),
+            "indicators": self.config.get("visualization.indicators", ["sma", "rsi", "macd"]),
+            "theme": self.config.get("visualization.theme", "dark"),
+            "show_patterns": self.config.get("visualization.show_patterns", True),
+            "show_signals": self.config.get("visualization.show_signals", True)
+        }
         
-        # Register event handlers if event bus is provided
-        if self.event_bus:
-            self._register_event_handlers()
+        # Initialize supported symbols
+        self.symbols = self.config.get("trading.symbols", ["BTC/USDC", "ETH/USDC", "SOL/USDC"])
+        
+        # Initialize chart output directory
+        self.output_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "output",
+            "charts"
+        )
+        os.makedirs(self.output_dir, exist_ok=True)
+        
+        # Subscribe to relevant events
+        self._subscribe_to_events()
         
         logger.info("Chart Visualization initialized")
     
-    def set_event_bus(self, event_bus):
+    def _subscribe_to_events(self) -> None:
+        """Subscribe to relevant events."""
+        # Subscribe to market data events
+        self.subscriptions["market_data"] = self.event_bus.subscribe(
+            "trading.market_data", self._handle_market_data
+        )
+        
+        # Subscribe to indicator events
+        self.subscriptions["indicator"] = self.event_bus.subscribe(
+            "analysis.indicator", self._handle_indicator
+        )
+        
+        # Subscribe to pattern events
+        self.subscriptions["pattern"] = self.event_bus.subscribe(
+            "analysis.pattern", self._handle_pattern
+        )
+        
+        # Subscribe to strategy decision events
+        self.subscriptions["strategy_decision"] = self.event_bus.subscribe(
+            "llm.strategy_decision", self._handle_strategy_decision
+        )
+        
+        logger.info("Subscribed to events")
+    
+    async def _handle_market_data(self, topic: str, data: Dict[str, Any]) -> None:
         """
-        Set Event Bus instance.
+        Handle market data event.
         
         Args:
-            event_bus: Event Bus instance
+            topic: Event topic
+            data: Event data
         """
-        self.event_bus = event_bus
-        self._register_event_handlers()
-        
-        logger.info("Event Bus set")
+        try:
+            if not data.get("success", False):
+                return
+            
+            symbol = data.get("symbol")
+            if not symbol or symbol not in self.symbols:
+                return
+            
+            # Initialize symbol data if not exists
+            if symbol not in self.market_data:
+                self.market_data[symbol] = {
+                    "timestamp": [],
+                    "price": [],
+                    "volume": []
+                }
+            
+            # Add data point
+            timestamp = datetime.fromisoformat(data.get("timestamp"))
+            price = data.get("price")
+            volume = data.get("volume_24h", 0)
+            
+            self.market_data[symbol]["timestamp"].append(timestamp)
+            self.market_data[symbol]["price"].append(price)
+            self.market_data[symbol]["volume"].append(volume)
+            
+            # Limit data points
+            if len(self.market_data[symbol]["timestamp"]) > self.chart_settings["max_points"]:
+                self.market_data[symbol]["timestamp"] = self.market_data[symbol]["timestamp"][-self.chart_settings["max_points"]:]
+                self.market_data[symbol]["price"] = self.market_data[symbol]["price"][-self.chart_settings["max_points"]:]
+                self.market_data[symbol]["volume"] = self.market_data[symbol]["volume"][-self.chart_settings["max_points"]:]
+            
+            # Update chart
+            await self.update_chart(symbol)
+            
+            logger.debug(f"Updated market data for {symbol}")
+        except Exception as e:
+            logger.error(f"Error handling market data: {e}")
+            logger.error(traceback.format_exc())
     
-    def set_data_pipeline(self, data_pipeline):
+    async def _handle_indicator(self, topic: str, data: Dict[str, Any]) -> None:
         """
-        Set Unified Data Pipeline instance.
+        Handle indicator event.
         
         Args:
-            data_pipeline: Unified Data Pipeline instance
+            topic: Event topic
+            data: Event data
         """
-        self.data_pipeline = data_pipeline
-        
-        # Initialize chart data from pipeline
-        self._initialize_chart_data()
-        
-        logger.info("Unified Data Pipeline set")
+        try:
+            symbol = data.get("symbol")
+            indicator_type = data.get("indicator_type")
+            indicator_values = data.get("values", [])
+            
+            if not symbol or not indicator_type or symbol not in self.symbols:
+                return
+            
+            # Initialize symbol indicators if not exists
+            if symbol not in self.indicators:
+                self.indicators[symbol] = {}
+            
+            # Add indicator data
+            self.indicators[symbol][indicator_type] = indicator_values
+            
+            # Update chart
+            await self.update_chart(symbol)
+            
+            logger.debug(f"Updated {indicator_type} indicator for {symbol}")
+        except Exception as e:
+            logger.error(f"Error handling indicator: {e}")
+            logger.error(traceback.format_exc())
     
-    def _register_event_handlers(self):
-        """Register event handlers with Event Bus."""
-        self.event_bus.subscribe("pipeline.klines_updated", self._handle_klines_update)
-        self.event_bus.subscribe("pipeline.market_data_updated", self._handle_market_data_update)
-        self.event_bus.subscribe("visualization.strategic_decision", self._handle_strategic_decision)
-        self.event_bus.subscribe("visualization.pattern_detected", self._handle_pattern_detected)
-        self.event_bus.subscribe("visualization.risk_alert", self._handle_risk_alert)
+    async def _handle_pattern(self, topic: str, data: Dict[str, Any]) -> None:
+        """
+        Handle pattern event.
         
-        logger.info("Event handlers registered")
+        Args:
+            topic: Event topic
+            data: Event data
+        """
+        try:
+            symbol = data.get("symbol")
+            pattern_type = data.get("pattern_type")
+            pattern_data = data.get("pattern_data", {})
+            
+            if not symbol or not pattern_type or symbol not in self.symbols:
+                return
+            
+            # Initialize symbol patterns if not exists
+            if symbol not in self.patterns:
+                self.patterns[symbol] = []
+            
+            # Add pattern data with timestamp
+            pattern = {
+                "type": pattern_type,
+                "data": pattern_data,
+                "timestamp": datetime.fromisoformat(data.get("timestamp", datetime.now().isoformat()))
+            }
+            
+            self.patterns[symbol].append(pattern)
+            
+            # Limit patterns (keep last 20)
+            if len(self.patterns[symbol]) > 20:
+                self.patterns[symbol] = self.patterns[symbol][-20:]
+            
+            # Update chart
+            await self.update_chart(symbol)
+            
+            logger.debug(f"Added {pattern_type} pattern for {symbol}")
+        except Exception as e:
+            logger.error(f"Error handling pattern: {e}")
+            logger.error(traceback.format_exc())
     
-    def _initialize_chart_data(self):
-        """Initialize chart data from data pipeline."""
-        if not self.data_pipeline:
-            logger.warning("Data pipeline not set, cannot initialize chart data")
+    async def _handle_strategy_decision(self, topic: str, data: Dict[str, Any]) -> None:
+        """
+        Handle strategy decision event.
+        
+        Args:
+            topic: Event topic
+            data: Event data
+        """
+        try:
+            if "trade" not in data:
+                return
+            
+            trade_data = data.get("trade", {})
+            symbol = trade_data.get("symbol")
+            
+            if not symbol or symbol not in self.symbols:
+                return
+            
+            # Update chart with strategy decision
+            await self.update_chart(symbol, strategy_decision=data)
+            
+            logger.debug(f"Updated chart with strategy decision for {symbol}")
+        except Exception as e:
+            logger.error(f"Error handling strategy decision: {e}")
+            logger.error(traceback.format_exc())
+    
+    async def update_chart(self, symbol: str, strategy_decision: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Update chart for symbol.
+        
+        Args:
+            symbol: Symbol to update chart for
+            strategy_decision: Optional strategy decision to highlight
+            
+        Returns:
+            Path to generated chart image
+        """
+        try:
+            if symbol not in self.market_data or not self.market_data[symbol]["timestamp"]:
+                logger.warning(f"No market data for {symbol}")
+                return ""
+            
+            # Create figure
+            fig = self._create_chart(symbol, strategy_decision)
+            
+            # Save chart
+            output_path = os.path.join(self.output_dir, f"{symbol.replace('/', '_')}_chart.png")
+            fig.savefig(output_path, dpi=100, bbox_inches="tight")
+            plt.close(fig)
+            
+            # Publish chart updated event
+            await self.event_bus.publish(
+                "visualization.chart_updated",
+                {
+                    "symbol": symbol,
+                    "chart_path": output_path,
+                    "timestamp": datetime.now().isoformat()
+                },
+                "normal"
+            )
+            
+            logger.debug(f"Updated chart for {symbol}")
+            return output_path
+        except Exception as e:
+            logger.error(f"Error updating chart: {e}")
+            logger.error(traceback.format_exc())
+            return ""
+    
+    def _create_chart(self, symbol: str, strategy_decision: Optional[Dict[str, Any]] = None) -> Figure:
+        """
+        Create chart for symbol.
+        
+        Args:
+            symbol: Symbol to create chart for
+            strategy_decision: Optional strategy decision to highlight
+            
+        Returns:
+            Matplotlib figure
+        """
+        # Set theme
+        if self.chart_settings["theme"] == "dark":
+            plt.style.use("dark_background")
+        else:
+            plt.style.use("default")
+        
+        # Create figure and subplots
+        fig, (ax_price, ax_volume) = plt.subplots(2, 1, figsize=(12, 8), gridspec_kw={"height_ratios": [3, 1]})
+        
+        # Get data
+        timestamps = self.market_data[symbol]["timestamp"]
+        prices = self.market_data[symbol]["price"]
+        volumes = self.market_data[symbol]["volume"]
+        
+        # Plot price
+        ax_price.plot(timestamps, prices, label="Price", color="white", linewidth=1.5)
+        ax_price.set_title(f"{symbol} - {self.chart_settings['timeframe']} Chart")
+        ax_price.set_ylabel("Price")
+        ax_price.grid(True, alpha=0.3)
+        
+        # Plot volume
+        ax_volume.bar(timestamps, volumes, label="Volume", color="blue", alpha=0.7)
+        ax_volume.set_xlabel("Time")
+        ax_volume.set_ylabel("Volume")
+        ax_volume.grid(True, alpha=0.3)
+        
+        # Format x-axis
+        for ax in [ax_price, ax_volume]:
+            ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
+            ax.xaxis.set_major_locator(mdates.HourLocator(interval=2))
+            plt.setp(ax.xaxis.get_majorticklabels(), rotation=45)
+        
+        # Plot indicators
+        if symbol in self.indicators:
+            self._plot_indicators(ax_price, symbol, timestamps)
+        
+        # Plot patterns
+        if self.chart_settings["show_patterns"] and symbol in self.patterns:
+            self._plot_patterns(ax_price, symbol, timestamps, prices)
+        
+        # Plot strategy decision
+        if self.chart_settings["show_signals"] and strategy_decision:
+            self._plot_strategy_decision(ax_price, strategy_decision, timestamps, prices)
+        
+        # Add legend
+        ax_price.legend(loc="upper left")
+        
+        # Adjust layout
+        fig.tight_layout()
+        
+        return fig
+    
+    def _plot_indicators(self, ax, symbol: str, timestamps) -> None:
+        """
+        Plot indicators on chart.
+        
+        Args:
+            ax: Matplotlib axis
+            symbol: Symbol to plot indicators for
+            timestamps: Timestamps for x-axis
+        """
+        indicators = self.indicators[symbol]
+        
+        # Plot SMA
+        if "sma" in indicators and "sma" in self.chart_settings["indicators"]:
+            sma_values = indicators["sma"]
+            if len(sma_values) == len(timestamps):
+                ax.plot(timestamps, sma_values, label="SMA", color="yellow", linewidth=1, alpha=0.8)
+        
+        # Plot EMA
+        if "ema" in indicators and "ema" in self.chart_settings["indicators"]:
+            ema_values = indicators["ema"]
+            if len(ema_values) == len(timestamps):
+                ax.plot(timestamps, ema_values, label="EMA", color="orange", linewidth=1, alpha=0.8)
+        
+        # Plot Bollinger Bands
+        if "bollinger_upper" in indicators and "bollinger_lower" in indicators and "bollinger" in self.chart_settings["indicators"]:
+            upper_values = indicators["bollinger_upper"]
+            lower_values = indicators["bollinger_lower"]
+            if len(upper_values) == len(timestamps) and len(lower_values) == len(timestamps):
+                ax.plot(timestamps, upper_values, label="Bollinger Upper", color="green", linewidth=1, alpha=0.5)
+                ax.plot(timestamps, lower_values, label="Bollinger Lower", color="green", linewidth=1, alpha=0.5)
+                ax.fill_between(timestamps, upper_values, lower_values, color="green", alpha=0.1)
+    
+    def _plot_patterns(self, ax, symbol: str, timestamps, prices) -> None:
+        """
+        Plot patterns on chart.
+        
+        Args:
+            ax: Matplotlib axis
+            symbol: Symbol to plot patterns for
+            timestamps: Timestamps for x-axis
+            prices: Prices for y-axis
+        """
+        patterns = self.patterns[symbol]
+        
+        for pattern in patterns:
+            pattern_type = pattern["type"]
+            pattern_timestamp = pattern["timestamp"]
+            
+            # Find closest timestamp index
+            closest_idx = min(range(len(timestamps)), key=lambda i: abs(timestamps[i] - pattern_timestamp))
+            
+            if closest_idx < len(prices):
+                pattern_price = prices[closest_idx]
+                
+                # Plot pattern marker
+                if pattern_type == "double_bottom":
+                    ax.scatter(pattern_timestamp, pattern_price, marker="^", color="lime", s=100, label=f"Double Bottom")
+                elif pattern_type == "double_top":
+                    ax.scatter(pattern_timestamp, pattern_price, marker="v", color="red", s=100, label=f"Double Top")
+                elif pattern_type == "head_and_shoulders":
+                    ax.scatter(pattern_timestamp, pattern_price, marker="X", color="orange", s=100, label=f"Head & Shoulders")
+                elif pattern_type == "inverse_head_and_shoulders":
+                    ax.scatter(pattern_timestamp, pattern_price, marker="X", color="cyan", s=100, label=f"Inv. Head & Shoulders")
+                else:
+                    ax.scatter(pattern_timestamp, pattern_price, marker="*", color="yellow", s=100, label=f"Pattern: {pattern_type}")
+    
+    def _plot_strategy_decision(self, ax, strategy_decision: Dict[str, Any], timestamps, prices) -> None:
+        """
+        Plot strategy decision on chart.
+        
+        Args:
+            ax: Matplotlib axis
+            strategy_decision: Strategy decision data
+            timestamps: Timestamps for x-axis
+            prices: Prices for y-axis
+        """
+        if "trade" not in strategy_decision:
             return
         
-        for symbol in self.supported_assets:
-            for timeframe in self.supported_timeframes:
-                # Get klines data
-                df = self.data_pipeline.get_klines_dataframe(symbol, timeframe)
-                if df is not None and not df.empty:
-                    self.chart_data[symbol][timeframe]["klines"] = df
-                    
-                    # Calculate indicators
-                    self._calculate_indicators(symbol, timeframe)
+        trade_data = strategy_decision["trade"]
+        side = trade_data.get("side")
+        price = trade_data.get("price")
         
-        logger.info("Chart data initialized from pipeline")
+        # Use latest timestamp
+        latest_timestamp = timestamps[-1] if timestamps else datetime.now()
+        
+        # Plot strategy decision marker
+        if side == "buy":
+            ax.scatter(latest_timestamp, price, marker="^", color="lime", s=150, label="Buy Signal")
+            ax.axhline(y=price, color="lime", linestyle="--", alpha=0.5)
+        elif side == "sell":
+            ax.scatter(latest_timestamp, price, marker="v", color="red", s=150, label="Sell Signal")
+            ax.axhline(y=price, color="red", linestyle="--", alpha=0.5)
     
-    def _calculate_indicators(self, symbol: str, timeframe: str):
+    def get_chart_as_base64(self, symbol: str) -> str:
         """
-        Calculate technical indicators for chart.
+        Get chart as base64 encoded string.
         
         Args:
-            symbol: Trading pair symbol
-            timeframe: Timeframe
+            symbol: Symbol to get chart for
+            
+        Returns:
+            Base64 encoded chart image
         """
-        df = self.chart_data[symbol][timeframe]["klines"]
-        if df.empty:
-            return
+        try:
+            if symbol not in self.market_data or not self.market_data[symbol]["timestamp"]:
+                logger.warning(f"No market data for {symbol}")
+                return ""
+            
+            # Create figure
+            fig = self._create_chart(symbol)
+            
+            # Convert to base64
+            buf = BytesIO()
+            fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
+            plt.close(fig)
+            
+            # Encode as base64
+            buf.seek(0)
+            img_base64 = base64.b64encode(buf.read()).decode("utf-8")
+            
+            return img_base64
+        except Exception as e:
+            logger.error(f"Error getting chart as base64: {e}")
+            logger.error(traceback.format_exc())
+            return ""
+    
+    def get_latest_chart_path(self, symbol: str) -> str:
+        """
+        Get path to latest chart for symbol.
         
-        # Calculate SMA
-        self.chart_data[symbol][timeframe]["indicators"]["sma_20"] = df["close"].rolling(window=20).mean()
-        self.chart_data[symbol][timeframe]["indicators"]["sma_50"] = df["close"].rolling(window=50).mean()
-        self.chart_data[symbol][timeframe]["indicators"]["sma_200"] = df["close"].rolling(window=200).mean()
+        Args:
+            symbol: Symbol to get chart for
+            
+        Returns:
+            Path to chart image
+        """
+        output_path = os.path.join(self.output_dir, f"{symbol.replace('/', '_')}_chart.png")
+        if os.path.exists(output_path):
+            return output_path
+        return ""
+    
+    def calculate_indicators(self, symbol: str) -> None:
+        """
+        Calculate technical indicators for symbol.
+        
+        Args:
+            symbol: Symbol to calculate indicators for
+        """
+        try:
+            if symbol not in self.market_data or not self.market_data[symbol]["timestamp"]:
+                logger.warning(f"No market data for {symbol}")
+                return
+            
+            # Get price data
+            prices = self.market_data[symbol]["price"]
+            
+            # Initialize symbol indicators if not exists
+            if symbol not in self.indicators:
+                self.indicators[symbol] = {}
+            
+            # Calculate SMA
+            if "sma" in self.chart_settings["indicators"]:
+                window = 20
+                if len(prices) >= window:
+                    sma = self._calculate_sma(prices, window)
+                    self.indicators[symbol]["sma"] = sma
+            
+            # Calculate EMA
+            if "ema" in self.chart_settings["indicators"]:
+                window = 20
+                if len(prices) >= window:
+                    ema = self._calculate_ema(prices, window)
+                    self.indicators[symbol]["ema"] = ema
+            
+            # Calculate Bollinger Bands
+            if "bollinger" in self.chart_settings["indicators"]:
+                window = 20
+                if len(prices) >= window:
+                    upper, lower = self._calculate_bollinger_bands(prices, window)
+                    self.indicators[symbol]["bollinger_upper"] = upper
+                    self.indicators[symbol]["bollinger_lower"] = lower
+            
+            # Calculate RSI
+            if "rsi" in self.chart_settings["indicators"]:
+                window = 14
+                if len(prices) >= window + 1:
+                    rsi = self._calculate_rsi(prices, window)
+                    self.indicators[symbol]["rsi"] = rsi
+            
+            # Calculate MACD
+            if "macd" in self.chart_settings["indicators"]:
+                if len(prices) >= 26:
+                    macd, signal, histogram = self._calculate_macd(prices)
+                    self.indicators[symbol]["macd"] = macd
+                    self.indicators[symbol]["macd_signal"] = signal
+                    self.indicators[symbol]["macd_histogram"] = histogram
+            
+            logger.debug(f"Calculated indicators for {symbol}")
+        except Exception as e:
+            logger.error(f"Error calculating indicators: {e}")
+            logger.error(traceback.format_exc())
+    
+    def _calculate_sma(self, prices: List[float], window: int) -> List[float]:
+        """
+        Calculate Simple Moving Average.
+        
+        Args:
+            prices: List of prices
+            window: Window size
+            
+        Returns:
+            List of SMA values
+        """
+        sma = []
+        for i in range(len(prices)):
+            if i < window - 1:
+                sma.append(None)
+            else:
+                sma.append(sum(prices[i - window + 1:i + 1]) / window)
+        return sma
+    
+    def _calculate_ema(self, prices: List[float], window: int) -> List[float]:
+        """
+        Calculate Exponential Moving Average.
+        
+        Args:
+            prices: List of prices
+            window: Window size
+            
+        Returns:
+            List of EMA values
+        """
+        ema = []
+        multiplier = 2 / (window + 1)
+        
+        # Start with SMA
+        sma = sum(prices[:window]) / window
+        ema.append(sma)
         
         # Calculate EMA
-        self.chart_data[symbol][timeframe]["indicators"]["ema_12"] = df["close"].ewm(span=12, adjust=False).mean()
-        self.chart_data[symbol][timeframe]["indicators"]["ema_26"] = df["close"].ewm(span=26, adjust=False).mean()
+        for i in range(1, len(prices) - window + 1):
+            ema_value = (prices[i + window - 1] - ema[-1]) * multiplier + ema[-1]
+            ema.append(ema_value)
         
-        # Calculate MACD
-        ema_12 = df["close"].ewm(span=12, adjust=False).mean()
-        ema_26 = df["close"].ewm(span=26, adjust=False).mean()
-        macd = ema_12 - ema_26
-        signal = macd.ewm(span=9, adjust=False).mean()
-        histogram = macd - signal
+        # Pad with None for alignment
+        return [None] * (window - 1) + ema
+    
+    def _calculate_bollinger_bands(self, prices: List[float], window: int, num_std: float = 2.0) -> tuple:
+        """
+        Calculate Bollinger Bands.
         
-        self.chart_data[symbol][timeframe]["indicators"]["macd"] = macd
-        self.chart_data[symbol][timeframe]["indicators"]["macd_signal"] = signal
-        self.chart_data[symbol][timeframe]["indicators"]["macd_histogram"] = histogram
+        Args:
+            prices: List of prices
+            window: Window size
+            num_std: Number of standard deviations
+            
+        Returns:
+            Tuple of (upper band, lower band)
+        """
+        upper_band = []
+        lower_band = []
+        
+        for i in range(len(prices)):
+            if i < window - 1:
+                upper_band.append(None)
+                lower_band.append(None)
+            else:
+                window_slice = prices[i - window + 1:i + 1]
+                sma = sum(window_slice) / window
+                std = np.std(window_slice)
+                
+                upper_band.append(sma + num_std * std)
+                lower_band.append(sma - num_std * std)
+        
+        return upper_band, lower_band
+    
+    def _calculate_rsi(self, prices: List[float], window: int) -> List[float]:
+        """
+        Calculate Relative Strength Index.
+        
+        Args:
+            prices: List of prices
+            window: Window size
+            
+        Returns:
+            List of RSI values
+        """
+        rsi = []
+        gains = []
+        losses = []
+        
+        # Calculate price changes
+        for i in range(1, len(prices)):
+            change = prices[i] - prices[i - 1]
+            if change >= 0:
+                gains.append(change)
+                losses.append(0)
+            else:
+                gains.append(0)
+                losses.append(abs(change))
+        
+        # Pad with None for alignment
+        rsi.append(None)
         
         # Calculate RSI
-        delta = df["close"].diff()
-        gain = delta.where(delta > 0, 0)
-        loss = -delta.where(delta < 0, 0)
-        avg_gain = gain.rolling(window=14).mean()
-        avg_loss = loss.rolling(window=14).mean()
-        rs = avg_gain / avg_loss
-        rsi = 100 - (100 / (1 + rs))
+        for i in range(len(gains)):
+            if i < window - 1:
+                rsi.append(None)
+            else:
+                avg_gain = sum(gains[i - window + 1:i + 1]) / window
+                avg_loss = sum(losses[i - window + 1:i + 1]) / window
+                
+                if avg_loss == 0:
+                    rsi.append(100)
+                else:
+                    rs = avg_gain / avg_loss
+                    rsi.append(100 - (100 / (1 + rs)))
         
-        self.chart_data[symbol][timeframe]["indicators"]["rsi"] = rsi
-        
-        # Calculate Bollinger Bands
-        sma_20 = df["close"].rolling(window=20).mean()
-        std_20 = df["close"].rolling(window=20).std()
-        upper_band = sma_20 + (std_20 * 2)
-        lower_band = sma_20 - (std_20 * 2)
-        
-        self.chart_data[symbol][timeframe]["indicators"]["bb_upper"] = upper_band
-        self.chart_data[symbol][timeframe]["indicators"]["bb_middle"] = sma_20
-        self.chart_data[symbol][timeframe]["indicators"]["bb_lower"] = lower_band
-        
-        logger.info(f"Calculated indicators for {symbol} {timeframe}")
+        return rsi
     
-    async def _handle_klines_update(self, topic: str, data: Dict[str, Any]):
+    def _calculate_macd(self, prices: List[float], fast: int = 12, slow: int = 26, signal: int = 9) -> tuple:
         """
-        Handle klines update event.
+        Calculate MACD.
         
         Args:
-            topic: Event topic
-            data: Event data
-        """
-        symbol = data.get("symbol")
-        timeframe = data.get("timeframe")
-        klines = data.get("klines")
-        
-        if not symbol or not timeframe or not klines:
-            logger.warning("Klines update missing required fields")
-            return
-        
-        # Check if symbol and timeframe are supported
-        if symbol not in self.supported_assets or timeframe not in self.supported_timeframes:
-            logger.warning(f"Unsupported symbol or timeframe: {symbol} {timeframe}")
-            return
-        
-        # Convert klines to DataFrame
-        df = pd.DataFrame(klines)
-        
-        # Set timestamp as index
-        if "timestamp" in df.columns:
-            df["timestamp"] = pd.to_datetime(df["timestamp"])
-            df.set_index("timestamp", inplace=True)
-        
-        # Convert columns to numeric
-        for col in ["open", "high", "low", "close", "volume"]:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col])
-        
-        # Update chart data
-        self.chart_data[symbol][timeframe]["klines"] = df
-        
-        # Calculate indicators
-        self._calculate_indicators(symbol, timeframe)
-        
-        # Notify active charts
-        await self._notify_chart_update(symbol, timeframe)
-    
-    async def _handle_market_data_update(self, topic: str, data: Dict[str, Any]):
-        """
-        Handle market data update event.
-        
-        Args:
-            topic: Event topic
-            data: Event data
-        """
-        symbol = data.get("symbol")
-        
-        if not symbol:
-            logger.warning("Market data update missing symbol")
-            return
-        
-        # Check if symbol is supported
-        if symbol not in self.supported_assets:
-            logger.warning(f"Unsupported symbol: {symbol}")
-            return
-        
-        # Update real-time price for all timeframes
-        for timeframe in self.supported_timeframes:
-            # Notify active charts
-            await self._notify_chart_update(symbol, timeframe, real_time_price=data.get("price"))
-    
-    async def _handle_strategic_decision(self, topic: str, data: Dict[str, Any]):
-        """
-        Handle strategic decision event.
-        
-        Args:
-            topic: Event topic
-            data: Event data
-        """
-        symbol = data.get("symbol")
-        
-        if not symbol:
-            logger.warning("Strategic decision missing symbol")
-            return
-        
-        # Check if symbol is supported
-        if symbol not in self.supported_assets:
-            logger.warning(f"Unsupported symbol: {symbol}")
-            return
-        
-        # Create marker
-        marker = {
-            "type": "decision",
-            "decision_type": data.get("decision_type", "unknown"),
-            "timestamp": data.get("timestamp", datetime.now().isoformat()),
-            "price": data.get("price"),
-            "direction": data.get("direction", "neutral"),
-            "confidence": data.get("confidence", 0.5),
-            "color": self._get_decision_color(data.get("direction", "neutral")),
-            "icon": self._get_decision_icon(data.get("decision_type", "unknown")),
-            "text": data.get("summary", "Strategic decision")
-        }
-        
-        # Add marker to all timeframes
-        for timeframe in self.supported_timeframes:
-            self.chart_data[symbol][timeframe]["markers"].append(marker)
-            
-            # Limit markers to 100
-            if len(self.chart_data[symbol][timeframe]["markers"]) > 100:
-                self.chart_data[symbol][timeframe]["markers"] = self.chart_data[symbol][timeframe]["markers"][-100:]
-            
-            # Notify active charts
-            await self._notify_chart_update(symbol, timeframe)
-    
-    async def _handle_pattern_detected(self, topic: str, data: Dict[str, Any]):
-        """
-        Handle pattern detected event.
-        
-        Args:
-            topic: Event topic
-            data: Event data
-        """
-        symbol = data.get("symbol")
-        timeframe = data.get("timeframe")
-        
-        if not symbol or not timeframe:
-            logger.warning("Pattern detected missing symbol or timeframe")
-            return
-        
-        # Check if symbol and timeframe are supported
-        if symbol not in self.supported_assets or timeframe not in self.supported_timeframes:
-            logger.warning(f"Unsupported symbol or timeframe: {symbol} {timeframe}")
-            return
-        
-        # Create marker
-        marker = {
-            "type": "pattern",
-            "pattern_type": data.get("pattern_type", "unknown"),
-            "timestamp": data.get("timestamp", datetime.now().isoformat()),
-            "price": data.get("price"),
-            "direction": data.get("direction", "neutral"),
-            "confidence": data.get("confidence", 0.5),
-            "color": self._get_pattern_color(data.get("pattern_type", "unknown"), data.get("direction", "neutral")),
-            "icon": self._get_pattern_icon(data.get("pattern_type", "unknown")),
-            "text": f"{data.get('pattern_type', 'Unknown pattern')} ({data.get('confidence', 0.5):.2f})"
-        }
-        
-        # Add marker to specific timeframe
-        self.chart_data[symbol][timeframe]["markers"].append(marker)
-        
-        # Limit markers to 100
-        if len(self.chart_data[symbol][timeframe]["markers"]) > 100:
-            self.chart_data[symbol][timeframe]["markers"] = self.chart_data[symbol][timeframe]["markers"][-100:]
-        
-        # Notify active charts
-        await self._notify_chart_update(symbol, timeframe)
-    
-    async def _handle_risk_alert(self, topic: str, data: Dict[str, Any]):
-        """
-        Handle risk alert event.
-        
-        Args:
-            topic: Event topic
-            data: Event data
-        """
-        symbol = data.get("symbol")
-        
-        if not symbol:
-            logger.warning("Risk alert missing symbol")
-            return
-        
-        # Check if symbol is supported
-        if symbol not in self.supported_assets:
-            logger.warning(f"Unsupported symbol: {symbol}")
-            return
-        
-        # Create marker
-        marker = {
-            "type": "alert",
-            "alert_type": data.get("alert_type", "unknown"),
-            "timestamp": data.get("timestamp", datetime.now().isoformat()),
-            "price": data.get("price"),
-            "severity": data.get("severity", "medium"),
-            "color": self._get_alert_color(data.get("severity", "medium")),
-            "icon": self._get_alert_icon(data.get("alert_type", "unknown")),
-            "text": data.get("message", "Risk alert")
-        }
-        
-        # Add marker to all timeframes
-        for timeframe in self.supported_timeframes:
-            self.chart_data[symbol][timeframe]["markers"].append(marker)
-            
-            # Limit markers to 100
-            if len(self.chart_data[symbol][timeframe]["markers"]) > 100:
-                self.chart_data[symbol][timeframe]["markers"] = self.chart_data[symbol][timeframe]["markers"][-100:]
-            
-            # Notify active charts
-            await self._notify_chart_update(symbol, timeframe)
-    
-    async def _notify_chart_update(self, symbol: str, timeframe: str, real_time_price: Optional[float] = None):
-        """
-        Notify chart update to subscribers.
-        
-        Args:
-            symbol: Trading pair symbol
-            timeframe: Timeframe
-            real_time_price: Real-time price (optional)
-        """
-        chart_key = f"{symbol}_{timeframe}"
-        
-        if chart_key in self.update_callbacks:
-            for callback in self.update_callbacks[chart_key]:
-                if callback:
-                    try:
-                        # Create update data
-                        update_data = {
-                            "symbol": symbol,
-                            "timeframe": timeframe,
-                            "timestamp": datetime.now().isoformat()
-                        }
-                        
-                        # Add real-time price if available
-                        if real_time_price is not None:
-                            update_data["real_time_price"] = real_time_price
-                        
-                        # Call callback
-                        if asyncio.iscoroutinefunction(callback):
-                            await callback(update_data)
-                        else:
-                            callback(update_data)
-                    except Exception as e:
-                        logger.error(f"Error in chart update callback: {e}")
-    
-    def activate_chart(self, symbol: str, timeframe: str) -> bool:
-        """
-        Activate chart for symbol and timeframe.
-        
-        Args:
-            symbol: Trading pair symbol
-            timeframe: Timeframe
+            prices: List of prices
+            fast: Fast EMA window
+            slow: Slow EMA window
+            signal: Signal EMA window
             
         Returns:
-            True if activated successfully, False otherwise
+            Tuple of (MACD line, signal line, histogram)
         """
-        # Check if symbol and timeframe are supported
-        if symbol not in self.supported_assets:
-            logger.warning(f"Unsupported symbol: {symbol}")
-            return False
+        # Calculate fast EMA
+        ema_fast = []
+        multiplier_fast = 2 / (fast + 1)
         
-        if timeframe not in self.supported_timeframes:
-            logger.warning(f"Unsupported timeframe: {timeframe}")
-            return False
+        # Start with SMA
+        sma_fast = sum(prices[:fast]) / fast
+        ema_fast.append(sma_fast)
         
-        # Activate chart
-        chart_key = f"{symbol}_{timeframe}"
-        self.active_charts[chart_key] = {
-            "symbol": symbol,
-            "timeframe": timeframe,
-            "activated_at": datetime.now().isoformat()
-        }
+        # Calculate fast EMA
+        for i in range(1, len(prices) - fast + 1):
+            ema_value = (prices[i + fast - 1] - ema_fast[-1]) * multiplier_fast + ema_fast[-1]
+            ema_fast.append(ema_value)
         
-        logger.info(f"Activated chart for {symbol} {timeframe}")
-        return True
-    
-    def deactivate_chart(self, symbol: str, timeframe: str) -> bool:
-        """
-        Deactivate chart for symbol and timeframe.
+        # Pad with None for alignment
+        ema_fast = [None] * (fast - 1) + ema_fast
         
-        Args:
-            symbol: Trading pair symbol
-            timeframe: Timeframe
-            
-        Returns:
-            True if deactivated successfully, False otherwise
-        """
-        chart_key = f"{symbol}_{timeframe}"
+        # Calculate slow EMA
+        ema_slow = []
+        multiplier_slow = 2 / (slow + 1)
         
-        if chart_key in self.active_charts:
-            self.active_charts.pop(chart_key)
-            logger.info(f"Deactivated chart for {symbol} {timeframe}")
-            return True
+        # Start with SMA
+        sma_slow = sum(prices[:slow]) / slow
+        ema_slow.append(sma_slow)
         
-        logger.warning(f"Chart not active: {symbol} {timeframe}")
-        return False
-    
-    def subscribe_to_chart_updates(self, symbol: str, timeframe: str, callback: Callable[[Dict[str, Any]], None]) -> int:
-        """
-        Subscribe to chart updates.
+        # Calculate slow EMA
+        for i in range(1, len(prices) - slow + 1):
+            ema_value = (prices[i + slow - 1] - ema_slow[-1]) * multiplier_slow + ema_slow[-1]
+            ema_slow.append(ema_value)
         
-        Args:
-            symbol: Trading pair symbol
-            timeframe: Timeframe
-            callback: Callback function to handle chart updates
-            
-        Returns:
-            Subscription ID
-        """
-        # Check if symbol and timeframe are supported
-        if symbol not in self.supported_assets:
-            logger.warning(f"Unsupported symbol: {symbol}")
-            return -1
+        # Pad with None for alignment
+        ema_slow = [None] * (slow - 1) + ema_slow
         
-        if timeframe not in self.supported_timeframes:
-            logger.warning(f"Unsupported timeframe: {timeframe}")
-            return -1
+        # Calculate MACD line
+        macd_line = []
+        for i in range(len(prices)):
+            if i < slow - 1:
+                macd_line.append(None)
+            else:
+                macd_line.append(ema_fast[i] - ema_slow[i])
         
-        # Register callback
-        chart_key = f"{symbol}_{timeframe}"
+        # Calculate signal line
+        signal_line = []
+        macd_values = [x for x in macd_line if x is not None]
         
-        if chart_key not in self.update_callbacks:
-            self.update_callbacks[chart_key] = []
+        # Start with SMA of MACD
+        sma_signal = sum(macd_values[:signal]) / signal
+        signal_line.append(sma_signal)
         
-        subscription_id = len(self.update_callbacks[chart_key])
-        self.update_callbacks[chart_key].append(callback)
+        # Calculate signal EMA
+        multiplier_signal = 2 / (signal + 1)
+        for i in range(1, len(macd_values) - signal + 1):
+            signal_value = (macd_values[i + signal - 1] - signal_line[-1]) * multiplier_signal + signal_line[-1]
+            signal_line.append(signal_value)
         
-        logger.info(f"New subscriber to chart updates for {symbol} {timeframe}: {subscription_id}")
-        return subscription_id
-    
-    def unsubscribe_from_chart_updates(self, symbol: str, timeframe: str, subscription_id: int) -> bool:
-        """
-        Unsubscribe from chart updates.
+        # Pad with None for alignment
+        signal_line = [None] * (slow + signal - 2) + signal_line
         
-        Args:
-            symbol: Trading pair symbol
-            timeframe: Timeframe
-            subscription_id: Subscription ID
-            
-        Returns:
-            True if unsubscribed successfully, False otherwise
-        """
-        chart_key = f"{symbol}_{timeframe}"
+        # Calculate histogram
+        histogram = []
+        for i in range(len(prices)):
+            if i < slow + signal - 2:
+                histogram.append(None)
+            else:
+                histogram.append(macd_line[i] - signal_line[i])
         
-        if chart_key not in self.update_callbacks:
-            logger.warning(f"No subscribers for chart: {symbol} {timeframe}")
-            return False
-        
-        if subscription_id >= len(self.update_callbacks[chart_key]):
-            logger.warning(f"Invalid subscription ID: {subscription_id}")
-            return False
-        
-        self.update_callbacks[chart_key][subscription_id] = None
-        logger.info(f"Unsubscribed from chart updates for {symbol} {timeframe}: {subscription_id}")
-        return True
-    
-    def get_chart_data(self, symbol: str, timeframe: str) -> Dict[str, Any]:
-        """
-        Get chart data for symbol and timeframe.
-        
-        Args:
-            symbol: Trading pair symbol
-            timeframe: Timeframe
-            
-        Returns:
-            Chart data
-        """
-        # Check if symbol and timeframe are supported
-        if symbol not in self.supported_assets:
-            logger.warning(f"Unsupported symbol: {symbol}")
-            return {}
-        
-        if timeframe not in self.supported_timeframes:
-            logger.warning(f"Unsupported timeframe: {timeframe}")
-            return {}
-        
-        # Get chart data
-        klines = self.chart_data[symbol][timeframe]["klines"]
-        indicators = self.chart_data[symbol][timeframe]["indicators"]
-        markers = self.chart_data[symbol][timeframe]["markers"]
-        
-        # Convert DataFrame to dict
-        klines_dict = {}
-        if not klines.empty:
-            klines_dict = klines.reset_index().to_dict(orient="records")
-        
-        # Convert indicators to dict
-        indicators_dict = {}
-        for indicator_name, indicator_data in indicators.items():
-            if isinstance(indicator_data, pd.Series):
-                indicators_dict[indicator_name] = indicator_data.dropna().to_dict()
-        
-        return {
-            "symbol": symbol,
-            "timeframe": timeframe,
-            "klines": klines_dict,
-            "indicators": indicators_dict,
-            "markers": markers
-        }
-    
-    def get_supported_assets(self) -> List[str]:
-        """
-        Get supported assets.
-        
-        Returns:
-            List of supported assets
-        """
-        return self.supported_assets
-    
-    def get_supported_timeframes(self) -> List[str]:
-        """
-        Get supported timeframes.
-        
-        Returns:
-            List of supported timeframes
-        """
-        return self.supported_timeframes
-    
-    def get_active_charts(self) -> Dict[str, Dict[str, Any]]:
-        """
-        Get active charts.
-        
-        Returns:
-            Dictionary of active charts
-        """
-        return self.active_charts
-    
-    def _get_decision_color(self, direction: str) -> str:
-        """
-        Get color for decision based on direction.
-        
-        Args:
-            direction: Decision direction
-            
-        Returns:
-            Color code
-        """
-        color_map = {
-            "bullish": "#4CAF50",  # Green
-            "bearish": "#F44336",  # Red
-            "neutral": "#FFC107",  # Amber
-            "unknown": "#9E9E9E"   # Gray
-        }
-        
-        return color_map.get(direction.lower(), "#9E9E9E")
-    
-    def _get_decision_icon(self, decision_type: str) -> str:
-        """
-        Get icon for decision based on type.
-        
-        Args:
-            decision_type: Decision type
-            
-        Returns:
-            Icon name
-        """
-        icon_map = {
-            "entry": "login",
-            "exit": "logout",
-            "risk_adjustment": "shield",
-            "position_sizing": "resize",
-            "market_trend": "trending_up",
-            "pattern_confirmation": "check_circle",
-            "emergency": "warning"
-        }
-        
-        return icon_map.get(decision_type.lower(), "info")
-    
-    def _get_pattern_color(self, pattern_type: str, direction: str) -> str:
-        """
-        Get color for pattern based on type and direction.
-        
-        Args:
-            pattern_type: Pattern type
-            direction: Pattern direction
-            
-        Returns:
-            Color code
-        """
-        if direction.lower() == "bullish":
-            return "#4CAF50"  # Green
-        elif direction.lower() == "bearish":
-            return "#F44336"  # Red
-        else:
-            return "#9E9E9E"  # Gray
-    
-    def _get_pattern_icon(self, pattern_type: str) -> str:
-        """
-        Get icon for pattern based on type.
-        
-        Args:
-            pattern_type: Pattern type
-            
-        Returns:
-            Icon name
-        """
-        icon_map = {
-            "double_top": "signal_cellular_4_bar",
-            "double_bottom": "signal_cellular_4_bar",
-            "head_and_shoulders": "timeline",
-            "inverse_head_and_shoulders": "timeline",
-            "triangle": "change_history",
-            "wedge": "call_split",
-            "flag": "flag",
-            "pennant": "flag",
-            "rectangle": "crop_square",
-            "cup_and_handle": "coffee",
-            "rounding_bottom": "panorama_fish_eye",
-            "rounding_top": "panorama_fish_eye"
-        }
-        
-        return icon_map.get(pattern_type.lower(), "auto_graph")
-    
-    def _get_alert_color(self, severity: str) -> str:
-        """
-        Get color for alert based on severity.
-        
-        Args:
-            severity: Alert severity
-            
-        Returns:
-            Color code
-        """
-        color_map = {
-            "low": "#2196F3",     # Blue
-            "medium": "#FFC107",  # Amber
-            "high": "#F44336",    # Red
-            "critical": "#B71C1C" # Dark Red
-        }
-        
-        return color_map.get(severity.lower(), "#9E9E9E")
-    
-    def _get_alert_icon(self, alert_type: str) -> str:
-        """
-        Get icon for alert based on type.
-        
-        Args:
-            alert_type: Alert type
-            
-        Returns:
-            Icon name
-        """
-        icon_map = {
-            "price_alert": "monetization_on",
-            "volatility_alert": "flash_on",
-            "liquidity_alert": "water",
-            "trend_reversal": "swap_vert",
-            "stop_loss": "pan_tool",
-            "take_profit": "thumb_up",
-            "risk_limit": "report_problem"
-        }
-        
-        return icon_map.get(alert_type.lower(), "notifications")
+        return macd_line, signal_line, histogram
 
 
 # For testing
 async def test():
     """Test function."""
-    from core.event_bus import EventBus
-    from data.unified_pipeline import UnifiedDataPipeline
+    from ..config.config import Config
     
-    # Create components
+    # Create configuration
+    config = Config()
+    
+    # Create event bus
     event_bus = EventBus()
-    data_pipeline = UnifiedDataPipeline()
-    chart_visualization = ChartVisualization()
     
-    # Connect components
-    data_pipeline.set_event_bus(event_bus)
-    chart_visualization.set_event_bus(event_bus)
-    chart_visualization.set_data_pipeline(data_pipeline)
+    # Create chart visualization
+    visualization = ChartVisualization(config, event_bus)
     
-    # Start event processing
-    event_bus.start_processing()
+    # Generate mock market data
+    symbol = "BTC/USDC"
+    timestamps = []
+    prices = []
+    volumes = []
     
-    # Activate chart
-    chart_visualization.activate_chart("BTC/USDC", "1h")
+    # Generate 100 data points
+    base_price = 50000
+    for i in range(100):
+        timestamp = datetime.now().replace(minute=0, second=0, microsecond=0) - pd.Timedelta(hours=100 - i)
+        price = base_price + (i * 100) + (np.sin(i / 10) * 1000)
+        volume = 100 + (np.random.random() * 50)
+        
+        timestamps.append(timestamp)
+        prices.append(price)
+        volumes.append(volume)
     
-    # Subscribe to chart updates
-    def print_chart_update(update):
-        print(f"Chart update: {update}")
+    # Add to market data
+    visualization.market_data[symbol] = {
+        "timestamp": timestamps,
+        "price": prices,
+        "volume": volumes
+    }
     
-    chart_visualization.subscribe_to_chart_updates("BTC/USDC", "1h", print_chart_update)
+    # Calculate indicators
+    visualization.calculate_indicators(symbol)
     
-    # Publish klines update
-    klines = [
-        {
-            "timestamp": datetime.now().isoformat(),
-            "open": 50000.0,
-            "high": 51000.0,
-            "low": 49000.0,
-            "close": 50500.0,
-            "volume": 100.0
-        },
-        {
-            "timestamp": (datetime.now() - timedelta(hours=1)).isoformat(),
-            "open": 49500.0,
-            "high": 50500.0,
-            "low": 49000.0,
-            "close": 50000.0,
-            "volume": 90.0
-        }
-    ]
+    # Add pattern
+    pattern = {
+        "type": "double_bottom",
+        "data": {},
+        "timestamp": timestamps[70]
+    }
+    visualization.patterns[symbol] = [pattern]
     
-    await event_bus.publish("pipeline.klines_updated", {
-        "symbol": "BTC/USDC",
-        "timeframe": "1h",
-        "klines": klines
-    })
-    
-    # Publish strategic decision
-    await event_bus.publish("visualization.strategic_decision", {
-        "decision_type": "entry",
-        "symbol": "BTC/USDC",
-        "direction": "bullish",
-        "confidence": 0.85,
-        "summary": "Enter long position based on bullish pattern",
-        "timestamp": datetime.now().isoformat()
-    })
-    
-    # Wait for events to be processed
-    await asyncio.sleep(1)
-    
-    # Get chart data
-    chart_data = chart_visualization.get_chart_data("BTC/USDC", "1h")
-    print(f"Chart data: {chart_data}")
-    
-    # Stop event processing
-    event_bus.stop_processing()
+    # Update chart
+    chart_path = await visualization.update_chart(symbol)
+    print(f"Chart saved to: {chart_path}")
 
 
 if __name__ == "__main__":

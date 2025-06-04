@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """
-Trading System Connector for LLM Strategic Overseer
+Trading System Connector for LLM Strategic Overseer.
 
-This module provides a connector between the LLM Strategic Overseer and the
-trading system core, enabling bidirectional communication and data flow.
+This module provides integration between the LLM Strategic Overseer
+and the core trading system components.
 """
 
 import os
@@ -13,65 +13,62 @@ import logging
 import asyncio
 from typing import Dict, List, Any, Optional, Union, Callable
 from datetime import datetime
+import traceback
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("trading_system_connector.log"),
+        logging.FileHandler(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'logs', 'trading_connector.log')),
         logging.StreamHandler()
     ]
 )
-logger = logging.getLogger("trading_system_connector")
+logger = logging.getLogger(__name__)
+
+# Import event bus
+from ..core.event_bus import EventBus
 
 class TradingSystemConnector:
     """
-    Connector between LLM Strategic Overseer and trading system core.
+    Trading System Connector for LLM Strategic Overseer.
     
-    This class enables bidirectional communication between the LLM Overseer
-    and the trading system core, facilitating data flow and command execution.
+    This class provides bidirectional integration between the LLM Strategic
+    Overseer and the core trading system components.
     """
     
-    def __init__(self, llm_overseer=None, event_bus=None, data_pipeline=None):
+    def __init__(self, config, event_bus: Optional[EventBus] = None, llm_overseer=None):
         """
         Initialize Trading System Connector.
         
         Args:
-            llm_overseer: LLM Overseer instance
-            event_bus: Event Bus instance
-            data_pipeline: Unified Data Pipeline instance
+            config: Configuration object
+            event_bus: Event bus instance (optional, will create new if None)
+            llm_overseer: LLM Overseer instance (optional, can be set later)
         """
+        self.config = config
         self.llm_overseer = llm_overseer
-        self.event_bus = event_bus
-        self.data_pipeline = data_pipeline
         
-        # Trading system components
-        self.flash_trading = None
-        self.paper_trading = None
-        self.order_book_analytics = None
-        self.tick_data_processor = None
+        # Initialize event bus if not provided
+        self.event_bus = event_bus if event_bus else EventBus()
         
-        # Command handlers
-        self.command_handlers = {
-            "market_analysis": self._handle_market_analysis_command,
-            "execute_trade": self._handle_execute_trade_command,
-            "adjust_parameters": self._handle_adjust_parameters_command,
-            "cancel_orders": self._handle_cancel_orders_command,
-            "emergency_stop": self._handle_emergency_stop_command
-        }
+        # Initialize subscriptions
+        self.subscriptions = {}
         
-        # Status tracking
-        self.status = {
-            "connected": False,
-            "flash_trading_active": False,
-            "paper_trading_active": False,
-            "last_update": None
-        }
+        # Initialize connection status
+        self.connected = False
+        
+        # Initialize mock mode for testing
+        self.mock_mode = self.config.get("trading.mock_mode", True)
+        if self.mock_mode:
+            logger.info("Trading System Connector initialized in mock mode")
+        
+        # Subscribe to relevant events
+        self._subscribe_to_events()
         
         logger.info("Trading System Connector initialized")
     
-    def set_llm_overseer(self, llm_overseer):
+    def set_llm_overseer(self, llm_overseer) -> None:
         """
         Set LLM Overseer instance.
         
@@ -79,705 +76,500 @@ class TradingSystemConnector:
             llm_overseer: LLM Overseer instance
         """
         self.llm_overseer = llm_overseer
-        logger.info("LLM Overseer set")
+        logger.info("LLM Overseer set in Trading System Connector")
     
-    def set_event_bus(self, event_bus):
-        """
-        Set Event Bus instance.
+    def _subscribe_to_events(self) -> None:
+        """Subscribe to relevant events."""
+        # Subscribe to trading system events
+        self.subscriptions["market_data"] = self.event_bus.subscribe(
+            "trading.market_data", self._handle_market_data
+        )
         
-        Args:
-            event_bus: Event Bus instance
-        """
-        self.event_bus = event_bus
+        self.subscriptions["order_book"] = self.event_bus.subscribe(
+            "trading.order_book", self._handle_order_book
+        )
         
-        # Register event handlers
-        if self.event_bus:
-            self.event_bus.subscribe("llm.command", self._handle_llm_command)
-            self.event_bus.subscribe("trading.status_update", self._handle_trading_status_update)
-            self.event_bus.subscribe("trading.order_update", self._handle_order_update)
-            self.event_bus.subscribe("trading.market_update", self._handle_market_update)
+        self.subscriptions["trade_executed"] = self.event_bus.subscribe(
+            "trading.trade_executed", self._handle_trade_executed
+        )
         
-        logger.info("Event Bus set and handlers registered")
+        self.subscriptions["position_updated"] = self.event_bus.subscribe(
+            "trading.position_updated", self._handle_position_updated
+        )
+        
+        self.subscriptions["balance_updated"] = self.event_bus.subscribe(
+            "trading.balance_updated", self._handle_balance_updated
+        )
+        
+        # Subscribe to LLM overseer events
+        self.subscriptions["strategy_decision"] = self.event_bus.subscribe(
+            "llm.strategy_decision", self._handle_strategy_decision
+        )
+        
+        self.subscriptions["risk_adjustment"] = self.event_bus.subscribe(
+            "llm.risk_adjustment", self._handle_risk_adjustment
+        )
+        
+        logger.info("Subscribed to trading system and LLM overseer events")
     
-    def set_data_pipeline(self, data_pipeline):
+    async def connect(self) -> bool:
         """
-        Set Unified Data Pipeline instance.
+        Connect to trading system.
         
-        Args:
-            data_pipeline: Unified Data Pipeline instance
-        """
-        self.data_pipeline = data_pipeline
-        logger.info("Unified Data Pipeline set")
-    
-    def connect_flash_trading(self, flash_trading):
-        """
-        Connect Flash Trading module.
-        
-        Args:
-            flash_trading: Flash Trading module instance
-        """
-        self.flash_trading = flash_trading
-        logger.info("Flash Trading module connected")
-    
-    def connect_paper_trading(self, paper_trading):
-        """
-        Connect Paper Trading module.
-        
-        Args:
-            paper_trading: Paper Trading module instance
-        """
-        self.paper_trading = paper_trading
-        logger.info("Paper Trading module connected")
-    
-    def connect_order_book_analytics(self, order_book_analytics):
-        """
-        Connect Order Book Analytics module.
-        
-        Args:
-            order_book_analytics: Order Book Analytics module instance
-        """
-        self.order_book_analytics = order_book_analytics
-        logger.info("Order Book Analytics module connected")
-    
-    def connect_tick_data_processor(self, tick_data_processor):
-        """
-        Connect Tick Data Processor module.
-        
-        Args:
-            tick_data_processor: Tick Data Processor module instance
-        """
-        self.tick_data_processor = tick_data_processor
-        logger.info("Tick Data Processor module connected")
-    
-    async def start(self):
-        """Start the connector."""
-        self.status["connected"] = True
-        self.status["last_update"] = datetime.now().isoformat()
-        
-        # Publish status update
-        if self.event_bus:
-            await self.event_bus.publish("connector.status_update", {
-                "status": "connected",
-                "timestamp": self.status["last_update"]
-            })
-        
-        # Update LLM Overseer context
-        if self.llm_overseer:
-            self.llm_overseer.update_system_status({
-                "status": "connected",
-                "trading_connector": "active",
-                "timestamp": self.status["last_update"]
-            })
-        
-        logger.info("Trading System Connector started")
-    
-    async def stop(self):
-        """Stop the connector."""
-        self.status["connected"] = False
-        self.status["last_update"] = datetime.now().isoformat()
-        
-        # Publish status update
-        if self.event_bus:
-            await self.event_bus.publish("connector.status_update", {
-                "status": "disconnected",
-                "timestamp": self.status["last_update"]
-            })
-        
-        # Update LLM Overseer context
-        if self.llm_overseer:
-            self.llm_overseer.update_system_status({
-                "status": "disconnected",
-                "trading_connector": "inactive",
-                "timestamp": self.status["last_update"]
-            })
-        
-        logger.info("Trading System Connector stopped")
-    
-    async def execute_command(self, command_type: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Execute command on trading system.
-        
-        Args:
-            command_type: Type of command to execute
-            params: Command parameters
-            
         Returns:
-            Command result
+            True if connected successfully, False otherwise
         """
-        if not self.status["connected"]:
-            logger.warning("Cannot execute command: connector not connected")
-            return {
-                "success": False,
-                "error": "Connector not connected"
-            }
+        if self.connected:
+            logger.info("Already connected to trading system")
+            return True
         
-        # Check if command type is supported
-        if command_type not in self.command_handlers:
-            logger.warning(f"Unsupported command type: {command_type}")
-            return {
-                "success": False,
-                "error": f"Unsupported command type: {command_type}"
-            }
-        
-        # Execute command
         try:
-            result = await self.command_handlers[command_type](params)
-            
-            # Publish command result
-            if self.event_bus:
-                await self.event_bus.publish("connector.command_result", {
-                    "command_type": command_type,
-                    "params": params,
-                    "result": result,
-                    "timestamp": datetime.now().isoformat()
-                })
-            
-            return result
-        except Exception as e:
-            logger.error(f"Error executing command {command_type}: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
-    
-    async def _handle_llm_command(self, topic: str, data: Dict[str, Any]):
-        """
-        Handle LLM command event.
-        
-        Args:
-            topic: Event topic
-            data: Event data
-        """
-        command_type = data.get("command_type")
-        params = data.get("params", {})
-        
-        if not command_type:
-            logger.warning("LLM command missing command_type")
-            return
-        
-        # Execute command
-        result = await self.execute_command(command_type, params)
-        
-        # Publish result to event bus
-        if self.event_bus:
-            await self.event_bus.publish("llm.command_result", {
-                "command_type": command_type,
-                "params": params,
-                "result": result,
-                "timestamp": datetime.now().isoformat()
-            })
-    
-    async def _handle_trading_status_update(self, topic: str, data: Dict[str, Any]):
-        """
-        Handle trading status update event.
-        
-        Args:
-            topic: Event topic
-            data: Event data
-        """
-        # Update status
-        if "flash_trading_active" in data:
-            self.status["flash_trading_active"] = data["flash_trading_active"]
-        
-        if "paper_trading_active" in data:
-            self.status["paper_trading_active"] = data["paper_trading_active"]
-        
-        self.status["last_update"] = datetime.now().isoformat()
-        
-        # Update LLM Overseer context
-        if self.llm_overseer:
-            self.llm_overseer.update_system_status({
-                "flash_trading_active": self.status["flash_trading_active"],
-                "paper_trading_active": self.status["paper_trading_active"],
-                "timestamp": self.status["last_update"]
-            })
-    
-    async def _handle_order_update(self, topic: str, data: Dict[str, Any]):
-        """
-        Handle order update event.
-        
-        Args:
-            topic: Event topic
-            data: Event data
-        """
-        # Update LLM Overseer context
-        if self.llm_overseer:
-            self.llm_overseer.update_trading_history(data)
-        
-        # Update data pipeline
-        if self.data_pipeline:
-            order_id = data.get("order_id", f"order_{datetime.now().timestamp()}")
-            self.data_pipeline.update_decision_data(order_id, data)
-    
-    async def _handle_market_update(self, topic: str, data: Dict[str, Any]):
-        """
-        Handle market update event.
-        
-        Args:
-            topic: Event topic
-            data: Event data
-        """
-        # Update LLM Overseer context
-        if self.llm_overseer:
-            self.llm_overseer.update_market_data(data)
-        
-        # Update data pipeline
-        if self.data_pipeline:
-            symbol = data.get("symbol")
-            if symbol:
-                self.data_pipeline.update_market_data(symbol, data)
-    
-    async def _handle_market_analysis_command(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Handle market analysis command.
-        
-        Args:
-            params: Command parameters
-            
-        Returns:
-            Command result
-        """
-        symbol = params.get("symbol", "BTC/USDC")
-        analysis_type = params.get("analysis_type", "orderbook")
-        
-        # Check if required modules are connected
-        if analysis_type == "orderbook" and not self.order_book_analytics:
-            return {
-                "success": False,
-                "error": "Order Book Analytics module not connected"
-            }
-        
-        if analysis_type == "tick" and not self.tick_data_processor:
-            return {
-                "success": False,
-                "error": "Tick Data Processor module not connected"
-            }
-        
-        # Execute analysis
-        try:
-            if analysis_type == "orderbook":
-                # This would call the actual order book analytics
-                # For now, we'll simulate a response
-                result = {
-                    "symbol": symbol,
-                    "timestamp": datetime.now().isoformat(),
-                    "bid_ask_imbalance": 0.75,
-                    "depth_imbalance": 0.65,
-                    "pressure_direction": "buy",
-                    "liquidity_score": 0.85
-                }
-            elif analysis_type == "tick":
-                # This would call the actual tick data processor
-                # For now, we'll simulate a response
-                result = {
-                    "symbol": symbol,
-                    "timestamp": datetime.now().isoformat(),
-                    "tick_direction": "up",
-                    "momentum_score": 0.68,
-                    "volatility": 0.12,
-                    "trend_strength": 0.75
-                }
+            if self.mock_mode:
+                # Simulate connection in mock mode
+                await asyncio.sleep(1)
+                self.connected = True
+                logger.info("Connected to mock trading system")
+                
+                # Start mock data generation
+                asyncio.create_task(self._generate_mock_data())
             else:
-                return {
-                    "success": False,
-                    "error": f"Unsupported analysis type: {analysis_type}"
-                }
+                # Implement actual connection to trading system
+                # This would connect to the flash_trading.py or other core components
+                logger.error("Real trading system connection not implemented yet")
+                return False
             
-            return {
-                "success": True,
-                "analysis_type": analysis_type,
-                "result": result
-            }
+            return True
         except Exception as e:
-            logger.error(f"Error executing market analysis: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            logger.error(f"Error connecting to trading system: {e}")
+            return False
     
-    async def _handle_execute_trade_command(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def disconnect(self) -> bool:
         """
-        Handle execute trade command.
+        Disconnect from trading system.
+        
+        Returns:
+            True if disconnected successfully, False otherwise
+        """
+        if not self.connected:
+            logger.info("Not connected to trading system")
+            return True
+        
+        try:
+            self.connected = False
+            logger.info("Disconnected from trading system")
+            return True
+        except Exception as e:
+            logger.error(f"Error disconnecting from trading system: {e}")
+            return False
+    
+    async def execute_trade(self, trade_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute trade in trading system.
         
         Args:
-            params: Command parameters
+            trade_data: Trade data
             
         Returns:
-            Command result
+            Trade result
         """
-        symbol = params.get("symbol", "BTC/USDC")
-        side = params.get("side", "buy")
-        quantity = params.get("quantity", 0.0)
-        price = params.get("price")
-        order_type = params.get("order_type", "limit")
+        if not self.connected:
+            logger.error("Not connected to trading system")
+            return {"success": False, "error": "Not connected to trading system"}
         
-        # Validate parameters
-        if quantity <= 0:
-            return {
-                "success": False,
-                "error": "Invalid quantity"
-            }
-        
-        if order_type == "limit" and not price:
-            return {
-                "success": False,
-                "error": "Price required for limit orders"
-            }
-        
-        # Check if required modules are connected
-        if not self.paper_trading and not self.flash_trading:
-            return {
-                "success": False,
-                "error": "No trading module connected"
-            }
-        
-        # Execute trade
         try:
-            # Prefer paper trading if available
-            if self.paper_trading:
-                # This would call the actual paper trading module
-                # For now, we'll simulate a response
-                order_id = f"order_{datetime.now().timestamp()}"
+            if self.mock_mode:
+                # Simulate trade execution in mock mode
+                await asyncio.sleep(0.5)
+                
+                # Generate mock trade result
+                trade_id = f"mock-trade-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                executed_price = trade_data.get("price", 0) * (1 + (0.001 if trade_data.get("side") == "buy" else -0.001))
+                executed_quantity = trade_data.get("quantity", 0)
+                
                 result = {
-                    "order_id": order_id,
-                    "symbol": symbol,
-                    "side": side,
-                    "quantity": quantity,
-                    "price": price,
-                    "order_type": order_type,
-                    "status": "placed",
-                    "timestamp": datetime.now().isoformat()
+                    "success": True,
+                    "trade_id": trade_id,
+                    "executed_price": executed_price,
+                    "executed_quantity": executed_quantity,
+                    "timestamp": datetime.now().isoformat(),
+                    "fee": executed_price * executed_quantity * 0.001
                 }
-            elif self.flash_trading:
-                # This would call the actual flash trading module
-                # For now, we'll simulate a response
-                order_id = f"order_{datetime.now().timestamp()}"
-                result = {
-                    "order_id": order_id,
-                    "symbol": symbol,
-                    "side": side,
-                    "quantity": quantity,
-                    "price": price,
-                    "order_type": order_type,
-                    "status": "placed",
-                    "timestamp": datetime.now().isoformat()
-                }
+                
+                # Publish trade executed event
+                await self.event_bus.publish(
+                    "trading.trade_executed",
+                    {
+                        "trade_id": trade_id,
+                        "symbol": trade_data.get("symbol"),
+                        "side": trade_data.get("side"),
+                        "executed_price": executed_price,
+                        "executed_quantity": executed_quantity,
+                        "timestamp": datetime.now().isoformat(),
+                        "fee": executed_price * executed_quantity * 0.001
+                    },
+                    "high"
+                )
+                
+                logger.info(f"Executed mock trade: {trade_id}")
+                return result
             else:
-                return {
-                    "success": False,
-                    "error": "No trading module connected"
-                }
-            
-            # Update LLM Overseer context
-            if self.llm_overseer:
-                self.llm_overseer.update_trading_history(result)
-            
-            return {
-                "success": True,
-                "order": result
-            }
+                # Implement actual trade execution in trading system
+                logger.error("Real trade execution not implemented yet")
+                return {"success": False, "error": "Real trade execution not implemented yet"}
         except Exception as e:
             logger.error(f"Error executing trade: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}
     
-    async def _handle_adjust_parameters_command(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def get_market_data(self, symbol: str) -> Dict[str, Any]:
         """
-        Handle adjust parameters command.
+        Get market data from trading system.
         
         Args:
-            params: Command parameters
+            symbol: Trading symbol
             
         Returns:
-            Command result
+            Market data
         """
-        module = params.get("module")
-        parameters = params.get("parameters", {})
+        if not self.connected:
+            logger.error("Not connected to trading system")
+            return {"success": False, "error": "Not connected to trading system"}
         
-        if not module:
-            return {
-                "success": False,
-                "error": "Module not specified"
-            }
-        
-        if not parameters:
-            return {
-                "success": False,
-                "error": "No parameters specified"
-            }
-        
-        # Check which module to adjust
         try:
-            if module == "flash_trading":
-                if not self.flash_trading:
-                    return {
-                        "success": False,
-                        "error": "Flash Trading module not connected"
-                    }
+            if self.mock_mode:
+                # Generate mock market data
+                price = 0
+                if symbol == "BTC/USDC":
+                    price = 106739.83 + (datetime.now().microsecond / 1000000) * 100
+                elif symbol == "ETH/USDC":
+                    price = 3456.78 + (datetime.now().microsecond / 1000000) * 10
+                elif symbol == "SOL/USDC":
+                    price = 123.45 + (datetime.now().microsecond / 1000000) * 1
                 
-                # This would call the actual flash trading module
-                # For now, we'll simulate a response
-                result = {
-                    "module": "flash_trading",
-                    "parameters_updated": list(parameters.keys()),
+                data = {
+                    "success": True,
+                    "symbol": symbol,
+                    "price": price,
+                    "bid": price * 0.9995,
+                    "ask": price * 1.0005,
+                    "volume_24h": 1000 + (datetime.now().second * 10),
+                    "change_24h": (datetime.now().minute - 30) / 10,
                     "timestamp": datetime.now().isoformat()
                 }
-            elif module == "paper_trading":
-                if not self.paper_trading:
-                    return {
-                        "success": False,
-                        "error": "Paper Trading module not connected"
-                    }
                 
-                # This would call the actual paper trading module
-                # For now, we'll simulate a response
-                result = {
-                    "module": "paper_trading",
-                    "parameters_updated": list(parameters.keys()),
-                    "timestamp": datetime.now().isoformat()
-                }
-            elif module == "order_book_analytics":
-                if not self.order_book_analytics:
-                    return {
-                        "success": False,
-                        "error": "Order Book Analytics module not connected"
-                    }
-                
-                # This would call the actual order book analytics module
-                # For now, we'll simulate a response
-                result = {
-                    "module": "order_book_analytics",
-                    "parameters_updated": list(parameters.keys()),
-                    "timestamp": datetime.now().isoformat()
-                }
-            elif module == "tick_data_processor":
-                if not self.tick_data_processor:
-                    return {
-                        "success": False,
-                        "error": "Tick Data Processor module not connected"
-                    }
-                
-                # This would call the actual tick data processor module
-                # For now, we'll simulate a response
-                result = {
-                    "module": "tick_data_processor",
-                    "parameters_updated": list(parameters.keys()),
-                    "timestamp": datetime.now().isoformat()
-                }
+                logger.debug(f"Generated mock market data for {symbol}")
+                return data
             else:
-                return {
-                    "success": False,
-                    "error": f"Unsupported module: {module}"
-                }
-            
-            # Update LLM Overseer context
-            if self.llm_overseer:
-                self.llm_overseer.update_system_status({
-                    f"{module}_parameters_updated": list(parameters.keys()),
-                    "timestamp": datetime.now().isoformat()
-                })
-            
-            return {
-                "success": True,
-                "result": result
-            }
+                # Implement actual market data retrieval from trading system
+                logger.error("Real market data retrieval not implemented yet")
+                return {"success": False, "error": "Real market data retrieval not implemented yet"}
         except Exception as e:
-            logger.error(f"Error adjusting parameters: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            logger.error(f"Error getting market data: {e}")
+            return {"success": False, "error": str(e)}
     
-    async def _handle_cancel_orders_command(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def get_order_book(self, symbol: str, depth: int = 10) -> Dict[str, Any]:
         """
-        Handle cancel orders command.
+        Get order book from trading system.
         
         Args:
-            params: Command parameters
+            symbol: Trading symbol
+            depth: Order book depth
             
         Returns:
-            Command result
+            Order book data
         """
-        symbol = params.get("symbol")
-        order_id = params.get("order_id")
-        cancel_all = params.get("cancel_all", False)
+        if not self.connected:
+            logger.error("Not connected to trading system")
+            return {"success": False, "error": "Not connected to trading system"}
         
-        if not symbol and not order_id and not cancel_all:
-            return {
-                "success": False,
-                "error": "Symbol, order_id, or cancel_all required"
-            }
-        
-        # Check if required modules are connected
-        if not self.paper_trading and not self.flash_trading:
-            return {
-                "success": False,
-                "error": "No trading module connected"
-            }
-        
-        # Execute cancel
         try:
-            # Prefer paper trading if available
-            if self.paper_trading:
-                # This would call the actual paper trading module
-                # For now, we'll simulate a response
-                result = {
+            if self.mock_mode:
+                # Generate mock order book
+                price = 0
+                if symbol == "BTC/USDC":
+                    price = 106739.83 + (datetime.now().microsecond / 1000000) * 100
+                elif symbol == "ETH/USDC":
+                    price = 3456.78 + (datetime.now().microsecond / 1000000) * 10
+                elif symbol == "SOL/USDC":
+                    price = 123.45 + (datetime.now().microsecond / 1000000) * 1
+                
+                bids = []
+                asks = []
+                
+                for i in range(depth):
+                    bid_price = price * (1 - 0.0001 * (i + 1))
+                    bid_quantity = 1 / (i + 1) * 10
+                    bids.append([bid_price, bid_quantity])
+                    
+                    ask_price = price * (1 + 0.0001 * (i + 1))
+                    ask_quantity = 1 / (i + 1) * 10
+                    asks.append([ask_price, ask_quantity])
+                
+                data = {
+                    "success": True,
                     "symbol": symbol,
-                    "order_id": order_id,
-                    "cancel_all": cancel_all,
-                    "orders_cancelled": 1,
+                    "bids": bids,
+                    "asks": asks,
                     "timestamp": datetime.now().isoformat()
                 }
-            elif self.flash_trading:
-                # This would call the actual flash trading module
-                # For now, we'll simulate a response
-                result = {
-                    "symbol": symbol,
-                    "order_id": order_id,
-                    "cancel_all": cancel_all,
-                    "orders_cancelled": 1,
-                    "timestamp": datetime.now().isoformat()
-                }
+                
+                logger.debug(f"Generated mock order book for {symbol}")
+                return data
             else:
-                return {
-                    "success": False,
-                    "error": "No trading module connected"
-                }
-            
-            # Update LLM Overseer context
-            if self.llm_overseer:
-                self.llm_overseer.update_trading_history({
-                    "action": "cancel_orders",
-                    "symbol": symbol,
-                    "order_id": order_id,
-                    "cancel_all": cancel_all,
-                    "orders_cancelled": result["orders_cancelled"],
-                    "timestamp": datetime.now().isoformat()
-                })
-            
-            return {
-                "success": True,
-                "result": result
-            }
+                # Implement actual order book retrieval from trading system
+                logger.error("Real order book retrieval not implemented yet")
+                return {"success": False, "error": "Real order book retrieval not implemented yet"}
         except Exception as e:
-            logger.error(f"Error cancelling orders: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            logger.error(f"Error getting order book: {e}")
+            return {"success": False, "error": str(e)}
     
-    async def _handle_emergency_stop_command(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def get_balance(self) -> Dict[str, Any]:
         """
-        Handle emergency stop command.
+        Get account balance from trading system.
+        
+        Returns:
+            Account balance
+        """
+        if not self.connected:
+            logger.error("Not connected to trading system")
+            return {"success": False, "error": "Not connected to trading system"}
+        
+        try:
+            if self.mock_mode:
+                # Generate mock balance
+                data = {
+                    "success": True,
+                    "balances": {
+                        "USDC": 43148.94,
+                        "BTC": 0.0,
+                        "ETH": 0.0,
+                        "SOL": 0.000000003
+                    },
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+                logger.debug("Generated mock balance")
+                return data
+            else:
+                # Implement actual balance retrieval from trading system
+                logger.error("Real balance retrieval not implemented yet")
+                return {"success": False, "error": "Real balance retrieval not implemented yet"}
+        except Exception as e:
+            logger.error(f"Error getting balance: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def get_positions(self) -> Dict[str, Any]:
+        """
+        Get open positions from trading system.
+        
+        Returns:
+            Open positions
+        """
+        if not self.connected:
+            logger.error("Not connected to trading system")
+            return {"success": False, "error": "Not connected to trading system"}
+        
+        try:
+            if self.mock_mode:
+                # Generate mock positions
+                data = {
+                    "success": True,
+                    "positions": [],
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+                logger.debug("Generated mock positions")
+                return data
+            else:
+                # Implement actual positions retrieval from trading system
+                logger.error("Real positions retrieval not implemented yet")
+                return {"success": False, "error": "Real positions retrieval not implemented yet"}
+        except Exception as e:
+            logger.error(f"Error getting positions: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def _generate_mock_data(self) -> None:
+        """Generate mock data for testing."""
+        try:
+            symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
+            
+            while self.connected:
+                # Generate market data for each symbol
+                for symbol in symbols:
+                    # Market data
+                    market_data = await self.get_market_data(symbol)
+                    if market_data["success"]:
+                        await self.event_bus.publish(
+                            "trading.market_data",
+                            market_data,
+                            "normal"
+                        )
+                    
+                    # Order book
+                    order_book = await self.get_order_book(symbol)
+                    if order_book["success"]:
+                        await self.event_bus.publish(
+                            "trading.order_book",
+                            order_book,
+                            "normal"
+                        )
+                
+                # Balance updates (less frequent)
+                if datetime.now().second % 10 == 0:
+                    balance = await self.get_balance()
+                    if balance["success"]:
+                        await self.event_bus.publish(
+                            "trading.balance_updated",
+                            balance,
+                            "normal"
+                        )
+                
+                # Wait before next update
+                await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            logger.info("Mock data generation cancelled")
+        except Exception as e:
+            logger.error(f"Error generating mock data: {e}")
+            logger.error(traceback.format_exc())
+    
+    async def _handle_market_data(self, topic: str, data: Dict[str, Any]) -> None:
+        """
+        Handle market data event.
         
         Args:
-            params: Command parameters
-            
-        Returns:
-            Command result
+            topic: Event topic
+            data: Event data
         """
-        reason = params.get("reason", "Emergency stop requested")
-        
-        # Execute emergency stop
         try:
-            # Stop flash trading if connected
-            if self.flash_trading:
-                # This would call the actual flash trading module
-                # For now, we'll simulate a response
-                flash_result = {
-                    "module": "flash_trading",
-                    "status": "stopped",
-                    "timestamp": datetime.now().isoformat()
-                }
-            else:
-                flash_result = {
-                    "module": "flash_trading",
-                    "status": "not_connected",
-                    "timestamp": datetime.now().isoformat()
-                }
-            
-            # Stop paper trading if connected
-            if self.paper_trading:
-                # This would call the actual paper trading module
-                # For now, we'll simulate a response
-                paper_result = {
-                    "module": "paper_trading",
-                    "status": "stopped",
-                    "timestamp": datetime.now().isoformat()
-                }
-            else:
-                paper_result = {
-                    "module": "paper_trading",
-                    "status": "not_connected",
-                    "timestamp": datetime.now().isoformat()
-                }
-            
-            # Update status
-            self.status["flash_trading_active"] = False
-            self.status["paper_trading_active"] = False
-            self.status["last_update"] = datetime.now().isoformat()
-            
-            # Update LLM Overseer context
             if self.llm_overseer:
-                self.llm_overseer.update_system_status({
-                    "status": "emergency_stop",
-                    "reason": reason,
-                    "flash_trading_active": False,
-                    "paper_trading_active": False,
-                    "timestamp": self.status["last_update"]
-                })
-            
-            # Publish emergency stop event
-            if self.event_bus:
-                await self.event_bus.publish("trading.emergency_stop", {
-                    "reason": reason,
-                    "timestamp": datetime.now().isoformat()
-                }, priority="emergency")
-            
-            return {
-                "success": True,
-                "flash_trading": flash_result,
-                "paper_trading": paper_result,
-                "reason": reason
-            }
+                # Update market data in LLM overseer
+                self.llm_overseer.update_market_data(data)
+                logger.debug(f"Updated market data in LLM overseer: {data['symbol']}")
         except Exception as e:
-            logger.error(f"Error executing emergency stop: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            logger.error(f"Error handling market data: {e}")
+    
+    async def _handle_order_book(self, topic: str, data: Dict[str, Any]) -> None:
+        """
+        Handle order book event.
+        
+        Args:
+            topic: Event topic
+            data: Event data
+        """
+        # This would be implemented to handle order book updates
+        pass
+    
+    async def _handle_trade_executed(self, topic: str, data: Dict[str, Any]) -> None:
+        """
+        Handle trade executed event.
+        
+        Args:
+            topic: Event topic
+            data: Event data
+        """
+        try:
+            if self.llm_overseer:
+                # Update trading history in LLM overseer
+                self.llm_overseer.update_trading_history(data)
+                logger.debug(f"Updated trading history in LLM overseer: {data['trade_id']}")
+        except Exception as e:
+            logger.error(f"Error handling trade executed: {e}")
+    
+    async def _handle_position_updated(self, topic: str, data: Dict[str, Any]) -> None:
+        """
+        Handle position updated event.
+        
+        Args:
+            topic: Event topic
+            data: Event data
+        """
+        # This would be implemented to handle position updates
+        pass
+    
+    async def _handle_balance_updated(self, topic: str, data: Dict[str, Any]) -> None:
+        """
+        Handle balance updated event.
+        
+        Args:
+            topic: Event topic
+            data: Event data
+        """
+        # This would be implemented to handle balance updates
+        pass
+    
+    async def _handle_strategy_decision(self, topic: str, data: Dict[str, Any]) -> None:
+        """
+        Handle strategy decision event.
+        
+        Args:
+            topic: Event topic
+            data: Event data
+        """
+        try:
+            if not self.connected:
+                logger.warning("Not connected to trading system, ignoring strategy decision")
+                return
+            
+            # Extract trade parameters from strategy decision
+            if "trade" in data:
+                trade_data = data["trade"]
+                
+                # Execute trade
+                result = await self.execute_trade(trade_data)
+                
+                # Publish result
+                await self.event_bus.publish(
+                    "trading.strategy_result",
+                    {
+                        "strategy_id": data.get("strategy_id"),
+                        "trade_result": result,
+                        "timestamp": datetime.now().isoformat()
+                    },
+                    "high"
+                )
+                
+                logger.info(f"Executed trade from strategy decision: {result.get('trade_id', 'unknown')}")
+        except Exception as e:
+            logger.error(f"Error handling strategy decision: {e}")
+    
+    async def _handle_risk_adjustment(self, topic: str, data: Dict[str, Any]) -> None:
+        """
+        Handle risk adjustment event.
+        
+        Args:
+            topic: Event topic
+            data: Event data
+        """
+        try:
+            if self.llm_overseer:
+                # Update risk parameters in LLM overseer
+                self.llm_overseer.update_risk_parameters(data)
+                logger.info(f"Updated risk parameters in LLM overseer")
+        except Exception as e:
+            logger.error(f"Error handling risk adjustment: {e}")
 
 
 # For testing
 async def test():
     """Test function."""
-    # Create connector
-    connector = TradingSystemConnector()
+    from ..config.config import Config
     
-    # Start connector
-    await connector.start()
+    # Create configuration
+    config = Config()
     
-    # Test market analysis command
-    result = await connector.execute_command("market_analysis", {
-        "symbol": "BTC/USDC",
-        "analysis_type": "orderbook"
-    })
-    print(f"Market analysis result: {result}")
+    # Create event bus
+    event_bus = EventBus()
     
-    # Test execute trade command
-    result = await connector.execute_command("execute_trade", {
-        "symbol": "BTC/USDC",
-        "side": "buy",
-        "quantity": 0.1,
-        "price": 50000.0,
-        "order_type": "limit"
-    })
-    print(f"Execute trade result: {result}")
+    # Create trading system connector
+    connector = TradingSystemConnector(config, event_bus)
     
-    # Stop connector
-    await connector.stop()
+    # Connect to trading system
+    await connector.connect()
+    
+    # Wait for some mock data to be generated
+    await asyncio.sleep(5)
+    
+    # Disconnect from trading system
+    await connector.disconnect()
 
 
 if __name__ == "__main__":

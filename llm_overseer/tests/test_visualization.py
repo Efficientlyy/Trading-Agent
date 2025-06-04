@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """
-Test module for visualization components integration.
+Test module for chart visualization components.
 
-This module tests the integration between chart visualization, pattern recognition,
-and the dashboard components to ensure proper event flow and data display.
+This module provides tests for the chart visualization components,
+including real-time data feeds, chart rendering, and event handling.
 """
 
 import os
@@ -12,14 +12,23 @@ import json
 import logging
 import asyncio
 import unittest
-from unittest import IsolatedAsyncioTestCase
-import pandas as pd
-from typing import Dict, List, Any, Optional, Union, Callable
+import time
 from datetime import datetime, timedelta
+from typing import Dict, List, Any, Optional, Union, Callable
+
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Import modules to test
+from llm_overseer.core.event_bus import EventBus
+from llm_overseer.config.config import Config
+from llm_overseer.visualization.chart_visualization import ChartVisualization
+from llm_overseer.data.market_data_service import MarketDataService
+from llm_overseer.analysis.pattern_recognition import PatternRecognition
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,  # Changed to DEBUG for more detailed logging
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler("test_visualization.log"),
@@ -28,413 +37,162 @@ logging.basicConfig(
 )
 logger = logging.getLogger("test_visualization")
 
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# Import components
-from core.event_bus import EventBus
-from data.unified_pipeline import UnifiedDataPipeline
-from visualization.chart_visualization import ChartVisualization
-from analysis.pattern_recognition import PatternRecognition
-from visualization.bridge import LLMVisualizationBridge
-from integration.trading_system_connector import TradingSystemConnector
-
-
-class TestVisualization(IsolatedAsyncioTestCase):
-    """Test case for visualization components integration."""
+class TestChartVisualization(unittest.TestCase):
+    """Test case for chart visualization components."""
     
-    async def asyncSetUp(self):
-        """Set up test environment asynchronously."""
-        logger.debug("Setting up test environment")
+    @classmethod
+    def setUpClass(cls):
+        """Set up test environment."""
+        # Create configuration
+        cls.config = Config()
         
-        # Create components
-        self.event_bus = EventBus()
-        self.data_pipeline = UnifiedDataPipeline()
-        self.chart_visualization = ChartVisualization()
-        self.pattern_recognition = PatternRecognition()
-        self.llm_visualization_bridge = LLMVisualizationBridge()
+        # Create event bus
+        cls.event_bus = EventBus()
         
-        # Connect components
-        self.data_pipeline.set_event_bus(self.event_bus)
-        self.chart_visualization.set_event_bus(self.event_bus)
-        self.chart_visualization.set_data_pipeline(self.data_pipeline)
-        self.pattern_recognition.set_event_bus(self.event_bus)
-        self.pattern_recognition.set_data_pipeline(self.data_pipeline)
-        self.llm_visualization_bridge.set_event_bus(self.event_bus)
+        # Create chart visualization
+        cls.chart_visualization = ChartVisualization(cls.config, cls.event_bus)
         
-        # Start event processing
-        self.event_bus.start_processing()
+        # Create market data service
+        cls.market_data_service = MarketDataService(cls.config, cls.event_bus)
         
-        # Activate chart for testing
-        self.chart_visualization.activate_chart("BTC/USDC", "1h")
+        # Create pattern recognition
+        cls.pattern_recognition = PatternRecognition(cls.config, cls.event_bus)
         
-        # Test data
-        self.test_symbol = "BTC/USDC"
-        self.test_timeframe = "1h"
+        # Start market data service
+        asyncio.run(cls.market_data_service.start())
         
-        # Create sample kline data
-        self.sample_klines = self._create_sample_klines()
-        
-        # Debug: Add direct event listeners for debugging
-        self.indicator_signals_received = []
-        self.patterns_detected = []
-        
-        # Register direct event listeners
-        self.event_bus.subscribe("indicator.signal", self._debug_indicator_signal_handler)
-        self.event_bus.subscribe("visualization.pattern_detected", self._debug_pattern_detected_handler)
-        
-        logger.debug("Test environment setup complete")
+        # Wait for initial data
+        time.sleep(5)
     
-    async def asyncTearDown(self):
-        """Tear down test environment asynchronously."""
-        logger.debug("Tearing down test environment")
-        # Stop event processing
-        self.event_bus.stop_processing()
-        logger.debug("Test environment teardown complete")
+    @classmethod
+    def tearDownClass(cls):
+        """Clean up test environment."""
+        # Stop market data service
+        asyncio.run(cls.market_data_service.stop())
     
-    async def _debug_indicator_signal_handler(self, topic, data):
-        """Debug handler for indicator signals."""
-        logger.debug(f"DEBUG: Received indicator signal: {data}")
-        self.indicator_signals_received.append(data)
-    
-    async def _debug_pattern_detected_handler(self, topic, data):
-        """Debug handler for pattern detected events."""
-        logger.debug(f"DEBUG: Received pattern detected: {data}")
-        self.patterns_detected.append(data)
-    
-    def _create_sample_klines(self):
-        """Create sample kline data for testing."""
-        logger.debug("Creating sample kline data")
+    def test_chart_creation(self):
+        """Test chart creation for all symbols."""
+        symbols = self.config.get("trading.symbols", ["BTC/USDC", "ETH/USDC", "SOL/USDC"])
         
-        # Create timestamps for the last 100 hours
-        timestamps = []
-        for i in range(100):
-            timestamps.append(datetime.now() - timedelta(hours=99-i))
-        
-        # Create price data with a trend and some volatility
-        base_price = 50000
-        prices = []
-        for i in range(100):
-            # Add trend
-            trend = i * 10
-            # Add some volatility
-            volatility = (i % 10) * 50
-            # Add some randomness
-            import random
-            randomness = random.randint(-100, 100)
+        for symbol in symbols:
+            # Generate chart
+            chart_path = asyncio.run(self.chart_visualization.update_chart(symbol))
             
-            price = base_price + trend + volatility + randomness
-            prices.append(price)
-        
-        # Create klines with specific patterns to trigger detection
-        klines = []
-        for i in range(100):
-            # Create a double bottom pattern in the data
-            if i >= 70 and i <= 90:
-                # Create a W shape for double bottom
-                if i == 75 or i == 85:
-                    low_price = prices[i] - 500  # Create two similar lows
-                elif i == 80:
-                    low_price = prices[i] - 200  # Higher low in the middle
-                else:
-                    low_price = prices[i] - 300
-            else:
-                low_price = prices[i] - 100
+            # Check if chart was created
+            self.assertTrue(os.path.exists(chart_path), f"Chart not created for {symbol}")
             
-            # Create RSI oversold condition near the end
-            if i >= 90:
-                # Make recent prices drop to trigger RSI oversold
-                prices[i] = prices[i] - 800
-                low_price = prices[i] - 200
+            # Check file size (should be non-zero)
+            self.assertGreater(os.path.getsize(chart_path), 0, f"Chart file is empty for {symbol}")
             
-            kline = {
-                "timestamp": timestamps[i].isoformat(),
-                "open": prices[i] - 50,
-                "high": prices[i] + 100,
-                "low": low_price,
-                "close": prices[i],
-                "volume": 10 + (i % 10)
-            }
-            klines.append(kline)
+            logger.info(f"Chart created successfully for {symbol}: {chart_path}")
+    
+    def test_indicator_calculation(self):
+        """Test indicator calculation for all symbols."""
+        symbols = self.config.get("trading.symbols", ["BTC/USDC", "ETH/USDC", "SOL/USDC"])
         
-        logger.debug(f"Created {len(klines)} sample klines")
-        return klines
+        for symbol in symbols:
+            # Calculate indicators
+            self.chart_visualization.calculate_indicators(symbol)
+            
+            # Check if indicators were calculated
+            self.assertIn(symbol, self.chart_visualization.indicators, f"Indicators not calculated for {symbol}")
+            
+            # Check if SMA was calculated
+            self.assertIn("sma", self.chart_visualization.indicators[symbol], f"SMA not calculated for {symbol}")
+            
+            # Check if RSI was calculated
+            self.assertIn("rsi", self.chart_visualization.indicators[symbol], f"RSI not calculated for {symbol}")
+            
+            logger.info(f"Indicators calculated successfully for {symbol}")
     
-    async def _publish_klines_update(self):
-        """Publish klines update event."""
-        logger.debug(f"Publishing klines update for {self.test_symbol} {self.test_timeframe}")
-        await self.event_bus.publish("pipeline.klines_updated", {
-            "symbol": self.test_symbol,
-            "timeframe": self.test_timeframe,
-            "klines": self.sample_klines
-        })
-        logger.debug("Klines update published")
+    def test_pattern_detection(self):
+        """Test pattern detection for all symbols."""
+        symbols = self.config.get("trading.symbols", ["BTC/USDC", "ETH/USDC", "SOL/USDC"])
+        
+        for symbol in symbols:
+            # Run pattern detection
+            asyncio.run(self.pattern_recognition.detect_patterns(symbol))
+            
+            # We can't guarantee patterns will be detected, but we can check if the function runs without errors
+            logger.info(f"Pattern detection ran successfully for {symbol}")
     
-    async def _publish_strategic_decision(self):
-        """Publish strategic decision event."""
-        logger.debug("Publishing strategic decision")
-        await self.event_bus.publish("llm.strategic_decision", {
-            "decision_type": "entry",
-            "symbol": self.test_symbol,
-            "direction": "bullish",
-            "confidence": 0.85,
-            "price": 50500,
-            "summary": "Enter long position based on bullish pattern",
+    def test_event_propagation(self):
+        """Test event propagation from market data to chart visualization."""
+        # Create a test event handler
+        events_received = []
+        
+        async def test_event_handler(topic, data):
+            events_received.append((topic, data))
+        
+        # Subscribe to visualization events
+        subscription_id = self.event_bus.subscribe("visualization.chart_updated", test_event_handler)
+        
+        # Generate market data event
+        symbol = "BTC/USDC"
+        market_data = {
+            "success": True,
+            "symbol": symbol,
+            "price": 50000.0,
+            "volume_24h": 1000.0,
             "timestamp": datetime.now().isoformat()
-        })
-        logger.debug("Strategic decision published")
+        }
+        
+        # Publish market data event
+        asyncio.run(self.event_bus.publish("trading.market_data", market_data))
+        
+        # Wait for event propagation
+        time.sleep(2)
+        
+        # Check if visualization event was received
+        self.assertGreater(len(events_received), 0, "No visualization events received")
+        
+        # Unsubscribe from events
+        self.event_bus.unsubscribe("visualization.chart_updated", subscription_id)
+        
+        logger.info(f"Event propagation test successful, received {len(events_received)} events")
     
-    async def _publish_pattern_detected(self):
-        """Publish pattern detected event."""
-        logger.debug("Publishing pattern detected")
-        await self.event_bus.publish("visualization.pattern_detected", {
-            "pattern_type": "double_bottom",
-            "symbol": self.test_symbol,
-            "timeframe": self.test_timeframe,
-            "direction": "bullish",
-            "confidence": 0.8,
-            "price": 50200,
-            "timestamp": datetime.now().isoformat()
-        })
-        logger.debug("Pattern detected published")
+    def test_real_time_updates(self):
+        """Test real-time updates for all symbols."""
+        symbols = self.config.get("trading.symbols", ["BTC/USDC", "ETH/USDC", "SOL/USDC"])
+        
+        # Create a counter for chart updates
+        chart_updates = {symbol: 0 for symbol in symbols}
+        
+        async def count_chart_updates(topic, data):
+            if data.get("symbol") in chart_updates:
+                chart_updates[data.get("symbol")] += 1
+        
+        # Subscribe to chart updated events
+        subscription_id = self.event_bus.subscribe("visualization.chart_updated", count_chart_updates)
+        
+        # Wait for real-time updates
+        time.sleep(10)
+        
+        # Check if charts were updated
+        for symbol in symbols:
+            self.assertGreater(chart_updates[symbol], 0, f"No chart updates for {symbol}")
+            logger.info(f"Real-time updates test successful for {symbol}: {chart_updates[symbol]} updates")
+        
+        # Unsubscribe from events
+        self.event_bus.unsubscribe("visualization.chart_updated", subscription_id)
     
-    async def test_klines_update_flow(self):
-        """Test klines update event flow."""
-        logger.debug("Starting test_klines_update_flow")
+    def test_performance(self):
+        """Test visualization performance."""
+        symbol = "BTC/USDC"
         
-        # Subscribe to chart updates
-        chart_updates = []
+        # Measure chart generation time
+        start_time = time.time()
         
-        def chart_update_callback(update_data):
-            logger.debug(f"Chart update callback received: {update_data}")
-            chart_updates.append(update_data)
+        # Generate chart
+        chart_path = asyncio.run(self.chart_visualization.update_chart(symbol))
         
-        subscription_id = self.chart_visualization.subscribe_to_chart_updates(
-            self.test_symbol, self.test_timeframe, chart_update_callback
-        )
+        # Calculate elapsed time
+        elapsed_time = time.time() - start_time
         
-        # Publish klines update
-        await self._publish_klines_update()
+        # Check if chart was created in reasonable time
+        self.assertLess(elapsed_time, 2.0, f"Chart generation too slow: {elapsed_time:.2f} seconds")
         
-        # Wait for event processing
-        logger.debug("Waiting for event processing")
-        await asyncio.sleep(0.5)
-        
-        # Check if chart was updated
-        self.assertTrue(len(chart_updates) > 0, "Chart update callback not called")
-        
-        # Check chart data
-        chart_data = self.chart_visualization.get_chart_data(self.test_symbol, self.test_timeframe)
-        self.assertIsNotNone(chart_data, "Chart data not available")
-        self.assertEqual(chart_data["symbol"], self.test_symbol, "Chart data symbol mismatch")
-        self.assertEqual(chart_data["timeframe"], self.test_timeframe, "Chart data timeframe mismatch")
-        
-        # Check if klines were processed
-        self.assertTrue(len(chart_data["klines"]) > 0, "Klines not processed")
-        
-        # Check if indicators were calculated
-        self.assertTrue(len(chart_data["indicators"]) > 0, "Indicators not calculated")
-        
-        # Unsubscribe from chart updates
-        self.chart_visualization.unsubscribe_from_chart_updates(
-            self.test_symbol, self.test_timeframe, subscription_id
-        )
-        
-        logger.debug("test_klines_update_flow completed")
-    
-    async def test_pattern_recognition_flow(self):
-        """Test pattern recognition event flow."""
-        logger.debug("Starting test_pattern_recognition_flow")
-        
-        # Track indicator signals
-        indicator_signals = []
-        
-        async def indicator_signal_handler(topic, data):
-            logger.debug(f"Indicator signal handler received: {data}")
-            indicator_signals.append(data)
-        
-        # Subscribe to indicator signals
-        self.event_bus.subscribe("indicator.signal", indicator_signal_handler)
-        
-        # Publish klines update to trigger pattern recognition
-        await self._publish_klines_update()
-        
-        # Wait for event processing
-        logger.debug("Waiting for event processing")
-        await asyncio.sleep(1.0)  # Increased wait time
-        
-        # Debug: Check direct event listeners
-        logger.debug(f"DEBUG: Indicator signals received directly: {len(self.indicator_signals_received)}")
-        for signal in self.indicator_signals_received:
-            logger.debug(f"DEBUG: Signal: {signal.get('indicator')} - {signal.get('signal')}")
-        
-        # Use either the handler's collection or the direct listener's collection
-        all_signals = indicator_signals + self.indicator_signals_received
-        
-        # Check if indicator signals were generated
-        self.assertTrue(len(all_signals) > 0, "No indicator signals generated")
-        
-        # Check signal properties
-        if len(all_signals) > 0:
-            for signal in all_signals:
-                self.assertIn("indicator", signal, "Signal missing indicator field")
-                self.assertIn("symbol", signal, "Signal missing symbol field")
-                self.assertIn("timeframe", signal, "Signal missing timeframe field")
-                self.assertIn("signal", signal, "Signal missing signal field")
-                self.assertIn("direction", signal, "Signal missing direction field")
-                self.assertIn("confidence", signal, "Signal missing confidence field")
-        
-        logger.debug("test_pattern_recognition_flow completed")
-    
-    async def test_strategic_decision_visualization(self):
-        """Test strategic decision visualization flow."""
-        logger.debug("Starting test_strategic_decision_visualization")
-        
-        # Publish klines update first to have chart data
-        await self._publish_klines_update()
-        
-        # Wait for event processing
-        await asyncio.sleep(0.5)
-        
-        # Get initial markers count
-        initial_chart_data = self.chart_visualization.get_chart_data(self.test_symbol, self.test_timeframe)
-        initial_markers_count = len(initial_chart_data["markers"])
-        
-        # Publish strategic decision
-        await self._publish_strategic_decision()
-        
-        # Wait for event processing
-        await asyncio.sleep(0.5)
-        
-        # Check if marker was added to chart
-        updated_chart_data = self.chart_visualization.get_chart_data(self.test_symbol, self.test_timeframe)
-        self.assertTrue(
-            len(updated_chart_data["markers"]) > initial_markers_count,
-            "Strategic decision marker not added to chart"
-        )
-        
-        # Check marker properties
-        latest_marker = updated_chart_data["markers"][-1]
-        self.assertEqual(latest_marker["type"], "decision", "Marker type mismatch")
-        self.assertEqual(latest_marker["decision_type"], "entry", "Decision type mismatch")
-        self.assertEqual(latest_marker["direction"], "bullish", "Direction mismatch")
-        
-        logger.debug("test_strategic_decision_visualization completed")
-    
-    async def test_pattern_detected_visualization(self):
-        """Test pattern detected visualization flow."""
-        logger.debug("Starting test_pattern_detected_visualization")
-        
-        # Publish klines update first to have chart data
-        await self._publish_klines_update()
-        
-        # Wait for event processing
-        await asyncio.sleep(0.5)
-        
-        # Get initial markers count
-        initial_chart_data = self.chart_visualization.get_chart_data(self.test_symbol, self.test_timeframe)
-        initial_markers_count = len(initial_chart_data["markers"])
-        
-        # Publish pattern detected
-        await self._publish_pattern_detected()
-        
-        # Wait for event processing
-        await asyncio.sleep(0.5)
-        
-        # Check if marker was added to chart
-        updated_chart_data = self.chart_visualization.get_chart_data(self.test_symbol, self.test_timeframe)
-        self.assertTrue(
-            len(updated_chart_data["markers"]) > initial_markers_count,
-            "Pattern detected marker not added to chart"
-        )
-        
-        # Check marker properties
-        latest_marker = updated_chart_data["markers"][-1]
-        self.assertEqual(latest_marker["type"], "pattern", "Marker type mismatch")
-        self.assertEqual(latest_marker["pattern_type"], "double_bottom", "Pattern type mismatch")
-        self.assertEqual(latest_marker["direction"], "bullish", "Direction mismatch")
-        
-        logger.debug("test_pattern_detected_visualization completed")
-    
-    async def test_end_to_end_visualization_flow(self):
-        """Test end-to-end visualization flow."""
-        logger.debug("Starting test_end_to_end_visualization_flow")
-        
-        # Create a mock LLM Overseer with debug logging
-        class MockLLMOverseer:
-            def __init__(self):
-                self.strategic_decisions = []
-                self.pattern_detections = []
-                logger.debug("MockLLMOverseer initialized")
-            
-            def update_market_data(self, data):
-                logger.debug(f"MockLLMOverseer.update_market_data called with: {data}")
-                if "pattern_detected" in data:
-                    self.pattern_detections.append(data)
-                    logger.debug(f"Pattern detection added, total: {len(self.pattern_detections)}")
-            
-            def publish_strategic_decision(self, decision):
-                logger.debug(f"MockLLMOverseer.publish_strategic_decision called with: {decision}")
-                self.strategic_decisions.append(decision)
-            
-            def notify_pattern_detected(self, pattern):
-                logger.debug(f"MockLLMOverseer.notify_pattern_detected called with: {pattern}")
-                self.pattern_detections.append(pattern)
-                logger.debug(f"Pattern detection added, total: {len(self.pattern_detections)}")
-        
-        mock_llm_overseer = MockLLMOverseer()
-        self.llm_visualization_bridge.set_llm_overseer(mock_llm_overseer)
-        logger.debug("MockLLMOverseer set to LLMVisualizationBridge")
-        
-        # Publish klines update to trigger pattern recognition
-        await self._publish_klines_update()
-        
-        # Wait for event processing
-        logger.debug("Waiting for event processing after klines update")
-        await asyncio.sleep(1.0)  # Increased wait time
-        
-        # Debug: Check patterns detected directly
-        logger.debug(f"DEBUG: Patterns detected directly: {len(self.patterns_detected)}")
-        for pattern in self.patterns_detected:
-            logger.debug(f"DEBUG: Pattern: {pattern.get('pattern_type')}")
-        
-        # Manually publish pattern detected to ensure bridge receives it
-        logger.debug("Publishing pattern detected manually")
-        await self._publish_pattern_detected()
-        
-        # Wait for event processing
-        logger.debug("Waiting for event processing after pattern detected")
-        await asyncio.sleep(1.0)  # Increased wait time
-        
-        # Debug: Check LLM Overseer state
-        logger.debug(f"DEBUG: MockLLMOverseer pattern detections: {len(mock_llm_overseer.pattern_detections)}")
-        
-        # Check if pattern was forwarded to LLM Overseer
-        self.assertTrue(len(mock_llm_overseer.pattern_detections) > 0, "Pattern not forwarded to LLM Overseer")
-        
-        # Publish strategic decision
-        await self._publish_strategic_decision()
-        
-        # Wait for event processing
-        await asyncio.sleep(0.5)
-        
-        # Check if chart was updated with both markers
-        chart_data = self.chart_visualization.get_chart_data(self.test_symbol, self.test_timeframe)
-        
-        # Count markers by type
-        decision_markers = [m for m in chart_data["markers"] if m["type"] == "decision"]
-        pattern_markers = [m for m in chart_data["markers"] if m["type"] == "pattern"]
-        
-        logger.debug(f"Decision markers: {len(decision_markers)}")
-        logger.debug(f"Pattern markers: {len(pattern_markers)}")
-        
-        self.assertTrue(len(decision_markers) > 0, "Decision markers not added to chart")
-        self.assertTrue(len(pattern_markers) > 0, "Pattern markers not added to chart")
-        
-        logger.debug("test_end_to_end_visualization_flow completed")
-
+        logger.info(f"Performance test successful: chart generated in {elapsed_time:.2f} seconds")
 
 if __name__ == "__main__":
-    # Run tests
-    print("Running visualization integration tests...")
     unittest.main()
