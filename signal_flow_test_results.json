@@ -1,0 +1,161 @@
+{
+  "total_tests": 7,
+  "passed_tests": 6,
+  "failed_tests": 1,
+  "test_details": [
+    {
+      "test_name": "Basic signal processing",
+      "passed": true,
+      "details": {
+        "signal": {
+          "type": "BUY",
+          "source": "test",
+          "strength": 0.8,
+          "timestamp": 1749060282398,
+          "price": 105000.0,
+          "symbol": "BTCUSDC",
+          "session": "TEST",
+          "id": "SIG-1749060282-0"
+        },
+        "result": true
+      }
+    },
+    {
+      "test_name": "Signal validation",
+      "passed": true,
+      "details": {
+        "results": [
+          {
+            "name": "Valid signal",
+            "expected": true,
+            "actual": true,
+            "passed": true
+          },
+          {
+            "name": "Low strength signal",
+            "expected": false,
+            "actual": false,
+            "passed": true
+          },
+          {
+            "name": "Old signal",
+            "expected": false,
+            "actual": false,
+            "passed": true
+          },
+          {
+            "name": "Missing field",
+            "expected": false,
+            "actual": false,
+            "passed": true
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "Order creation",
+      "passed": true,
+      "details": {
+        "signal": {
+          "type": "BUY",
+          "source": "test",
+          "strength": 0.8,
+          "timestamp": 1749060282909,
+          "price": 105000.0,
+          "symbol": "BTCUSDC",
+          "session": "TEST",
+          "id": "SIG-TEST-1749060282"
+        },
+        "order": {
+          "orderId": "effb419a-3c33-4993-8745-91695364442f",
+          "symbol": "BTCUSDC",
+          "side": "BUY",
+          "type": "LIMIT",
+          "timeInForce": "GTC",
+          "quantity": 0.001,
+          "price": 105401.99669999999,
+          "status": "NEW",
+          "timestamp": 1749060282953,
+          "executedQty": 0.0,
+          "cummulativeQuoteQty": 0.0,
+          "fills": [],
+          "signal_id": "SIG-TEST-1749060282"
+        },
+        "order_created": true,
+        "has_signal_id": true
+      }
+    },
+    {
+      "test_name": "Market condition checks",
+      "passed": true,
+      "details": {
+        "signal": {
+          "type": "BUY",
+          "source": "test",
+          "strength": 0.8,
+          "timestamp": 1749060282954,
+          "price": 105000.0,
+          "symbol": "BTCUSDC",
+          "session": "TEST"
+        },
+        "result": true
+      }
+    },
+    {
+      "test_name": "Position sizing",
+      "passed": true,
+      "details": {
+        "signals": [
+          {
+            "type": "BUY",
+            "source": "test",
+            "strength": 0.5,
+            "timestamp": 1749060282991,
+            "price": 105000.0,
+            "symbol": "BTCUSDC",
+            "session": "TEST"
+          },
+          {
+            "type": "BUY",
+            "source": "test",
+            "strength": 0.8,
+            "timestamp": 1749060282991,
+            "price": 105000.0,
+            "symbol": "BTCUSDC",
+            "session": "TEST"
+          },
+          {
+            "type": "BUY",
+            "source": "test",
+            "strength": 1.0,
+            "timestamp": 1749060282991,
+            "price": 105000.0,
+            "symbol": "BTCUSDC",
+            "session": "TEST"
+          }
+        ],
+        "position_sizes": [
+          0.001,
+          0.001,
+          0.001
+        ],
+        "valid_sizes": true,
+        "proportional": true
+      }
+    },
+    {
+      "test_name": "Error handling",
+      "passed": false,
+      "details": {
+        "error": "'strength'"
+      }
+    },
+    {
+      "test_name": "Thread safety",
+      "passed": true,
+      "details": {
+        "signals_sent": 10
+      }
+    }
+  ]
+}

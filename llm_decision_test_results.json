@@ -1,0 +1,56 @@
+{
+  "total_tests": 7,
+  "passed_tests": 0,
+  "failed_tests": 7,
+  "test_details": [
+    {
+      "test_name": "LLM overseer initialization",
+      "passed": false,
+      "details": {
+        "error": "module 'openrouter' has no attribute 'OpenRouter'"
+      }
+    },
+    {
+      "test_name": "Pattern recognition",
+      "passed": false,
+      "details": {
+        "error": "module 'openrouter' has no attribute 'OpenRouter'"
+      }
+    },
+    {
+      "test_name": "LLM context generation",
+      "passed": false,
+      "details": {
+        "error": "module 'openrouter' has no attribute 'OpenRouter'"
+      }
+    },
+    {
+      "test_name": "Decision processing",
+      "passed": false,
+      "details": {
+        "error": "module 'openrouter' has no attribute 'OpenRouter'"
+      }
+    },
+    {
+      "test_name": "Market update processing",
+      "passed": false,
+      "details": {
+        "error": "module 'openrouter' has no attribute 'OpenRouter'"
+      }
+    },
+    {
+      "test_name": "End-to-end flow",
+      "passed": false,
+      "details": {
+        "error": "module 'openrouter' has no attribute 'OpenRouter'"
+      }
+    },
+    {
+      "test_name": "Error handling",
+      "passed": false,
+      "details": {
+        "error": "module 'openrouter' has no attribute 'OpenRouter'"
+      }
+    }
+  ]
+}

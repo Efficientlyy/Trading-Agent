@@ -1,0 +1,146 @@
+{
+  "total_tests": 8,
+  "passed_tests": 7,
+  "failed_tests": 1,
+  "test_details": [
+    {
+      "test_name": "Signal notifications",
+      "passed": true,
+      "details": {
+        "signal": {
+          "id": "SIG-TEST-1749061168",
+          "type": "BUY",
+          "source": "test",
+          "strength": 0.8,
+          "timestamp": 1749061168627,
+          "price": 105000.0,
+          "symbol": "BTCUSDC",
+          "session": "TEST"
+        }
+      }
+    },
+    {
+      "test_name": "Order notifications",
+      "passed": true,
+      "details": {
+        "order": {
+          "symbol": "BTCUSDC",
+          "side": "BUY",
+          "type": "LIMIT",
+          "quantity": 0.001,
+          "price": 105000.0,
+          "orderId": "ORD-TEST-1749061169"
+        }
+      }
+    },
+    {
+      "test_name": "Decision notifications",
+      "passed": true,
+      "details": {
+        "decision": {
+          "id": "DECISION-TEST-1749061171",
+          "symbol": "BTCUSDC",
+          "action": "BUY",
+          "confidence": 0.75,
+          "reason": "Strong bullish pattern detected with increasing volume"
+        }
+      }
+    },
+    {
+      "test_name": "Error notifications",
+      "passed": true,
+      "details": {
+        "component": "test_component",
+        "message": "Test error message"
+      }
+    },
+    {
+      "test_name": "System notifications",
+      "passed": true,
+      "details": {
+        "component": "test_component",
+        "message": "Test system message"
+      }
+    },
+    {
+      "test_name": "Performance notifications",
+      "passed": true,
+      "details": {
+        "metric": "profit_loss",
+        "value": "+2.5%"
+      }
+    },
+    {
+      "test_name": "Integration with LLM overseer",
+      "passed": true,
+      "details": {
+        "market_update": {
+          "market_state": {
+            "symbol": "BTCUSDC",
+            "timestamp": 1749061175131,
+            "bid_price": 105000.0,
+            "ask_price": 105100.0,
+            "mid_price": 105050.0,
+            "spread": 100.0,
+            "spread_bps": 9.52,
+            "order_imbalance": 0.2,
+            "price_history": [
+              105000.0,
+              104900.0,
+              104950.0,
+              105050.0,
+              105100.0
+            ],
+            "timestamp_history": [
+              1749061175131,
+              1749061115131,
+              1749061055131,
+              1749060995131,
+              1749060935131
+            ],
+            "volume_history": [
+              10.0,
+              15.0,
+              12.0,
+              8.0,
+              11.0
+            ],
+            "last_trade_price": 105050.0,
+            "last_trade_size": 0.1,
+            "last_trade_side": "BUY",
+            "last_trade_time": 1749061175131,
+            "momentum": 0.15,
+            "volatility": 0.02,
+            "trend": 0.05
+          }
+        },
+        "decision": {
+          "id": "DECISION-1749061175",
+          "timestamp": 1749061175632,
+          "action": "BUY",
+          "reason": "Unable to parse clear decision from LLM response",
+          "confidence": 0.6,
+          "signals": [
+            {
+              "id": "SIG-1749061175",
+              "type": "BUY",
+              "source": "llm_overseer",
+              "strength": 0.6,
+              "timestamp": 1749061175632,
+              "price": 105050.0,
+              "symbol": "BTCUSDC",
+              "session": "LLM"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "test_name": "Integration with paper trading",
+      "passed": false,
+      "details": {
+        "error": "'EnhancedPaperTradingSystem' object has no attribute 'create_order'"
+      }
+    }
+  ]
+}

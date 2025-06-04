@@ -1,0 +1,1154 @@
+{
+  "signal_generation": [
+    {
+      "case": "Low volatility, balanced",
+      "signals": [
+        {
+          "threshold_level": 0,
+          "thresholds": {
+            "imbalance": 0.25,
+            "volatility": 0.08,
+            "momentum": 0.06
+          },
+          "signals_count": 2,
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625751,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625751,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        },
+        {
+          "threshold_level": 1,
+          "thresholds": {
+            "imbalance": 0.15,
+            "volatility": 0.05,
+            "momentum": 0.04
+          },
+          "signals_count": 2,
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625751,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625751,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        },
+        {
+          "threshold_level": 2,
+          "thresholds": {
+            "imbalance": 0.05,
+            "volatility": 0.02,
+            "momentum": 0.02
+          },
+          "signals_count": 3,
+          "signals": [
+            {
+              "type": "SELL",
+              "source": "order_imbalance",
+              "strength": 0.08888357308197564,
+              "timestamp": 1749059625751,
+              "price": 104947.5,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625751,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625751,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case": "Low volatility, buy imbalance",
+      "signals": [
+        {
+          "threshold_level": 0,
+          "thresholds": {
+            "imbalance": 0.25,
+            "volatility": 0.08,
+            "momentum": 0.06
+          },
+          "signals_count": 3,
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "order_imbalance",
+              "strength": 0.8578580345087228,
+              "timestamp": 1749059625754,
+              "price": 105052.5,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625754,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625754,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        },
+        {
+          "threshold_level": 1,
+          "thresholds": {
+            "imbalance": 0.15,
+            "volatility": 0.05,
+            "momentum": 0.04
+          },
+          "signals_count": 3,
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "order_imbalance",
+              "strength": 0.8578580345087228,
+              "timestamp": 1749059625754,
+              "price": 105052.5,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625754,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625754,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        },
+        {
+          "threshold_level": 2,
+          "thresholds": {
+            "imbalance": 0.05,
+            "volatility": 0.02,
+            "momentum": 0.02
+          },
+          "signals_count": 3,
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "order_imbalance",
+              "strength": 0.8578580345087228,
+              "timestamp": 1749059625754,
+              "price": 105052.5,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625754,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625754,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case": "Low volatility, sell imbalance",
+      "signals": [
+        {
+          "threshold_level": 0,
+          "thresholds": {
+            "imbalance": 0.25,
+            "volatility": 0.08,
+            "momentum": 0.06
+          },
+          "signals_count": 3,
+          "signals": [
+            {
+              "type": "SELL",
+              "source": "order_imbalance",
+              "strength": 0.9749121576337818,
+              "timestamp": 1749059625755,
+              "price": 104947.5,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625755,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625755,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        },
+        {
+          "threshold_level": 1,
+          "thresholds": {
+            "imbalance": 0.15,
+            "volatility": 0.05,
+            "momentum": 0.04
+          },
+          "signals_count": 3,
+          "signals": [
+            {
+              "type": "SELL",
+              "source": "order_imbalance",
+              "strength": 0.9749121576337818,
+              "timestamp": 1749059625755,
+              "price": 104947.5,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625755,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625755,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        },
+        {
+          "threshold_level": 2,
+          "thresholds": {
+            "imbalance": 0.05,
+            "volatility": 0.02,
+            "momentum": 0.02
+          },
+          "signals_count": 3,
+          "signals": [
+            {
+              "type": "SELL",
+              "source": "order_imbalance",
+              "strength": 0.9749121576337818,
+              "timestamp": 1749059625755,
+              "price": 104947.5,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625755,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625755,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case": "Medium volatility, balanced",
+      "signals": [
+        {
+          "threshold_level": 0,
+          "thresholds": {
+            "imbalance": 0.25,
+            "volatility": 0.08,
+            "momentum": 0.06
+          },
+          "signals_count": 2,
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625757,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625757,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        },
+        {
+          "threshold_level": 1,
+          "thresholds": {
+            "imbalance": 0.15,
+            "volatility": 0.05,
+            "momentum": 0.04
+          },
+          "signals_count": 2,
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625757,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625757,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        },
+        {
+          "threshold_level": 2,
+          "thresholds": {
+            "imbalance": 0.05,
+            "volatility": 0.02,
+            "momentum": 0.02
+          },
+          "signals_count": 3,
+          "signals": [
+            {
+              "type": "SELL",
+              "source": "order_imbalance",
+              "strength": 0.08888357308197564,
+              "timestamp": 1749059625757,
+              "price": 104947.5,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625757,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625757,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case": "Medium volatility, buy imbalance",
+      "signals": [
+        {
+          "threshold_level": 0,
+          "thresholds": {
+            "imbalance": 0.25,
+            "volatility": 0.08,
+            "momentum": 0.06
+          },
+          "signals_count": 3,
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "order_imbalance",
+              "strength": 0.8578580345087228,
+              "timestamp": 1749059625759,
+              "price": 105052.5,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625759,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625759,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        },
+        {
+          "threshold_level": 1,
+          "thresholds": {
+            "imbalance": 0.15,
+            "volatility": 0.05,
+            "momentum": 0.04
+          },
+          "signals_count": 3,
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "order_imbalance",
+              "strength": 0.8578580345087228,
+              "timestamp": 1749059625759,
+              "price": 105052.5,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625759,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625759,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        },
+        {
+          "threshold_level": 2,
+          "thresholds": {
+            "imbalance": 0.05,
+            "volatility": 0.02,
+            "momentum": 0.02
+          },
+          "signals_count": 3,
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "order_imbalance",
+              "strength": 0.8578580345087228,
+              "timestamp": 1749059625759,
+              "price": 105052.5,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625759,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625759,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case": "Medium volatility, sell imbalance",
+      "signals": [
+        {
+          "threshold_level": 0,
+          "thresholds": {
+            "imbalance": 0.25,
+            "volatility": 0.08,
+            "momentum": 0.06
+          },
+          "signals_count": 3,
+          "signals": [
+            {
+              "type": "SELL",
+              "source": "order_imbalance",
+              "strength": 0.9749121576337818,
+              "timestamp": 1749059625761,
+              "price": 104947.5,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625761,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625761,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        },
+        {
+          "threshold_level": 1,
+          "thresholds": {
+            "imbalance": 0.15,
+            "volatility": 0.05,
+            "momentum": 0.04
+          },
+          "signals_count": 3,
+          "signals": [
+            {
+              "type": "SELL",
+              "source": "order_imbalance",
+              "strength": 0.9749121576337818,
+              "timestamp": 1749059625761,
+              "price": 104947.5,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625761,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625761,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        },
+        {
+          "threshold_level": 2,
+          "thresholds": {
+            "imbalance": 0.05,
+            "volatility": 0.02,
+            "momentum": 0.02
+          },
+          "signals_count": 3,
+          "signals": [
+            {
+              "type": "SELL",
+              "source": "order_imbalance",
+              "strength": 0.9749121576337818,
+              "timestamp": 1749059625761,
+              "price": 104947.5,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625761,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625761,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case": "High volatility, balanced",
+      "signals": [
+        {
+          "threshold_level": 0,
+          "thresholds": {
+            "imbalance": 0.25,
+            "volatility": 0.08,
+            "momentum": 0.06
+          },
+          "signals_count": 2,
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625762,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "SELL",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625762,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        },
+        {
+          "threshold_level": 1,
+          "thresholds": {
+            "imbalance": 0.15,
+            "volatility": 0.05,
+            "momentum": 0.04
+          },
+          "signals_count": 2,
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625762,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "SELL",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625762,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        },
+        {
+          "threshold_level": 2,
+          "thresholds": {
+            "imbalance": 0.05,
+            "volatility": 0.02,
+            "momentum": 0.02
+          },
+          "signals_count": 3,
+          "signals": [
+            {
+              "type": "SELL",
+              "source": "order_imbalance",
+              "strength": 0.08888357308197564,
+              "timestamp": 1749059625762,
+              "price": 104947.5,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625762,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "SELL",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625762,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case": "High volatility, buy imbalance",
+      "signals": [
+        {
+          "threshold_level": 0,
+          "thresholds": {
+            "imbalance": 0.25,
+            "volatility": 0.08,
+            "momentum": 0.06
+          },
+          "signals_count": 3,
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "order_imbalance",
+              "strength": 0.8578580345087228,
+              "timestamp": 1749059625764,
+              "price": 105052.5,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625764,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "SELL",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625764,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        },
+        {
+          "threshold_level": 1,
+          "thresholds": {
+            "imbalance": 0.15,
+            "volatility": 0.05,
+            "momentum": 0.04
+          },
+          "signals_count": 3,
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "order_imbalance",
+              "strength": 0.8578580345087228,
+              "timestamp": 1749059625764,
+              "price": 105052.5,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625764,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "SELL",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625764,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        },
+        {
+          "threshold_level": 2,
+          "thresholds": {
+            "imbalance": 0.05,
+            "volatility": 0.02,
+            "momentum": 0.02
+          },
+          "signals_count": 3,
+          "signals": [
+            {
+              "type": "BUY",
+              "source": "order_imbalance",
+              "strength": 0.8578580345087228,
+              "timestamp": 1749059625764,
+              "price": 105052.5,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625764,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "SELL",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625764,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case": "High volatility, sell imbalance",
+      "signals": [
+        {
+          "threshold_level": 0,
+          "thresholds": {
+            "imbalance": 0.25,
+            "volatility": 0.08,
+            "momentum": 0.06
+          },
+          "signals_count": 3,
+          "signals": [
+            {
+              "type": "SELL",
+              "source": "order_imbalance",
+              "strength": 0.9749121576337818,
+              "timestamp": 1749059625766,
+              "price": 104947.5,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625766,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "SELL",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625766,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        },
+        {
+          "threshold_level": 1,
+          "thresholds": {
+            "imbalance": 0.15,
+            "volatility": 0.05,
+            "momentum": 0.04
+          },
+          "signals_count": 3,
+          "signals": [
+            {
+              "type": "SELL",
+              "source": "order_imbalance",
+              "strength": 0.9749121576337818,
+              "timestamp": 1749059625766,
+              "price": 104947.5,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625766,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "SELL",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625766,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        },
+        {
+          "threshold_level": 2,
+          "thresholds": {
+            "imbalance": 0.05,
+            "volatility": 0.02,
+            "momentum": 0.02
+          },
+          "signals_count": 3,
+          "signals": [
+            {
+              "type": "SELL",
+              "source": "order_imbalance",
+              "strength": 0.9749121576337818,
+              "timestamp": 1749059625766,
+              "price": 104947.5,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "BUY",
+              "source": "volatility",
+              "strength": 1.0,
+              "timestamp": 1749059625766,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            },
+            {
+              "type": "SELL",
+              "source": "momentum",
+              "strength": 1.0,
+              "timestamp": 1749059625766,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "US"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "paper_trading": {
+    "placed_orders": [
+      {
+        "orderId": "bd067c40-740c-49b4-95eb-27dea349d644",
+        "symbol": "BTCUSDC",
+        "side": "BUY",
+        "type": "LIMIT",
+        "timeInForce": "GTC",
+        "quantity": 0.001,
+        "price": 105000.0,
+        "status": "NEW",
+        "timestamp": 1749059625768,
+        "executedQty": 0.0,
+        "cummulativeQuoteQty": 0.0,
+        "fills": []
+      },
+      {
+        "orderId": "0f6099fa-d92e-4a86-9f83-63d285263915",
+        "symbol": "BTCUSDC",
+        "side": "BUY",
+        "type": "LIMIT",
+        "timeInForce": "GTC",
+        "quantity": 0.002,
+        "price": 104500.0,
+        "status": "CANCELED",
+        "timestamp": 1749059625769,
+        "executedQty": 0.0,
+        "cummulativeQuoteQty": 0.0,
+        "fills": []
+      },
+      {
+        "orderId": "c2785ce1-9226-4a22-bee3-9b56519557c0",
+        "symbol": "ETHUSDC",
+        "side": "BUY",
+        "type": "LIMIT",
+        "timeInForce": "GTC",
+        "quantity": 0.01,
+        "price": 2600.0,
+        "status": "NEW",
+        "timestamp": 1749059625769,
+        "executedQty": 0.0,
+        "cummulativeQuoteQty": 0.0,
+        "fills": []
+      },
+      {
+        "orderId": "0f4488e0-6c25-4d80-9222-52e763776bf6",
+        "symbol": "ETHUSDC",
+        "side": "BUY",
+        "type": "LIMIT",
+        "timeInForce": "GTC",
+        "quantity": 0.02,
+        "price": 2550.0,
+        "status": "CANCELED",
+        "timestamp": 1749059625770,
+        "executedQty": 0.0,
+        "cummulativeQuoteQty": 0.0,
+        "fills": []
+      }
+    ],
+    "executed_orders": [],
+    "canceled_orders": [
+      {
+        "orderId": "0f6099fa-d92e-4a86-9f83-63d285263915",
+        "symbol": "BTCUSDC",
+        "side": "BUY",
+        "type": "LIMIT",
+        "timeInForce": "GTC",
+        "quantity": 0.002,
+        "price": 104500.0,
+        "status": "CANCELED",
+        "timestamp": 1749059625769,
+        "executedQty": 0.0,
+        "cummulativeQuoteQty": 0.0,
+        "fills": []
+      },
+      {
+        "orderId": "0f4488e0-6c25-4d80-9222-52e763776bf6",
+        "symbol": "ETHUSDC",
+        "side": "BUY",
+        "type": "LIMIT",
+        "timeInForce": "GTC",
+        "quantity": 0.02,
+        "price": 2550.0,
+        "status": "CANCELED",
+        "timestamp": 1749059625770,
+        "executedQty": 0.0,
+        "cummulativeQuoteQty": 0.0,
+        "fills": []
+      }
+    ],
+    "final_account": {
+      "balances": {
+        "USDC": 9347.0,
+        "BTC": 0.0,
+        "ETH": 0.0
+      },
+      "open_orders_count": 8,
+      "total_orders": 12,
+      "total_trades": 0
+    }
+  },
+  "edge_cases": [
+    {
+      "case": "Invalid symbol",
+      "result": "Exception",
+      "error": "API error: 400 - {\"msg\":\"invalid symbol\",\"code\":-1121}"
+    },
+    {
+      "case": "Zero quantity order",
+      "result": "No exception",
+      "data": null
+    },
+    {
+      "case": "Negative price order",
+      "result": "No exception",
+      "data": null
+    },
+    {
+      "case": "Invalid order type",
+      "result": "No exception",
+      "data": null
+    },
+    {
+      "case": "Insufficient balance",
+      "result": "No exception",
+      "data": null
+    },
+    {
+      "case": "Invalid session name",
+      "result": "No exception",
+      "data": {}
+    }
+  ]
+}

@@ -1,0 +1,290 @@
+{
+  "total_tests": 7,
+  "passed_tests": 7,
+  "failed_tests": 0,
+  "test_details": [
+    {
+      "test_name": "LLM overseer initialization",
+      "passed": true,
+      "details": {
+        "overseer": "<fixed_llm_overseer.FixedLLMOverseer object at 0x7f976014d390>",
+        "initialized": true
+      }
+    },
+    {
+      "test_name": "Pattern recognition",
+      "passed": true,
+      "details": {
+        "market_state": {
+          "symbol": "BTCUSDC",
+          "timestamp": 1749060942462,
+          "price_history": [
+            105000.0,
+            104900.0,
+            104950.0,
+            105050.0,
+            105100.0
+          ]
+        },
+        "patterns": [
+          {
+            "type": "UPTREND",
+            "strength": 0.009523809523809525,
+            "description": "Price is in an uptrend"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "LLM context generation",
+      "passed": true,
+      "details": {
+        "market_state": {
+          "symbol": "BTCUSDC",
+          "timestamp": 1749060942468,
+          "bid_price": 105000.0,
+          "ask_price": 105100.0,
+          "mid_price": 105050.0,
+          "spread": 100.0,
+          "spread_bps": 9.52,
+          "order_imbalance": 0.2,
+          "price_history": [
+            105000.0,
+            104900.0,
+            104950.0,
+            105050.0,
+            105100.0
+          ],
+          "timestamp_history": [
+            1749060942468,
+            1749060882468,
+            1749060822468,
+            1749060762468,
+            1749060702468
+          ],
+          "volume_history": [
+            10.0,
+            15.0,
+            12.0,
+            8.0,
+            11.0
+          ],
+          "last_trade_price": 105050.0,
+          "last_trade_size": 0.1,
+          "last_trade_side": "BUY",
+          "last_trade_time": 1749060942468,
+          "momentum": 0.15,
+          "volatility": 0.02,
+          "trend": 0.05
+        },
+        "context": {
+          "timestamp": 1749060942468,
+          "symbol": "BTCUSDC",
+          "current_price": 105050.0,
+          "bid_price": 105000.0,
+          "ask_price": 105100.0,
+          "spread_bps": 9.52,
+          "order_imbalance": 0.2,
+          "momentum": 0.15,
+          "volatility": 0.02,
+          "trend": 0.05,
+          "patterns": [
+            {
+              "type": "UPTREND",
+              "strength": 0.009523809523809525,
+              "description": "Price is in an uptrend"
+            }
+          ],
+          "recent_signals": [],
+          "recent_orders": []
+        },
+        "has_required_fields": true
+      }
+    },
+    {
+      "test_name": "Decision processing",
+      "passed": true,
+      "details": {
+        "decision": {
+          "id": "DECISION-TEST-1749060942",
+          "action": "BUY",
+          "reason": "Test decision",
+          "confidence": 0.8,
+          "signals": [
+            {
+              "id": "SIG-1749060942-0",
+              "type": "BUY",
+              "source": "llm_test",
+              "strength": 0.8,
+              "timestamp": 1749060942474,
+              "price": 105000.0,
+              "symbol": "BTCUSDC",
+              "session": "TEST"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "test_name": "Market update processing",
+      "passed": true,
+      "details": {
+        "market_update": {
+          "market_state": {
+            "symbol": "BTCUSDC",
+            "timestamp": 1749060944487,
+            "bid_price": 105000.0,
+            "ask_price": 105100.0,
+            "mid_price": 105050.0,
+            "spread": 100.0,
+            "spread_bps": 9.52,
+            "order_imbalance": 0.2,
+            "price_history": [
+              105000.0,
+              104900.0,
+              104950.0,
+              105050.0,
+              105100.0
+            ],
+            "timestamp_history": [
+              1749060944487,
+              1749060884487,
+              1749060824487,
+              1749060764487,
+              1749060704487
+            ],
+            "volume_history": [
+              10.0,
+              15.0,
+              12.0,
+              8.0,
+              11.0
+            ],
+            "last_trade_price": 105050.0,
+            "last_trade_size": 0.1,
+            "last_trade_side": "BUY",
+            "last_trade_time": 1749060944487,
+            "momentum": 0.15,
+            "volatility": 0.02,
+            "trend": 0.05
+          }
+        },
+        "decision": {
+          "id": "DECISION-1749060944",
+          "timestamp": 1749060944988,
+          "action": "BUY",
+          "reason": "Unable to parse clear decision from LLM response",
+          "confidence": 0.6,
+          "signals": [
+            {
+              "id": "SIG-1749060944",
+              "type": "BUY",
+              "source": "llm_overseer",
+              "strength": 0.6,
+              "timestamp": 1749060944988,
+              "price": 105050.0,
+              "symbol": "BTCUSDC",
+              "session": "LLM"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "test_name": "End-to-end flow",
+      "passed": true,
+      "details": {
+        "market_update": {
+          "market_state": {
+            "symbol": "BTCUSDC",
+            "timestamp": 1749060945749,
+            "bid_price": 105000.0,
+            "ask_price": 105100.0,
+            "mid_price": 105050.0,
+            "spread": 100.0,
+            "spread_bps": 9.52,
+            "order_imbalance": 0.2,
+            "price_history": [
+              105000.0,
+              104900.0,
+              104950.0,
+              105050.0,
+              105100.0
+            ],
+            "timestamp_history": [
+              1749060945749,
+              1749060885749,
+              1749060825749,
+              1749060765749,
+              1749060705749
+            ],
+            "volume_history": [
+              10.0,
+              15.0,
+              12.0,
+              8.0,
+              11.0
+            ],
+            "last_trade_price": 105050.0,
+            "last_trade_size": 0.1,
+            "last_trade_side": "BUY",
+            "last_trade_time": 1749060945749,
+            "momentum": 0.15,
+            "volatility": 0.02,
+            "trend": 0.05
+          }
+        },
+        "decision": {
+          "id": "DECISION-1749060945",
+          "timestamp": 1749060946250,
+          "action": "BUY",
+          "reason": "Unable to parse clear decision from LLM response",
+          "confidence": 0.6,
+          "signals": [
+            {
+              "id": "SIG-1749060946-0",
+              "type": "BUY",
+              "source": "llm_overseer",
+              "strength": 0.6,
+              "timestamp": 1749060946250,
+              "price": 105050.0,
+              "symbol": "BTCUSDC",
+              "session": "LLM"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "test_name": "Error handling",
+      "passed": true,
+      "details": {
+        "market_update": {
+          "market_state": {
+            "symbol": "BTCUSDC",
+            "timestamp": 1749060951268
+          }
+        },
+        "decision": {
+          "id": "DECISION-1749060951",
+          "timestamp": 1749060951769,
+          "action": "BUY",
+          "reason": "Unable to parse clear decision from LLM response",
+          "confidence": 0.6,
+          "signals": [
+            {
+              "id": "SIG-1749060951",
+              "type": "BUY",
+              "source": "llm_overseer",
+              "strength": 0.6,
+              "timestamp": 1749060951769,
+              "price": 0.0,
+              "symbol": "BTCUSDC",
+              "session": "LLM"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
