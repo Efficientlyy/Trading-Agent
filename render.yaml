@@ -1,0 +1,58 @@
+services:
+  # Main Trading Engine
+  - type: worker
+    name: trading-agent-engine
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python flash_trading.py --env .env-secure/.env --mode production
+    envVars:
+      - key: MEXC_API_KEY
+        sync: false
+      - key: MEXC_API_SECRET
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: PAPER_TRADING
+        value: "False"
+
+  # Dashboard Interface
+  - type: web
+    name: trading-agent-dashboard
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python mexc_dashboard_production.py
+    envVars:
+      - key: MEXC_API_KEY
+        sync: false
+      - key: MEXC_API_SECRET
+        sync: false
+      - key: PORT
+        value: 10000
+      - key: HOST
+        value: 0.0.0.0
+      - key: ENVIRONMENT
+        value: production
+    
+  # LLM Overseer
+  - type: worker
+    name: trading-agent-llm-overseer
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m llm_overseer.main
+    envVars:
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: ENVIRONMENT
+        value: production

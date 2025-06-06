@@ -1,8 +1,7 @@
-# Environment variables and secrets
+# Environment variables
 .env
 .env-secure/
 .env.*
-*.env
 
 # Python
 __pycache__/
@@ -26,47 +25,21 @@ var/
 .installed.cfg
 *.egg
 
-# Node.js
-node_modules/
-npm-debug.log
-yarn-debug.log
-yarn-error.log
-.pnp/
-.pnp.js
-.npm
-.yarn-integrity
+# Logs
+logs/
+*.log
 
-# Rust
-target/
-Cargo.lock
-**/*.rs.bk
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+
+# OS
 .DS_Store
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Docker
-.docker/
-docker-compose.override.yml
-
-# Testing
-coverage/
-.coverage
-htmlcov/
-.pytest_cache/
-.tox/
-.nox/
-
-# Production
-.env.production
-.env
+Thumbs.db
