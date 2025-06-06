@@ -4,25 +4,17 @@ services:
     name: trading-agent-engine
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python flash_trading.py --env .env-secure/.env --mode production
+    startCommand: python flash_trading.py --mode production
     envVars:
-      - key: MEXC_API_KEY
-        sync: false
-      - key: MEXC_API_SECRET
-        sync: false
-      - key: OPENROUTER_API_KEY
-        sync: false
-      - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: TELEGRAM_CHAT_ID
-        sync: false
       - key: ENVIRONMENT
         value: production
       - key: LOG_LEVEL
         value: INFO
       - key: PAPER_TRADING
         value: "False"
-
+      - key: BOT_SERVICE_URL
+        value: "http://trading-agent-llm-overseer:8000"
+  
   # Dashboard Interface
   - type: web
     name: trading-agent-dashboard
@@ -30,29 +22,29 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python mexc_dashboard_production.py
     envVars:
-      - key: MEXC_API_KEY
-        sync: false
-      - key: MEXC_API_SECRET
-        sync: false
       - key: PORT
         value: 10000
       - key: HOST
         value: 0.0.0.0
       - key: ENVIRONMENT
         value: production
+      - key: BOT_SERVICE_URL
+        value: "http://trading-agent-llm-overseer:8000"
     
-  # LLM Overseer
-  - type: worker
+  # LLM Overseer with Telegram Bot for LLM-Powered Key Management
+  - type: web
     name: trading-agent-llm-overseer
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python -m llm_overseer.main
+    startCommand: python -m llm_overseer.telegram.run_llm_powered_bot
     envVars:
-      - key: OPENROUTER_API_KEY
-        sync: false
       - key: TELEGRAM_BOT_TOKEN
         sync: false
-      - key: TELEGRAM_CHAT_ID
+      - key: TELEGRAM_ALLOWED_USERS
         sync: false
       - key: ENVIRONMENT
         value: production
+      - key: PORT
+        value: 8000
+      - key: HOST
+        value: 0.0.0.0
