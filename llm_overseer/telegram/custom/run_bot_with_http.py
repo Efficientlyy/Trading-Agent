@@ -8,15 +8,8 @@ import sys
 import logging
 import asyncio
 import threading
+import importlib.util
 from http.server import HTTPServer, BaseHTTPRequestHandler
-
-# Add parent directory to path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-# Import bot and config
-from llm_overseer.config.config import Config
-from llm_overseer.telegram.llm_powered_bot import LLMPoweredTelegramBot
-from llm_overseer.telegram.key_manager import KeyManager
 
 # Configure logging
 logging.basicConfig(
@@ -29,6 +22,62 @@ logger = logging.getLogger(__name__)
 bot = None
 key_manager = None
 http_server = None
+
+# Ensure the project root is in the Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, '..', '..', '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+    logger.info(f"Added project root to Python path: {project_root}")
+
+# Try to import required modules
+try:
+    from llm_overseer.config.config import Config
+    from llm_overseer.telegram.llm_powered_bot import LLMPoweredTelegramBot
+    from llm_overseer.telegram.key_manager import KeyManager
+    logger.info("Successfully imported required modules")
+except ImportError as e:
+    logger.error(f"Import error: {e}")
+    # Try to locate the modules manually
+    logger.info("Attempting to locate modules manually...")
+    
+    # Check if the modules exist
+    config_path = os.path.join(project_root, 'llm_overseer', 'config', 'config.py')
+    bot_path = os.path.join(project_root, 'llm_overseer', 'telegram', 'llm_powered_bot.py')
+    key_manager_path = os.path.join(project_root, 'llm_overseer', 'telegram', 'key_manager.py')
+    
+    logger.info(f"Checking for config.py: {os.path.exists(config_path)}")
+    logger.info(f"Checking for llm_powered_bot.py: {os.path.exists(bot_path)}")
+    logger.info(f"Checking for key_manager.py: {os.path.exists(key_manager_path)}")
+    
+    # List directory contents to help debug
+    logger.info(f"Contents of {os.path.join(project_root, 'llm_overseer')}:")
+    try:
+        logger.info(str(os.listdir(os.path.join(project_root, 'llm_overseer'))))
+    except Exception as e:
+        logger.error(f"Error listing directory: {e}")
+    
+    # Try to import using importlib
+    try:
+        spec = importlib.util.spec_from_file_location("config", config_path)
+        config_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(config_module)
+        Config = config_module.Config
+        
+        spec = importlib.util.spec_from_file_location("llm_powered_bot", bot_path)
+        bot_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(bot_module)
+        LLMPoweredTelegramBot = bot_module.LLMPoweredTelegramBot
+        
+        spec = importlib.util.spec_from_file_location("key_manager", key_manager_path)
+        key_manager_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(key_manager_module)
+        KeyManager = key_manager_module.KeyManager
+        
+        logger.info("Successfully imported modules using importlib")
+    except Exception as e:
+        logger.error(f"Failed to import modules using importlib: {e}")
+        sys.exit(1)
 
 # Simple HTTP request handler
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
@@ -91,8 +140,13 @@ async def main():
         logger.error(f"Error running bot: {e}")
 
 if __name__ == "__main__":
+    # Print current working directory and Python path for debugging
+    logger.info(f"Current working directory: {os.getcwd()}")
+    logger.info(f"Python path: {sys.path}")
+    
     # Start HTTP server in a separate thread
     port = int(os.environ.get('PORT', 8000))
+    logger.info(f"Using port {port} for HTTP server")
     http_thread = threading.Thread(target=run_http_server, args=(port,), daemon=True)
     http_thread.start()
     
